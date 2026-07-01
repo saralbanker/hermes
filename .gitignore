@@ -1,3 +1,12 @@
+# Agent system / project docs (not pipeline source)
+.agent/
+.agents/
+.playwright-mcp/
+.mcp.json
+AUTONOMOUS_AI_WORKER_ARCHITECTURE_TRIBUNAL.md
+agent-build-plan.md
+job-automation-roadmap.md
+
 # Python
 __pycache__/
 *.pyc
