@@ -87,30 +87,32 @@ def load_config() -> dict:
 # ---------------------------------------------------------------------------
 
 def call_qwen(prompt: str, system: str = "", cfg: dict = None) -> str:
-    """Call local Ollama model. Raises RuntimeError if Ollama is not reachable."""
+    """Call local Ollama model via /api/chat. Raises RuntimeError if Ollama is not reachable."""
     ollama_cfg = (cfg or {}).get("ollama", (cfg or {}).get("qwen", {})) or {
         "base_url": "http://localhost:11434",
         "model": "qwen3:4b",
-        "timeout": 120,
+        "timeout": 200,
     }
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
     try:
         resp = requests.post(
-            f"{ollama_cfg['base_url']}/api/generate",
+            f"{ollama_cfg['base_url']}/api/chat",
             json={
                 "model": ollama_cfg["model"],
-                "prompt": prompt,
-                "system": system,
+                "messages": messages,
                 "stream": False,
-                "options": {"temperature": 0.3, "num_predict": 800, "think": False},
-                "keep_alive": ollama_cfg.get("keep_alive", "10m"),
+                "options": {"temperature": 0.3},
+                "keep_alive": ollama_cfg.get("keep_alive", "15m"),
             },
-            timeout=ollama_cfg.get("timeout", 120),
+            timeout=ollama_cfg.get("timeout", 300),
         )
         resp.raise_for_status()
-        raw = resp.json()["response"].strip()
-        # Strip qwen3 thinking tokens if present
-        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-        return raw
+        # /api/chat separates thinking from content — content is the actual response
+        return resp.json()["message"]["content"].strip()
     except requests.exceptions.ConnectionError:
         raise RuntimeError("Ollama not reachable at localhost:11434. Run: ollama serve")
     except requests.exceptions.Timeout:

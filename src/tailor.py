@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import requests
@@ -115,30 +114,31 @@ def make_slug(company: str, title: str) -> str:
 # ---------------------------------------------------------------------------
 
 def call_qwen(prompt: str, system: str = "", cfg: dict = None) -> str:
-    """Call local Ollama model. Raises RuntimeError if Ollama is not reachable."""
-    import re as _re
+    """Call local Ollama model via /api/chat. Raises RuntimeError if Ollama is not reachable."""
     ollama_cfg = (cfg or {}).get("ollama", (cfg or {}).get("qwen", {})) or {
         "base_url": "http://localhost:11434",
         "model": "qwen3:4b",
-        "timeout": 120,
+        "timeout": 200,
     }
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
     try:
         resp = requests.post(
-            f"{ollama_cfg['base_url']}/api/generate",
+            f"{ollama_cfg['base_url']}/api/chat",
             json={
                 "model": ollama_cfg["model"],
-                "prompt": prompt,
-                "system": system,
+                "messages": messages,
                 "stream": False,
-                "options": {"temperature": 0.5, "num_predict": 800, "think": False},
-                "keep_alive": ollama_cfg.get("keep_alive", "10m"),
+                "options": {"temperature": 0.5},
+                "keep_alive": ollama_cfg.get("keep_alive", "15m"),
             },
-            timeout=ollama_cfg.get("timeout", 120),
+            timeout=ollama_cfg.get("timeout", 300),
         )
         resp.raise_for_status()
-        raw = resp.json()["response"].strip()
-        raw = _re.sub(r"<think>.*?</think>", "", raw, flags=_re.DOTALL).strip()
-        return raw
+        return resp.json()["message"]["content"].strip()
     except requests.exceptions.ConnectionError:
         raise RuntimeError("Ollama not reachable at localhost:11434. Run: ollama serve")
     except requests.exceptions.Timeout:
@@ -300,48 +300,40 @@ def main(limit: int | None = None, dry_run: bool = False) -> None:
 
     results = {"tailored": 0, "error": 0, "dry_run": 0}
 
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = {
-            executor.submit(process_job, job, cfg, dry_run): job
-            for job in jobs
-        }
-        for future in as_completed(futures):
-            try:
-                result = future.result()
-            except RuntimeError as e:
-                print(f"\n[tailor] RuntimeError (will use template fallback): {e}")
-                results["error"] += 1
-                continue
-            except Exception as exc:
-                print(f"[tailor] Unexpected error: {exc}")
-                results["error"] += 1
-                continue
+    # Sequential — Ollama is single-threaded on CPU; concurrent calls just cause timeouts
+    for i, job in enumerate(jobs, 1):
+        try:
+            result = process_job(job, cfg, dry_run)
+        except Exception as exc:
+            print(f"[tailor] ({i}/{total}) Unexpected error: {exc}")
+            results["error"] += 1
+            continue
 
-            status = result.get("status", "error")
-            title = result.get("title", "?")
-            company = result.get("company", "?")
+        status = result.get("status", "error")
+        title = result.get("title", "?")
+        company = result.get("company", "?")
 
-            if status == "tailored":
-                results["tailored"] += 1
-                variant = result.get("variant", "?")
-                path = result.get("cover_letter_path", "?")
-                print(f"[tailor] OK  [{variant}] {company} — {title}  →  {path}")
-            elif status == "dry_run":
-                results["dry_run"] += 1
-                variant = result.get("variant", "?")
-                slug = result.get("slug", "?")
-                missing = result.get("missing_kws", [])
-                preview = result.get("preview", "")
-                print(
-                    f"[tailor] DRY  [{variant}] {company} — {title}\n"
-                    f"         slug: {slug}\n"
-                    f"         missing kws: {missing}\n"
-                    f"         preview: {preview[:120]}...\n"
-                )
-            else:
-                results["error"] += 1
-                error = result.get("error", "unknown")
-                print(f"[tailor] ERR  {company} — {title}: {error}")
+        if status == "tailored":
+            results["tailored"] += 1
+            variant = result.get("variant", "?")
+            path = result.get("cover_letter_path", "?")
+            print(f"[tailor] ({i}/{total}) OK  [{variant}] {company} — {title}  →  {path}")
+        elif status == "dry_run":
+            results["dry_run"] += 1
+            variant = result.get("variant", "?")
+            slug = result.get("slug", "?")
+            missing = result.get("missing_kws", [])
+            preview = result.get("preview", "")
+            print(
+                f"[tailor] ({i}/{total}) DRY  [{variant}] {company} — {title}\n"
+                f"         slug: {slug}\n"
+                f"         missing kws: {missing}\n"
+                f"         preview: {preview[:120]}...\n"
+            )
+        else:
+            results["error"] += 1
+            error = result.get("error", "unknown")
+            print(f"[tailor] ({i}/{total}) ERR  {company} — {title}: {error}")
 
     print(
         f"\n[tailor] Done.  "

@@ -44,14 +44,14 @@ resumes:
 ollama:
   base_url: "http://localhost:11434"
   model: "qwen3:4b"
-  timeout: 120
-  keep_alive: "10m"
+  timeout: 300         # qwen3:4b on CPU: ~60-120s first token + generation
+  keep_alive: "15m"   # keep model in RAM between jobs
 
 # Keep legacy key for any code that still reads cfg["qwen"]
 qwen:
   base_url: "http://localhost:11434"
   model: "qwen3:4b"
-  timeout: 120
+  timeout: 200
 
 screening_answers:
   years_experience_total: "2"

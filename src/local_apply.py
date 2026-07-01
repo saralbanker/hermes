@@ -42,7 +42,7 @@ async def _run_agent(prompt: str, cfg: dict) -> dict:
         model=model,
         host=host,
         timeout=timeout,
-        ollama_options={"temperature": 0.1, "num_predict": 1024, "think": False},
+        ollama_options={"temperature": 0.1},
     )
 
     session = BrowserSession(headless=True)
@@ -55,6 +55,8 @@ async def _run_agent(prompt: str, cfg: dict) -> dict:
             max_actions_per_step=8,
             max_failures=3,
             use_vision=False,
+            llm_timeout=180,   # qwen3:4b on CPU needs ~60-120s per call
+            step_timeout=240,
         )
         result = await agent.run(max_steps=25)
         final_text = str(result.final_result() or "")
