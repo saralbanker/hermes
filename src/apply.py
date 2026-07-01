@@ -1,13 +1,12 @@
 """
-apply.py — Submit tailored Indeed applications via browser-use + local Ollama.
+apply.py — Submit tailored Indeed applications via DrissionPage (CDP-based, no WebDriver).
 Zero API cost. Fully local.
 
 Pipeline per job:
   1. Check daily cap
   2. Load cover letter + resolve resume
-  3. Build task prompt
-  4. Run local_apply.run_local_apply() → browser-use + qwen3:4b drives Playwright
-  5. Update DB status
+  3. Run indeed_apply.run_indeed_apply() → DrissionPage fills form deterministically
+  4. Update DB status
 """
 from __future__ import annotations
 
@@ -23,8 +22,8 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
 from cap_enforcer import CapExceeded, check_can_apply
-from db import get_conn, get_jobs_by_status, increment_daily, init_db, update_job
-from local_apply import run_local_apply
+from db import get_jobs_by_status, increment_daily, init_db, update_job
+from indeed_apply import run_indeed_apply
 from usage_guard import check_due, log_status, reset_session, schedule_resume
 
 ROOT        = Path(__file__).parent.parent
@@ -63,45 +62,6 @@ def human_delay(cfg: dict):
 
 
 # ---------------------------------------------------------------------------
-# Prompt builder
-# ---------------------------------------------------------------------------
-
-def build_prompt(job: dict, cover_letter: str, resume_path: str, cfg: dict) -> str:
-    p = cfg["profile"]
-    a = cfg["screening_answers"]
-
-    # Keep prompt short — browser-use handles multi-step browsing itself
-    cover_short = cover_letter[:400] if cover_letter else a.get("why_interested_template", "")[:300]
-
-    phone_digits = re.sub(r"[^\d]", "", p["phone"])
-    phone_local  = phone_digits[-10:]  # 10 digits only, no country code
-
-    return f"""Go to {job['url']} and submit a job application for {p['name']}.
-
-APPLICANT: {p['name']} | {p['email']} | {p['location']} | {p['years_experience']} yrs exp
-PHONE: {phone_local}  ← use EXACTLY this (10 digits, no +91, no spaces)
-GitHub: https://{p['github']} | Portfolio: https://{p['portfolio']}
-Education: {p['education']} | Work auth: {p['work_authorization']}
-
-COVER LETTER (paste into any motivation/cover/tell-us field):
-{cover_short}
-
-SALARY: "Open to competitive offers"
-EXPERIENCE: {a.get('years_experience_total', '2')} years total, {a.get('years_experience_typescript', '2')} TypeScript, {a.get('years_experience_react', '2')} React
-NOTICE: {a.get('notice_period', 'Immediately available')}
-RELOCATE: {a.get('willing_to_relocate', 'Open to fully remote positions')}
-
-RULES:
-- After clicking Continue/Next, the form advances to a new page — do NOT re-fill fields you already filled
-- If a field already has a value, skip it and move to the next empty field
-- For file inputs, call upload_resume
-- If the phone field shows a validation error, leave it blank and continue
-
-STEPS: Click Apply → fill all empty fields → Continue through each page → Submit.
-When done say SUBMITTED. If login wall or fatal error say FAILED: reason."""
-
-
-# ---------------------------------------------------------------------------
 # Per-job application
 # ---------------------------------------------------------------------------
 
@@ -134,10 +94,9 @@ def apply_to_job(job: dict, cfg: dict, dry_run: bool = False) -> bool:
     update_job(url, {"status": "applying"})
     SCREENSHOTS.mkdir(exist_ok=True)
 
-    prompt          = build_prompt(dict(job), cover_letter, resume_path, cfg)
     screenshot_path = str(SCREENSHOTS / f"{slug}.png")
 
-    result = run_local_apply(prompt, resume_path, screenshot_path)
+    result = run_indeed_apply(url, cover_letter, resume_path, screenshot_path)
 
     if result.get("success"):
         update_job(url, {

@@ -1,5 +1,10 @@
 """
-discover.py — Scrape job listings using python-jobspy and save new ones to SQLite.
+discover.py — Scrape job listings and save new ones to SQLite.
+
+Sources:
+  - LinkedIn + Indeed via python-jobspy
+  - RemoteOK public JSON API (zero bot risk, free)
+  - Remotive public JSON API (zero bot risk, free)
 
 Usage:
     python src/discover.py [--dry-run] [--limit N]
@@ -15,6 +20,7 @@ import warnings
 from pathlib import Path
 
 import pandas as pd
+import requests
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -79,14 +85,108 @@ def scrape_all_roles(cfg: dict, limit: int | None = None) -> pd.DataFrame:
     if not frames:
         return pd.DataFrame()
 
-    combined = pd.concat(frames, ignore_index=True)
+    return pd.concat(frames, ignore_index=True)
 
-    # Drop rows with no job_url — they cannot be stored or deduped
-    if "job_url" in combined.columns:
-        combined = combined.dropna(subset=["job_url"])
-        combined = combined[combined["job_url"].astype(str).str.strip() != ""]
 
-    return combined
+# ---------------------------------------------------------------------------
+# Free public API scrapers (zero bot risk)
+# ---------------------------------------------------------------------------
+
+def _normalize_tags(tags) -> str:
+    if not tags:
+        return ""
+    if isinstance(tags, list):
+        return ", ".join(str(t) for t in tags)
+    return str(tags)
+
+
+def scrape_remoteok(cfg: dict, limit: int | None = None) -> pd.DataFrame:
+    """Fetch jobs from RemoteOK public JSON API — no auth, no bot risk."""
+    keywords = cfg["search"].get("target_roles", [])
+    max_jobs = limit or cfg["search"].get("results_wanted", 30)
+
+    try:
+        resp = requests.get(
+            "https://remoteok.com/api",
+            headers={"User-Agent": "Mozilla/5.0 (compatible; job-seeker)"},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        print(f"[discover] RemoteOK API error: {exc}")
+        return pd.DataFrame()
+
+    # First element is a legal notice dict, skip it
+    jobs = [j for j in data if isinstance(j, dict) and "id" in j]
+
+    # Filter by keywords
+    kw_lower = [k.lower() for k in keywords]
+    filtered = []
+    for job in jobs:
+        title = (job.get("position", "") or "").lower()
+        tags  = _normalize_tags(job.get("tags", [])).lower()
+        if any(kw in title or kw in tags for kw in kw_lower):
+            filtered.append(job)
+
+    rows = []
+    for job in filtered[:max_jobs]:
+        rows.append({
+            "job_url":     f"https://remoteok.com/remote-jobs/{job.get('slug', job.get('id', ''))}",
+            "company":     job.get("company", "Unknown"),
+            "title":       job.get("position", "Unknown"),
+            "location":    "Remote",
+            "site":        "remoteok",
+            "description": job.get("description", ""),
+            "min_amount":  None,
+            "max_amount":  None,
+            "date_posted": job.get("date", ""),
+        })
+
+    print(f"[discover] RemoteOK: {len(rows)} matching jobs")
+    return pd.DataFrame(rows) if rows else pd.DataFrame()
+
+
+def scrape_remotive(cfg: dict, limit: int | None = None) -> pd.DataFrame:
+    """Fetch jobs from Remotive public JSON API — no auth, no bot risk."""
+    keywords = cfg["search"].get("target_roles", [])
+    max_jobs = limit or cfg["search"].get("results_wanted", 30)
+
+    frames = []
+    for kw in keywords[:4]:  # cap API calls; Remotive is generous but polite
+        try:
+            resp = requests.get(
+                "https://remotive.com/api/remote-jobs",
+                params={"search": kw, "limit": max_jobs},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; job-seeker)"},
+                timeout=20,
+            )
+            resp.raise_for_status()
+            jobs = resp.json().get("jobs", [])
+            for job in jobs:
+                frames.append({
+                    "job_url":     job.get("url", ""),
+                    "company":     job.get("company_name", "Unknown"),
+                    "title":       job.get("title", "Unknown"),
+                    "location":    job.get("candidate_required_location", "Remote"),
+                    "site":        "remotive",
+                    "description": job.get("description", ""),
+                    "min_amount":  None,
+                    "max_amount":  None,
+                    "date_posted": job.get("publication_date", ""),
+                })
+            time.sleep(1)
+        except Exception as exc:
+            print(f"[discover] Remotive error for '{kw}': {exc}")
+
+    df = pd.DataFrame(frames) if frames else pd.DataFrame()
+    # Drop empty URLs and deduplicate within this batch
+    if not df.empty:
+        df = df[df["job_url"].astype(str).str.startswith("http")]
+        df = df.drop_duplicates(subset=["job_url"])
+        df = df.head(max_jobs)
+    print(f"[discover] Remotive: {len(df)} matching jobs")
+    return df
 
 
 # ---------------------------------------------------------------------------
@@ -159,16 +259,36 @@ def main(dry_run: bool = False, limit: int | None = None):
     cfg = load_config()
     init_db()
 
-    # Scrape
-    raw_df = scrape_all_roles(cfg, limit=limit)
+    # Scrape all sources
+    frames = []
+
+    jobspy_df = scrape_all_roles(cfg, limit=limit)
+    if not jobspy_df.empty:
+        frames.append(jobspy_df)
+
+    remoteok_df = scrape_remoteok(cfg, limit=limit)
+    if not remoteok_df.empty:
+        frames.append(remoteok_df)
+
+    remotive_df = scrape_remotive(cfg, limit=limit)
+    if not remotive_df.empty:
+        frames.append(remotive_df)
+
+    raw_df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+    # Normalise: ensure job_url column exists and drop blanks
+    if not raw_df.empty and "job_url" in raw_df.columns:
+        raw_df = raw_df.dropna(subset=["job_url"])
+        raw_df = raw_df[raw_df["job_url"].astype(str).str.strip() != ""]
+        raw_df = raw_df.drop_duplicates(subset=["job_url"])
+
     raw_count = len(raw_df)
-    print(f"[discover] Found {raw_count} raw jobs")
+    print(f"[discover] Found {raw_count} raw jobs total")
 
     if raw_count == 0:
         print("[discover] Nothing scraped — done.")
         return
 
-    # Dedup against existing DB records
     existing_urls = get_all_urls()
     new_df = deduplicate(raw_df, existing_urls)
     skip_count = raw_count - len(new_df)

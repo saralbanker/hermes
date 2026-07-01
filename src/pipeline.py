@@ -72,7 +72,7 @@ def run_tailor(limit: int | None, dry_run: bool):
 
 
 def run_apply(limit: int | None, dry_run: bool):
-    print_stage("APPLY — submitting applications via browser-use + local Ollama")
+    print_stage("APPLY — submitting applications via DrissionPage (CDP stealth)")
     if dry_run:
         print("  [pipeline] --dry-run active: applications will NOT be submitted")
     from apply import main as apply_main
