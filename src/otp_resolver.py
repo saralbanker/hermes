@@ -20,10 +20,13 @@ import imaplib
 import os
 import re
 import time
+from pathlib import Path
 
 GMAIL_USER = "saralbanker1@gmail.com"
 IMAP_HOST = "imap.gmail.com"
 IMAP_PORT = 993
+
+_APP_PW_FILE = Path(__file__).parent.parent / "output" / "gmail_app_password.txt"
 
 # Poll for this many seconds waiting for the email to arrive
 MAX_WAIT_SECONDS = 90
@@ -41,8 +44,17 @@ OTP_PATTERN = re.compile(r"\b(\d{6})\b")
 
 
 def _get_app_password() -> str | None:
+    # Env var takes priority; file is fallback for cron/systemd contexts where zshrc isn't sourced
     pw = os.environ.get("GMAIL_APP_PASSWORD", "").strip()
-    return pw if pw else None
+    if pw:
+        return pw
+    try:
+        if _APP_PW_FILE.exists():
+            pw = _APP_PW_FILE.read_text().strip()
+            return pw if pw else None
+    except Exception:
+        pass
+    return None
 
 
 def _connect() -> imaplib.IMAP4_SSL | None:
