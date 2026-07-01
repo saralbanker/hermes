@@ -1,47 +1,106 @@
 #!/usr/bin/env bash
-# Hermes overnight pipeline runner.
-# Keeps laptop awake (lid closed OK), auto-starts Ollama, logs everything.
+# Hermes — one-command job application runner.
 #
-# Usage:
-#   bash scripts/run_pipeline.sh               # full pipeline
-#   bash scripts/run_pipeline.sh --apply-only  # apply only (243 tailored jobs)
-#   bash scripts/run_pipeline.sh --limit 20    # cap per stage
+# Works from any directory. Install once:
+#   ln -sf /mnt/data/rj/hermes/scripts/run_pipeline.sh ~/.local/bin/hermes
+#
+# Then just run:
+#   hermes                  full pipeline
+#   hermes --apply-only     apply to already-tailored jobs
+#   hermes --dry-run        test run, no real submissions
+#   hermes --limit 10       cap each stage at 10 jobs
 
-set -e
-cd "$(dirname "$0")/.."
+set -euo pipefail
+
+# ── Resolve project root from this script's real location (works via symlink) ──
+SCRIPT_REAL=$(readlink -f "${BASH_SOURCE[0]}")
+PROJECT_ROOT=$(cd "$(dirname "$SCRIPT_REAL")/.." && pwd)
+
+cd "$PROJECT_ROOT"
 
 LOG="output/pipeline_run.log"
-mkdir -p output screenshots output/tailored
+mkdir -p output screenshots
 
-echo "" | tee -a "$LOG"
-echo "═══════════════════════════════════════" | tee -a "$LOG"
-echo "[hermes] Starting at $(date)" | tee -a "$LOG"
-echo "[hermes] PID: $$" | tee -a "$LOG"
+echo ""                                                         | tee -a "$LOG"
+echo "═══════════════════════════════════════════════════════" | tee -a "$LOG"
+echo "  HERMES  |  $(date '+%Y-%m-%d %H:%M:%S')"              | tee -a "$LOG"
+echo "  Root: $PROJECT_ROOT"                                   | tee -a "$LOG"
+echo "═══════════════════════════════════════════════════════" | tee -a "$LOG"
 
-# ── Start Ollama if not running ──────────────────────────────────────────────
+# ── Check Python ──────────────────────────────────────────────────────────────
+PYTHON=$(command -v python3 || true)
+if [[ -z "$PYTHON" ]]; then
+    echo "[hermes] ERROR: python3 not found in PATH" | tee -a "$LOG"
+    exit 1
+fi
+
+# ── Start Ollama if not running ───────────────────────────────────────────────
 if ! pgrep -x ollama > /dev/null 2>&1; then
     echo "[hermes] Starting Ollama..." | tee -a "$LOG"
     ollama serve >> output/ollama.log 2>&1 &
     OLLAMA_PID=$!
-    sleep 6  # wait for Ollama to be ready
-    echo "[hermes] Ollama started (PID $OLLAMA_PID)" | tee -a "$LOG"
+    echo "[hermes] Waiting for Ollama to be ready..." | tee -a "$LOG"
+    for i in {1..12}; do
+        sleep 2
+        if curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; then
+            echo "[hermes] Ollama ready (PID $OLLAMA_PID)" | tee -a "$LOG"
+            break
+        fi
+        if [[ $i -eq 12 ]]; then
+            echo "[hermes] ERROR: Ollama did not start within 24s" | tee -a "$LOG"
+            exit 1
+        fi
+    done
 else
     echo "[hermes] Ollama already running" | tee -a "$LOG"
 fi
 
-# ── Verify model is available ─────────────────────────────────────────────────
-MODEL="qwen3:4b"
-if ! ollama list 2>/dev/null | grep -q "$MODEL"; then
-    echo "[hermes] Pulling $MODEL (one-time download)..." | tee -a "$LOG"
-    ollama pull "$MODEL" | tee -a "$LOG"
+# ── Pull models if not present ────────────────────────────────────────────────
+for MODEL in "qwen3:4b" "qwen2.5:3b"; do
+    if ! ollama list 2>/dev/null | grep -q "^${MODEL}"; then
+        echo "[hermes] Pulling $MODEL (one-time, ~2-3 GB)..." | tee -a "$LOG"
+        ollama pull "$MODEL" 2>&1 | tee -a "$LOG"
+        echo "[hermes] $MODEL ready" | tee -a "$LOG"
+    else
+        echo "[hermes] $MODEL already present" | tee -a "$LOG"
+    fi
+done
+
+# ── First-time Indeed session setup ──────────────────────────────────────────
+if [[ ! -f "output/indeed_session.json" ]]; then
+    echo "" | tee -a "$LOG"
+    echo "[hermes] No Indeed session found." | tee -a "$LOG"
+    echo "[hermes] Running first-time login setup..." | tee -a "$LOG"
+    "$PYTHON" scripts/indeed_setup.py
+    if [[ ! -f "output/indeed_session.json" ]]; then
+        echo "[hermes] ERROR: Session setup failed or was cancelled." | tee -a "$LOG"
+        exit 1
+    fi
 fi
 
-echo "[hermes] Model $MODEL ready" | tee -a "$LOG"
+# ── Pre-flight checks (2 tests: Ollama inference + Indeed session) ────────────
+echo "" | tee -a "$LOG"
+echo "[hermes] Running pre-flight checks..." | tee -a "$LOG"
+if ! "$PYTHON" scripts/preflight.py 2>&1 | tee -a "$LOG"; then
+    echo "" | tee -a "$LOG"
+    echo "[hermes] Pre-flight failed — fix the issues above and re-run." | tee -a "$LOG"
+    exit 1
+fi
 
-# ── Run pipeline (systemd-inhibit prevents sleep while lid is closed) ────────
-exec systemd-inhibit \
-  --what=sleep:idle:handle-lid-switch \
-  --who="Hermes Job Pipeline" \
-  --why="Automated job applications running overnight" \
-  --mode=block \
-  python src/pipeline.py "$@" 2>&1 | tee -a "$LOG"
+# ── Run pipeline (systemd-inhibit keeps laptop awake, lid closed OK) ──────────
+echo "" | tee -a "$LOG"
+echo "[hermes] Pre-flight passed — starting pipeline" | tee -a "$LOG"
+echo "[hermes] Log: $PROJECT_ROOT/$LOG" | tee -a "$LOG"
+echo "" | tee -a "$LOG"
+
+if command -v systemd-inhibit > /dev/null 2>&1; then
+    exec systemd-inhibit \
+      --what=sleep:idle:handle-lid-switch \
+      --who="Hermes Job Pipeline" \
+      --why="Automated job applications running overnight" \
+      --mode=block \
+      "$PYTHON" src/pipeline.py "$@" 2>&1 | tee -a "$LOG"
+else
+    # Fallback if not on systemd (e.g. running on desktop without systemd)
+    exec "$PYTHON" src/pipeline.py "$@" 2>&1 | tee -a "$LOG"
+fi
