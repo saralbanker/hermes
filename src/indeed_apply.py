@@ -312,8 +312,13 @@ def run_indeed_apply(
     co.set_pref("profile.password_manager_enabled", False)
 
     page = None
+    _browser_pid: int | None = None
     try:
         page = ChromiumPage(addr_or_opts=co)
+        try:
+            _browser_pid = page.browser_pid
+        except Exception:
+            pass
         page.set.timeouts(base=15, page_load=30, script=15)
 
         # Load saved Indeed session cookies so we don't hit login wall
@@ -406,4 +411,10 @@ def run_indeed_apply(
             try:
                 page.quit()
             except Exception:
-                pass
+                # quit() failed — force-kill the browser process to prevent orphans
+                if _browser_pid:
+                    import os, signal
+                    try:
+                        os.kill(_browser_pid, signal.SIGKILL)
+                    except Exception:
+                        pass

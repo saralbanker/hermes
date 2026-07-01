@@ -118,9 +118,27 @@ def apply_to_job(job: dict, cfg: dict, dry_run: bool = False) -> bool:
 # Main loop
 # ---------------------------------------------------------------------------
 
+def _reset_stuck_applying() -> int:
+    """Jobs stuck in 'applying' from a previous crashed run — reset to 'tailored'."""
+    from db import get_conn
+    conn = get_conn()
+    cur = conn.execute(
+        "UPDATE jobs SET status='tailored', status_reason='reset_from_stuck_applying' "
+        "WHERE status='applying'"
+    )
+    conn.commit()
+    count = cur.rowcount
+    conn.close()
+    if count:
+        print(f"[apply] Reset {count} job(s) stuck in 'applying' from previous crash")
+    return count
+
+
 def main(limit: int | None = None, dry_run: bool = False) -> None:
     init_db()
     cfg = load_config()
+
+    _reset_stuck_applying()
 
     all_tailored = get_jobs_by_status("tailored")
     jobs = [j for j in all_tailored if (j["job_board"] or "").lower() == "indeed"]

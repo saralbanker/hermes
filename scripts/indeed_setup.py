@@ -48,6 +48,7 @@ def main():
     cookies = page.cookies()
     with open(COOKIES_PATH, "w") as f:
         json.dump(cookies, f, indent=2)
+    COOKIES_PATH.chmod(0o600)  # owner-only: live auth cookies
 
     page.quit()
     print(f"\n  Session saved → {COOKIES_PATH}")

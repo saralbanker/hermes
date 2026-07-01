@@ -20,6 +20,7 @@ cd "$PROJECT_ROOT"
 
 LOG="output/pipeline_run.log"
 mkdir -p output screenshots
+chmod 700 output/  # owner-only: contains session cookies + cover letters
 
 echo ""                                                         | tee -a "$LOG"
 echo "═══════════════════════════════════════════════════════" | tee -a "$LOG"
@@ -79,12 +80,22 @@ if [[ ! -f "output/indeed_session.json" ]]; then
 fi
 
 # ── Pre-flight checks (2 tests: Ollama inference + Indeed session) ────────────
-echo "" | tee -a "$LOG"
-echo "[hermes] Running pre-flight checks..." | tee -a "$LOG"
-if ! "$PYTHON" scripts/preflight.py 2>&1 | tee -a "$LOG"; then
+# Skip with: hermes --skip-preflight (e.g. for dry-run or when you know it works)
+SKIP_PREFLIGHT=0
+for arg in "$@"; do
+    [[ "$arg" == "--skip-preflight" ]] && SKIP_PREFLIGHT=1
+done
+
+if [[ $SKIP_PREFLIGHT -eq 0 ]]; then
     echo "" | tee -a "$LOG"
-    echo "[hermes] Pre-flight failed — fix the issues above and re-run." | tee -a "$LOG"
-    exit 1
+    echo "[hermes] Running pre-flight checks..." | tee -a "$LOG"
+    if ! "$PYTHON" scripts/preflight.py 2>&1 | tee -a "$LOG"; then
+        echo "" | tee -a "$LOG"
+        echo "[hermes] Pre-flight failed — fix the issues above and re-run." | tee -a "$LOG"
+        exit 1
+    fi
+else
+    echo "[hermes] Pre-flight skipped (--skip-preflight)" | tee -a "$LOG"
 fi
 
 # ── Run pipeline (systemd-inhibit keeps laptop awake, lid closed OK) ──────────
@@ -93,14 +104,19 @@ echo "[hermes] Pre-flight passed — starting pipeline" | tee -a "$LOG"
 echo "[hermes] Log: $PROJECT_ROOT/$LOG" | tee -a "$LOG"
 echo "" | tee -a "$LOG"
 
+# Strip --skip-preflight before passing args to pipeline.py
+PIPELINE_ARGS=()
+for arg in "$@"; do
+    [[ "$arg" != "--skip-preflight" ]] && PIPELINE_ARGS+=("$arg")
+done
+
 if command -v systemd-inhibit > /dev/null 2>&1; then
     exec systemd-inhibit \
       --what=sleep:idle:handle-lid-switch \
       --who="Hermes Job Pipeline" \
       --why="Automated job applications running overnight" \
       --mode=block \
-      "$PYTHON" src/pipeline.py "$@" 2>&1 | tee -a "$LOG"
+      "$PYTHON" src/pipeline.py "${PIPELINE_ARGS[@]}" 2>&1 | tee -a "$LOG"
 else
-    # Fallback if not on systemd (e.g. running on desktop without systemd)
-    exec "$PYTHON" src/pipeline.py "$@" 2>&1 | tee -a "$LOG"
+    exec "$PYTHON" src/pipeline.py "${PIPELINE_ARGS[@]}" 2>&1 | tee -a "$LOG"
 fi

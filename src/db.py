@@ -19,6 +19,7 @@ def init_db():
     conn.executescript(SCHEMA_PATH.read_text())
     conn.commit()
     conn.close()
+    DB_PATH.chmod(0o600)  # owner-only: contains cover letters + application history
 
 
 def upsert_job(job: dict) -> int:
