@@ -34,9 +34,10 @@ async def _run_agent(prompt: str, cfg: dict) -> dict:
     from browser_use.llm.ollama.chat import ChatOllama
 
     ollama_cfg = cfg.get("ollama", cfg.get("qwen", {}))
-    model = ollama_cfg.get("model", "qwen3:4b")
+    # qwen2.5:3b — no thinking mode, 1.9 GB, fast on CPU (browser action decisions don't need deep reasoning)
+    model = ollama_cfg.get("apply_model", "qwen2.5:3b")
     host = ollama_cfg.get("base_url", "http://localhost:11434")
-    timeout = float(ollama_cfg.get("timeout", 120))
+    timeout = float(ollama_cfg.get("timeout", 300))
 
     llm = ChatOllama(
         model=model,

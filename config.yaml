@@ -39,19 +39,21 @@ resumes:
   ai: "resumes/resume-ai.pdf"
   default: "resumes/resume-fullstack.pdf"
 
-# Local Ollama model — qwen3:4b fits in 4.4 GB available RAM (2.5 GB model size)
-# Runs CPU-only on Ryzen 7 7730U — stable for 6-8 hr overnight sessions
+# score+tailor model: qwen3:4b (2.5 GB) — reasoning quality matters for JSON + cover letters
+# apply model: qwen2.5:3b (1.9 GB) — no thinking mode, fast for browser action decisions
+# Both fit in 4.4 GB available RAM. CPU-only Ryzen 7 7730U.
 ollama:
   base_url: "http://localhost:11434"
-  model: "qwen3:4b"
-  timeout: 300         # qwen3:4b on CPU: ~60-120s first token + generation
-  keep_alive: "15m"   # keep model in RAM between jobs
+  model: "qwen3:4b"           # score + tailor
+  apply_model: "qwen2.5:3b"   # browser-use apply — fast, no thinking overhead
+  timeout: 300
+  keep_alive: "15m"
 
 # Keep legacy key for any code that still reads cfg["qwen"]
 qwen:
   base_url: "http://localhost:11434"
   model: "qwen3:4b"
-  timeout: 200
+  timeout: 300
 
 screening_answers:
   years_experience_total: "2"
