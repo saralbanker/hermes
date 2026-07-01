@@ -1,0 +1,271 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: .
+    - generic [ref=e4]: ..
+    - generic [ref=e5]: .
+  - generic [ref=e6]:
+    - link "Skip to main content." [ref=e296] [cursor=pointer]:
+      - /url: "#main"
+    - generic:
+      - alert
+    - generic [ref=e298]:
+      - banner [ref=e299]:
+        - generic [ref=e301]:
+          - link "Back to Job Details" [ref=e302] [cursor=pointer]:
+            - generic [ref=e303]: 
+          - generic [ref=e305]:
+            - generic [ref=e306]: Senior Automation QA Engineer
+            - generic [ref=e307]: ...
+        - heading "Senior Automation QA Engineer application, step 1 of 3" [level=1] [ref=e308]
+        - navigation "Application Flow Navigation" [ref=e309]:
+          - generic [ref=e310]:
+            - list:
+              - listitem:
+                - link "Import your profile":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Contact Information":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Supporting Documents and URLs":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Address":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Education":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Languages":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Experience":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Licenses and Certificates":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Work Preferences":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Skills":
+                  - /url: javascript:void(0)
+      - main "Job application form" [ref=e314]:
+        - heading "Job application form" [level=1] [ref=e315]
+        - generic [ref=e316]:
+          - generic [ref=e318]:
+            - list [ref=e321]:
+              - listitem [ref=e322]:
+                - region "Import your profile You can import your information." [ref=e325]:
+                  - generic [ref=e326]:
+                    - generic [ref=e327]:
+                      - heading "Import your profile" [level=2] [ref=e328]
+                      - paragraph [ref=e329]: You can import your information.
+                    - generic [ref=e330]:
+                      - generic "Apply with LinkedIn frame" [ref=e331]:
+                        - generic [ref=e332]:
+                          - iframe
+                      - generic [ref=e333]:
+                        - button "Import your profile from resume" [ref=e334] [cursor=pointer]
+                        - button [ref=e335] [cursor=pointer]: Resume
+                    - status
+            - list [ref=e338]:
+              - listitem [ref=e339]:
+                - generic [ref=e341]:
+                  - generic [ref=e342]:
+                    - heading "Contact Information" [level=3] [ref=e344]
+                    - paragraph [ref=e345]: Please enter your contact information.
+                  - region "Contact Information Please enter your contact information." [ref=e346]:
+                    - generic [ref=e348]:
+                      - generic [ref=e349]:
+                        - generic "Last Name" [ref=e351]:
+                          - generic [ref=e352]: Last Name
+                          - generic [ref=e353]: "*"
+                        - textbox "Last Name" [ref=e355]
+                      - generic [ref=e356]:
+                        - generic "First Name" [ref=e358]:
+                          - generic [ref=e359]: First Name
+                        - textbox "First Name" [ref=e361]
+                      - generic [ref=e362]:
+                        - generic "Title" [ref=e364]:
+                          - generic [ref=e365]: Title
+                        - list "Title" [ref=e368]:
+                          - listitem [ref=e369]:
+                            - button "Dr." [ref=e370] [cursor=pointer]:
+                              - generic [ref=e371]: Dr.
+                          - listitem [ref=e372]:
+                            - button "Miss" [ref=e373] [cursor=pointer]:
+                              - generic [ref=e374]: Miss
+                          - listitem [ref=e375]:
+                            - button "Mr." [ref=e376] [cursor=pointer]:
+                              - generic [ref=e377]: Mr.
+                          - listitem [ref=e378]:
+                            - button "Mrs." [ref=e379] [cursor=pointer]:
+                              - generic [ref=e380]: Mrs.
+                          - listitem [ref=e381]:
+                            - button "Ms." [ref=e382] [cursor=pointer]:
+                              - generic [ref=e383]: Ms.
+                      - generic [ref=e384]:
+                        - generic "Middle Name" [ref=e386]:
+                          - generic [ref=e387]: Middle Name
+                        - textbox "Middle Name" [ref=e389]
+                      - generic [ref=e391]:
+                        - generic "Email Address" [ref=e393]:
+                          - generic [ref=e394]: Email Address
+                        - generic [ref=e396]:
+                          - textbox "Email Address" [ref=e397]: saralbanker1@gmail.com
+                          - button "Edit email address" [ref=e398] [cursor=pointer]:
+                            - emphasis [ref=e399]: 
+                      - generic [ref=e400]:
+                        - generic "Phone Number" [ref=e402]:
+                          - generic [ref=e403]: Phone Number
+                        - group "Phone Number" [ref=e405]:
+                          - generic [ref=e409]:
+                            - generic [ref=e410]:
+                              - generic: Country code
+                              - combobox "Country code" [ref=e411]: "+91"
+                            - generic [ref=e412]:
+                              - button "Remove value for the Country code field." [ref=e413] [cursor=pointer]: 
+                              - button "Open the drop-down list for Country code." [ref=e414] [cursor=pointer]: 
+                          - textbox "Phone Number" [ref=e416]
+              - listitem [ref=e417]:
+                - generic [ref=e419]:
+                  - generic [ref=e420]:
+                    - heading "Supporting Documents and URLs" [level=3] [ref=e422]
+                    - paragraph [ref=e423]: Please add any additional documents or URLs.
+                  - region "Supporting Documents and URLs Please add any additional documents or URLs." [ref=e424]:
+                    - generic [ref=e425]:
+                      - application [ref=e429]:
+                        - generic:
+                          - generic: 
+                          - generic [ref=e431]:
+                            - button "Upload Resume" [ref=e432]
+                            - generic [ref=e433] [cursor=pointer]: Upload Resume
+                      - application [ref=e437]:
+                        - generic:
+                          - generic: 
+                          - generic [ref=e439]:
+                            - button "Upload Cover Letter" [ref=e440]
+                            - generic [ref=e441] [cursor=pointer]: Upload Cover Letter
+                    - generic [ref=e443]:
+                      - generic [ref=e446]:
+                        - generic "Link 1" [ref=e448]:
+                          - generic [ref=e449]: Link 1
+                        - textbox "Contact Information Link 1" [ref=e451]
+                      - button "+ Add Another Link" [ref=e452] [cursor=pointer]
+              - listitem [ref=e453]:
+                - region "Address Please enter your home address." [ref=e456]:
+                  - group "Address Please enter your home address.This block contains dependent drop-down lists. Note that if you change a value for one of the fields, a value for another one in the block may automatically change. To change values in some drop-downs lists, you may need to edit the value in their parent drop-down list." [ref=e457]:
+                    - generic "Address Please enter your home address.This block contains dependent drop-down lists. Note that if you change a value for one of the fields, a value for another one in the block may automatically change. To change values in some drop-downs lists, you may need to edit the value in their parent drop-down list." [ref=e458]:
+                      - heading "Address" [level=3] [ref=e460]
+                      - paragraph [ref=e461]: Please enter your home address.
+                    - generic [ref=e462]: Address Please enter your home address.This block contains dependent drop-down lists. Note that if you change a value for one of the fields, a value for another one in the block may automatically change. To change values in some drop-downs lists, you may need to edit the value in their parent drop-down list.
+                    - generic [ref=e466]:
+                      - generic [ref=e468]: Country *
+                      - progressbar "Country Loading screen" [ref=e472]
+            - list [ref=e475]:
+              - listitem [ref=e476]:
+                - generic [ref=e478]:
+                  - generic [ref=e479]:
+                    - heading "Education" [level=3] [ref=e481]
+                    - paragraph [ref=e482]: Please provide details about your education.
+                  - region "Education Please provide details about your education." [ref=e483]:
+                    - button "Add Education" [ref=e487] [cursor=pointer]:
+                      - generic [ref=e488]: Add Education
+              - listitem [ref=e489]:
+                - generic [ref=e491]:
+                  - generic [ref=e492]:
+                    - heading "Languages" [level=3] [ref=e494]
+                    - paragraph [ref=e495]: Please indicate which languages you speak.
+                  - region "Languages Please indicate which languages you speak." [ref=e496]:
+                    - button "Add Language" [ref=e500] [cursor=pointer]:
+                      - generic [ref=e501]: Add Language
+              - listitem [ref=e502]:
+                - generic [ref=e504]:
+                  - generic [ref=e505]:
+                    - heading "Experience" [level=3] [ref=e507]
+                    - paragraph [ref=e508]: Please provide details about your work experience.
+                  - region "Experience Please provide details about your work experience." [ref=e509]:
+                    - button "Add Experience" [ref=e513] [cursor=pointer]:
+                      - generic [ref=e514]: Add Experience
+            - list [ref=e517]:
+              - listitem [ref=e518]:
+                - generic [ref=e520]:
+                  - generic [ref=e521]:
+                    - heading "Licenses and Certificates" [level=3] [ref=e523]
+                    - paragraph [ref=e524]: Please provide details about your licenses and certificates.
+                  - region "Licenses and Certificates Please provide details about your licenses and certificates." [ref=e525]:
+                    - button "Add License" [ref=e529] [cursor=pointer]:
+                      - generic [ref=e530]: Add License
+              - listitem [ref=e531]:
+                - generic [ref=e533]:
+                  - generic [ref=e534]:
+                    - heading "Work Preferences" [level=3] [ref=e536]
+                    - paragraph [ref=e537]: Please enter your work preferences.
+                  - region "Work Preferences Please enter your work preferences." [ref=e538]:
+                    - generic [ref=e539]:
+                      - generic [ref=e540]:
+                        - generic "Travel Domestically" [ref=e542]:
+                          - generic [ref=e543]: Travel Domestically
+                        - list "Travel Domestically" [ref=e546]:
+                          - listitem [ref=e547]:
+                            - button "No" [ref=e548] [cursor=pointer]:
+                              - generic [ref=e549]: "No"
+                          - listitem [ref=e550]:
+                            - button "Yes" [ref=e551] [cursor=pointer]:
+                              - generic [ref=e552]: "Yes"
+                      - generic [ref=e553]:
+                        - generic "Travel Internationally" [ref=e555]:
+                          - generic [ref=e556]: Travel Internationally
+                        - list "Travel Internationally" [ref=e559]:
+                          - listitem [ref=e560]:
+                            - button "No" [ref=e561] [cursor=pointer]:
+                              - generic [ref=e562]: "No"
+                          - listitem [ref=e563]:
+                            - button "Yes" [ref=e564] [cursor=pointer]:
+                              - generic [ref=e565]: "Yes"
+                      - generic [ref=e566]:
+                        - generic "Comments" [ref=e568]:
+                          - generic [ref=e569]: Comments
+                        - generic [ref=e570]:
+                          - textbox "Comments" [ref=e571]
+                          - textbox [ref=e572]
+                      - generic [ref=e573]:
+                        - generic "Minimum Pay" [ref=e575]:
+                          - generic [ref=e576]: Minimum Pay
+                        - textbox "Minimum Pay" [ref=e578]
+              - listitem [ref=e579]:
+                - generic [ref=e581]:
+                  - generic [ref=e582]:
+                    - heading "Skills" [level=3] [ref=e584]
+                    - paragraph [ref=e585]: Add your skills.
+                  - region "Skills Add your skills." [ref=e586]:
+                    - generic [ref=e587]:
+                      - generic [ref=e588]: These skills are preferred for this job. Select the ones you already have.
+                      - generic [ref=e591]:
+                        - button "Add Skill AI Platform" [ref=e593] [cursor=pointer]:
+                          - generic [ref=e594]: AI Platform
+                          - generic [ref=e595]: 
+                        - button "Add Skill Agentic AI" [ref=e597] [cursor=pointer]:
+                          - generic [ref=e598]: Agentic AI
+                          - generic [ref=e599]: 
+                    - button "Add More Skills" [ref=e603] [cursor=pointer]:
+                      - generic [ref=e604]: Add More Skills
+              - listitem [ref=e605]:
+                - region [ref=e608]:
+                  - generic [ref=e609]:
+                    - generic [ref=e611]:
+                      - checkbox "I agree to receive updates about new job opportunities."
+                      - generic [ref=e614] [cursor=pointer]: I agree to receive updates about new job opportunities.
+                    - generic [ref=e617]:
+                      - checkbox "I agree to receive marketing communications"
+                      - generic [ref=e622] [cursor=pointer]:
+                        - text: I agree to receive
+                        - link "marketing communications" [ref=e623]:
+                          - /url: "#"
+            - button "Submit" [disabled] [ref=e627]:
+              - generic [ref=e628]: Submit
+          - generic [ref=e629]:
+            - generic:
+              - alert
+      - alert [ref=e631]

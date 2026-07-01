@@ -1,0 +1,100 @@
+- generic [active] [ref=e1]:
+  - navigation "Primary" [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - button "Skip to main content" [ref=e7] [cursor=pointer]:
+            - generic [ref=e8]: Skip to main content
+          - link "Indeed Home" [ref=e9] [cursor=pointer]:
+            - /url: /?from=gnav-indapply-SmartApply
+            - img [ref=e11]
+        - generic [ref=e13]:
+          - list [ref=e14]:
+            - listitem [ref=e15]:
+              - link "My jobs" [ref=e17] [cursor=pointer]:
+                - /url: https://myjobs.indeed.com?from=gnav-util-indapply-SmartApply&gnavTK=1jrsh186nhbnr801&tk=1jrsh03gohbcm801&co=IN&hl=en
+                - img [ref=e18]
+            - listitem [ref=e20]:
+              - link "Messages Unread count 0" [ref=e22] [cursor=pointer]:
+                - /url: https://messages.indeed.com?from=gnav-util-indapply-SmartApply&gnavTK=1jrsh186nhbnr801&tk=1jrsh03gohbcm801&co=IN&hl=en
+                - img [ref=e23]
+                - generic [ref=e28]: Messages Unread count 0
+            - listitem [ref=e29]:
+              - link "Notifications Unread count 0" [ref=e31] [cursor=pointer]:
+                - /url: https://in.indeed.com/notifications?from=gnav-util-indapply-SmartApply&gnavTK=1jrsh186nhbnr801&tk=1jrsh03gohbcm801&hl=en
+                - img [ref=e32]
+            - listitem
+          - button "Primary navigation" [ref=e37] [cursor=pointer]:
+            - generic [ref=e38]:
+              - img [ref=e39]
+              - generic [ref=e41]:
+                - text: "1"
+                - generic [ref=e42]: new update
+      - generic [ref=e43]: Start of main content
+  - generic [ref=e49]:
+    - complementary "AI Operations Data & Analytics Analyst" [ref=e51]:
+      - generic [ref=e54]:
+        - heading "AI Operations Data & Analytics Analyst" [level=1] [ref=e55]
+        - generic [ref=e56]: GoZupees - Remote
+        - button "See more details" [ref=e57] [cursor=pointer]
+    - generic [ref=e58]:
+      - generic [ref=e60]:
+        - button "Save and close" [ref=e65] [cursor=pointer]:
+          - generic [ref=e66]: Save and close
+        - generic [ref=e67]:
+          - progressbar "Progress" [ref=e68]
+          - generic [ref=e70]: 100%
+      - generic [ref=e334]:
+        - main [ref=e335]:
+          - generic [ref=e340]:
+            - heading "Add supporting documents" [level=2] [ref=e341]
+            - generic [ref=e342]:
+              - text: Fields marked with
+              - generic [ref=e343]: an asterisk
+              - text: (*) are required.
+            - radiogroup "Cover letter" [ref=e344]:
+              - generic [ref=e347]: Cover letter
+              - generic [ref=e348] [cursor=pointer]:
+                - radio "Write a cover letter" [checked]
+                - generic [ref=e350]:
+                  - img [ref=e352]
+                  - generic [ref=e355]: Write a cover letter
+                  - img [ref=e357]
+                - generic [ref=e359]:
+                  - textbox "Write a cover letter" [ref=e361]:
+                    - /placeholder: Type a cover letter
+                    - text: Dear Hiring Manager, I am writing to express my strong interest in the React Full Stack Developer position at Saral Banker, a dynamic organization that excels in both Full-Stack and AI engineering. As an experienced developer with a deep understanding of JavaScript, React, and artificial intelligence, I am eager to contribute to your team's mission of revolutionizing education technology. My background aligns perfectly with the role requirements. Neuro-Zenith is known for its cutting-edge AI platform that has saved countless hours on financial ops teams by automating complex tasks. In contrast, my expertise in React and Next.js makes me well-suited for developing scalable web applications, which are crucial components of your education technology division. I am particularly drawn to QuantumVeda's commitment to transforming educational experiences through cutting-edge AI and machine learning technologies. My background in both AI and JavaScript programming will enable me to contribute significantly to the development of transformative platforms that not only enhance student preparation for competitive examinations but also promote spiritual growth and well-being. Thank you for considering my application. I am excited about the opportunity to bring my skills and experiences to your team, where I believe we can make a meaningful impact on education technology. Best regards, [Your Name]
+                  - generic [ref=e362]: 1411 / 4000
+                  - button "Remove cover letter" [ref=e363]:
+                    - img [ref=e364]
+                    - generic [ref=e366]: Remove
+              - generic [ref=e367] [cursor=pointer]:
+                - radio "Apply without a cover letter"
+                - generic [ref=e369]:
+                  - img [ref=e371]
+                  - generic [ref=e374]: Apply without a cover letter
+                  - img [ref=e376]
+            - generic [ref=e378]:
+              - radiogroup "Additional documents" [ref=e379]:
+                - generic [ref=e380]: Additional documents
+              - button "Upload a file Accepted file types are PDF, DOCX, DOC, JPG, PNG, TXT, RTF, JPEG, JPE, JIF, JFIF, GIF, TIF, or TIFF" [ref=e381] [cursor=pointer]:
+                - generic [ref=e382]:
+                  - img [ref=e384]
+                  - generic [ref=e386]:
+                    - generic [ref=e387]: Upload a file
+                    - generic [ref=e388]: Accepted file types are PDF, DOCX, DOC, JPG, PNG, TXT, RTF, JPEG, JPE, JIF, JFIF, GIF, TIF, or TIFF
+            - button "Continue" [ref=e389] [cursor=pointer]:
+              - generic [ref=e390]: Continue
+        - generic [ref=e391]:
+          - button "Report an issue" [ref=e394] [cursor=pointer]:
+            - img [ref=e395]
+            - text: Report an issue
+          - contentinfo [ref=e397]:
+            - generic [ref=e398]:
+              - text: This site is protected by reCAPTCHA and the Google
+              - link "Privacy Policy" [ref=e399] [cursor=pointer]:
+                - /url: https://policies.google.com/privacy
+              - text: and
+              - link "Terms of Service" [ref=e400] [cursor=pointer]:
+                - /url: https://policies.google.com/terms
+              - text: apply.

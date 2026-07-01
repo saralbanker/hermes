@@ -1,0 +1,113 @@
+- generic [active] [ref=e1]:
+  - navigation "Primary" [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - button "Skip to main content" [ref=e7] [cursor=pointer]:
+            - generic [ref=e8]: Skip to main content
+          - link "Indeed Home" [ref=e9] [cursor=pointer]:
+            - /url: /?from=gnav-indapply-SmartApply
+            - img [ref=e11]
+        - generic [ref=e13]:
+          - list [ref=e14]:
+            - listitem [ref=e15]:
+              - link "My jobs" [ref=e17] [cursor=pointer]:
+                - /url: https://myjobs.indeed.com?from=gnav-util-indapply-SmartApply&gnavTK=1jrsrm0lnhc4n803&tk=1jrsrlmuqhc4h801&co=IN&hl=en
+                - img [ref=e18]
+            - listitem [ref=e20]:
+              - link "Messages Unread count 0" [ref=e22] [cursor=pointer]:
+                - /url: https://messages.indeed.com?from=gnav-util-indapply-SmartApply&gnavTK=1jrsrm0lnhc4n803&tk=1jrsrlmuqhc4h801&co=IN&hl=en
+                - img [ref=e23]
+                - generic [ref=e28]: Messages Unread count 0
+            - listitem [ref=e29]:
+              - link "Notifications Unread count 1" [ref=e31] [cursor=pointer]:
+                - /url: https://in.indeed.com/notifications?from=gnav-util-indapply-SmartApply&gnavTK=1jrsrm0lnhc4n803&tk=1jrsrlmuqhc4h801&hl=en
+                - img [ref=e32]
+                - generic [ref=e34]: "1"
+            - listitem
+          - button "Primary navigation" [ref=e38] [cursor=pointer]:
+            - generic [ref=e39]:
+              - img [ref=e40]
+              - generic [ref=e42]:
+                - text: "1"
+                - generic [ref=e43]: new update
+      - generic [ref=e44]: Start of main content
+  - generic [ref=e54]:
+    - complementary "Devops Engineer" [ref=e56]:
+      - generic [ref=e59]:
+        - heading "Devops Engineer" [level=1] [ref=e60]
+        - generic [ref=e61]: Innovecture - Pune MAHARASHTRA IN 411007
+        - button "See more details" [ref=e62] [cursor=pointer]
+    - generic [ref=e63]:
+      - generic [ref=e65]:
+        - generic [ref=e66]:
+          - button "Go back" [ref=e146] [cursor=pointer]:
+            - img [ref=e147]
+          - button "Save and close" [ref=e70] [cursor=pointer]:
+            - generic [ref=e71]: Save and close
+        - generic [ref=e72]:
+          - progressbar "Progress" [ref=e73]
+          - generic [ref=e75]: 56%
+      - generic [ref=e240]:
+        - main [ref=e241]:
+          - generic [ref=e342]:
+            - heading "Answer these questions from the employer" [level=1] [ref=e344]
+            - generic [ref=e345]:
+              - text: These questions are from the employer. If a question seems inappropriate, you can
+              - button "report the job" [ref=e346] [cursor=pointer]
+              - text: .
+            - generic [ref=e347]:
+              - text: Fields marked with
+              - generic [ref=e348]: an asterisk
+              - text: (*) are required.
+            - strong [ref=e351]: Applicant's Statement
+            - generic [ref=e353]: I certify that my answers to all questions are true and correct without any consequential omissions of any kind whatsoever. I understand that if I am employed, any false, misleading or otherwise incorrect statements made on this application or during the pre-employment process may be grounds for my immediate termination.
+            - generic [ref=e355]:
+              - generic [ref=e358]:
+                - generic [ref=e359]: Acceptance
+                - text: "*"
+              - generic [ref=e360]:
+                - generic [ref=e361] [cursor=pointer]:
+                  - radio "Yes" [ref=e362]
+                  - generic [ref=e364]: "Yes"
+                - generic [ref=e365] [cursor=pointer]:
+                  - radio "No" [ref=e366]
+                  - generic [ref=e368]: "No"
+            - generic [ref=e370]:
+              - generic [ref=e373] [cursor=pointer]:
+                - generic [ref=e374]: Signature
+                - text: "*"
+              - textbox "Signature" [ref=e376]
+              - generic [ref=e377]:
+                - generic [ref=e379]: 0 / 200
+                - generic [ref=e381]: 0 / 200
+            - generic [ref=e383]:
+              - generic [ref=e387] [cursor=pointer]: Comments
+              - textbox "Comments" [ref=e389]
+            - strong [ref=e392]: Privacy Policy Acknowledgement
+            - generic [ref=e394]:
+              - generic [ref=e397]:
+                - generic [ref=e399]:
+                  - text: By checking this box, you acknowledge and consent to terms of
+                  - link "the privacy policy" [ref=e400] [cursor=pointer]:
+                    - /url: https://www.paycor.com/privacy-policy
+                  - text: which applies to the applicant tracking service being offered by Paycor on behalf of Innovecture. The privacy policy offers an explanation of how and why your data will be collected, how it will be used and disclosed, how it will be retained and secured, and what legal rights are associated with that data (including the rights of access, correction, and deletion). The policy also describes legal and contractual limitations on these rights. The specific rights and obligations of individuals living and working in different areas may vary by jurisdiction.
+                - text: "*"
+              - generic [ref=e402] [cursor=pointer]:
+                - radio "I have read and agree to this statement" [ref=e403]
+                - generic [ref=e405]: I have read and agree to this statement
+            - button "Continue" [ref=e406] [cursor=pointer]:
+              - generic [ref=e407]: Continue
+        - generic [ref=e249]:
+          - button "Report an issue" [ref=e252] [cursor=pointer]:
+            - img [ref=e253]
+            - text: Report an issue
+          - contentinfo [ref=e255]:
+            - generic [ref=e256]:
+              - text: This site is protected by reCAPTCHA and the Google
+              - link "Privacy Policy" [ref=e257] [cursor=pointer]:
+                - /url: https://policies.google.com/privacy
+              - text: and
+              - link "Terms of Service" [ref=e258] [cursor=pointer]:
+                - /url: https://policies.google.com/terms
+              - text: apply.

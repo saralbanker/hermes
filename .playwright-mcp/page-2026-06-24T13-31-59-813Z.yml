@@ -1,0 +1,388 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: .
+    - generic [ref=e4]: ..
+    - generic [ref=e5]: .
+  - generic [ref=e7]:
+    - link "Skip to main content." [ref=e94] [cursor=pointer]:
+      - /url: "#main"
+    - generic:
+      - alert
+    - generic [ref=e96]:
+      - banner [ref=e97]:
+        - generic [ref=e99]:
+          - link "Back to Job Details" [ref=e100] [cursor=pointer]:
+            - generic [ref=e101]: 
+          - generic [ref=e103]:
+            - generic [ref=e104]: Senior Automation QA Engineer
+            - generic [ref=e105]: ...
+        - heading "Senior Automation QA Engineer application, step 1 of 3" [level=1] [ref=e106]
+        - navigation "Application Flow Navigation" [ref=e107]:
+          - generic [ref=e108]:
+            - list:
+              - listitem:
+                - link "Import your profile":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Contact Information":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Supporting Documents and URLs":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Address":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Education":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Languages":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Experience":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Licenses and Certificates":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Work Preferences":
+                  - /url: javascript:void(0)
+              - listitem:
+                - link "Skills":
+                  - /url: javascript:void(0)
+      - main "Job application form" [ref=e112]:
+        - heading "Job application form" [level=1] [ref=e113]
+        - generic [ref=e114]:
+          - generic [ref=e116]:
+            - list [ref=e119]:
+              - listitem [ref=e120]:
+                - region "Import your profile You can import your information." [ref=e123]:
+                  - generic [ref=e124]:
+                    - generic [ref=e125]:
+                      - heading "Import your profile" [level=2] [ref=e126]
+                      - paragraph [ref=e127]: You can import your information.
+                    - generic [ref=e128]:
+                      - generic "Apply with LinkedIn frame" [ref=e129]:
+                        - generic [ref=e130]:
+                          - iframe
+                      - generic [ref=e131]:
+                        - button "Import your profile from resume" [ref=e132] [cursor=pointer]
+                        - button [ref=e133] [cursor=pointer]: Resume
+                    - status
+            - list [ref=e136]:
+              - listitem [ref=e137]:
+                - generic [ref=e139]:
+                  - generic [ref=e140]:
+                    - heading "Contact Information" [level=3] [ref=e142]
+                    - paragraph [ref=e143]: Please enter your contact information.
+                  - region "Contact Information Please enter your contact information." [ref=e144]:
+                    - generic [ref=e146]:
+                      - generic [ref=e147]:
+                        - generic "Last Name" [ref=e149]:
+                          - generic [ref=e150]: Last Name
+                          - generic [ref=e151]: "*"
+                        - textbox "Last Name" [ref=e153]: Banker
+                      - generic [ref=e154]:
+                        - generic "First Name" [ref=e156]:
+                          - generic [ref=e157]: First Name
+                        - textbox "First Name" [ref=e159]: Saral
+                      - generic [ref=e160]:
+                        - generic "Title" [ref=e162]:
+                          - generic [ref=e163]: Title
+                        - list "Title" [ref=e166]:
+                          - listitem [ref=e167]:
+                            - button "Dr." [ref=e168] [cursor=pointer]:
+                              - generic [ref=e169]: Dr.
+                          - listitem [ref=e170]:
+                            - button "Miss" [ref=e171] [cursor=pointer]:
+                              - generic [ref=e172]: Miss
+                          - listitem [ref=e173]:
+                            - button "Mr." [ref=e174] [cursor=pointer]:
+                              - generic [ref=e175]: Mr.
+                          - listitem [ref=e176]:
+                            - button "Mrs." [ref=e177] [cursor=pointer]:
+                              - generic [ref=e178]: Mrs.
+                          - listitem [ref=e179]:
+                            - button "Ms." [ref=e180] [cursor=pointer]:
+                              - generic [ref=e181]: Ms.
+                      - generic [ref=e182]:
+                        - generic "Middle Name" [ref=e184]:
+                          - generic [ref=e185]: Middle Name
+                        - textbox "Middle Name" [ref=e187]
+                      - generic [ref=e189]:
+                        - generic "Email Address" [ref=e191]:
+                          - generic [ref=e192]: Email Address
+                        - generic [ref=e194]:
+                          - textbox "Email Address" [ref=e195]: saralbanker1@gmail.com
+                          - button "Edit email address" [ref=e196] [cursor=pointer]:
+                            - emphasis [ref=e197]: 
+                      - generic [ref=e198]:
+                        - generic "Phone Number" [ref=e200]:
+                          - generic [ref=e201]: Phone Number
+                        - group "Phone Number" [ref=e203]:
+                          - generic [ref=e207]:
+                            - generic [ref=e208]:
+                              - generic: Country code
+                              - combobox "Country code" [ref=e209]: "+91"
+                            - generic [ref=e210]:
+                              - button "Remove value for the Country code field." [ref=e211] [cursor=pointer]: 
+                              - button "Open the drop-down list for Country code." [ref=e212] [cursor=pointer]: 
+                          - textbox "Phone Number" [ref=e214]: "9016990136"
+              - listitem [ref=e215]:
+                - generic [ref=e217]:
+                  - generic [ref=e218]:
+                    - heading "Supporting Documents and URLs" [level=3] [ref=e220]
+                    - paragraph [ref=e221]: Please add any additional documents or URLs.
+                  - region "Supporting Documents and URLs Please add any additional documents or URLs." [ref=e222]:
+                    - generic [ref=e223]:
+                      - application [ref=e227]:
+                        - generic:
+                          - generic:
+                            - text: 
+                            - button "resume-ai.pdf" [ref=e228] [cursor=pointer]
+                            - 'button "Remove attachment: resume-ai.pdf" [ref=e229] [cursor=pointer]': Remove
+                      - application [ref=e233]:
+                        - generic:
+                          - generic: 
+                          - generic [ref=e235]:
+                            - button "Upload Cover Letter" [ref=e236]
+                            - generic [ref=e237] [cursor=pointer]: Upload Cover Letter
+                    - generic [ref=e239]:
+                      - generic [ref=e240]:
+                        - generic [ref=e242]:
+                          - generic "Link 1" [ref=e244]:
+                            - generic [ref=e245]: Link 1
+                          - textbox "Contact Information Link 1" [ref=e247]: https://github.com/saralbanker
+                        - generic [ref=e248]:
+                          - generic [ref=e249]:
+                            - generic "Link 2" [ref=e251]:
+                              - generic [ref=e252]: Link 2
+                            - textbox "Contact Information Link 2" [ref=e254]: https://orvion-co.vercel.app
+                          - button "Remove Link 2" [ref=e255] [cursor=pointer]:
+                            - text: 
+                            - generic [ref=e256]: Remove
+                      - button "+ Add Another Link" [ref=e257] [cursor=pointer]
+              - listitem [ref=e258]:
+                - region "Address Please enter your home address." [ref=e261]:
+                  - group "Address Please enter your home address.This block contains dependent drop-down lists. Note that if you change a value for one of the fields, a value for another one in the block may automatically change. To change values in some drop-downs lists, you may need to edit the value in their parent drop-down list." [ref=e262]:
+                    - generic "Address Please enter your home address.This block contains dependent drop-down lists. Note that if you change a value for one of the fields, a value for another one in the block may automatically change. To change values in some drop-downs lists, you may need to edit the value in their parent drop-down list." [ref=e263]:
+                      - heading "Address" [level=3] [ref=e265]
+                      - paragraph [ref=e266]: Please enter your home address.
+                    - generic [ref=e267]: Address Please enter your home address.This block contains dependent drop-down lists. Note that if you change a value for one of the fields, a value for another one in the block may automatically change. To change values in some drop-downs lists, you may need to edit the value in their parent drop-down list.
+                    - generic [ref=e269]:
+                      - generic [ref=e271]:
+                        - generic [ref=e273]: Country *
+                        - generic [ref=e488]:
+                          - combobox "Country" [ref=e490]: India
+                          - generic [ref=e491]:
+                            - button "Remove value for the Country field." [ref=e492] [cursor=pointer]: 
+                            - button "Open the drop-down list for Country." [ref=e493] [cursor=pointer]: 
+                      - generic [ref=e278]:
+                        - generic [ref=e279]:
+                          - generic "Address Line 1" [ref=e281]:
+                            - generic [ref=e282]: Address Line 1
+                            - generic [ref=e283]: "*"
+                          - textbox "Address Line 1" [ref=e285]: Ahmedabad
+                        - generic [ref=e286]:
+                          - generic "Address Line 2" [ref=e288]:
+                            - generic [ref=e289]: Address Line 2
+                          - textbox "Address Line 2" [ref=e291]
+                        - generic [ref=e292]:
+                          - generic "City or Town" [ref=e294]:
+                            - generic [ref=e295]: City or Town
+                            - generic [ref=e296]: "*"
+                          - textbox "City or Town" [ref=e298]: Ahmedabad
+                        - generic [ref=e299]:
+                          - generic "Pin Code" [ref=e301]:
+                            - generic [ref=e302]: Pin Code
+                          - textbox "Pin Code" [ref=e304]
+                        - generic [ref=e305]:
+                          - generic "State" [ref=e307]:
+                            - generic [ref=e308]: State
+                          - textbox "State" [ref=e310]: Gujarat
+            - list [ref=e313]:
+              - listitem [ref=e314]:
+                - generic [ref=e316]:
+                  - generic [ref=e317]:
+                    - heading "Education" [level=3] [ref=e319]
+                    - paragraph [ref=e320]: Please provide details about your education.
+                  - region "Education Please provide details about your education." [ref=e321]:
+                    - generic [ref=e323]:
+                      - article [ref=e325]:
+                        - group "Computer Engineering LJ Polytechnic" [ref=e326]:
+                          - generic [ref=e327]:
+                            - generic [ref=e328]: Computer Engineering
+                            - generic [ref=e329]: LJ Polytechnic
+                          - generic [ref=e330]:
+                            - button "Edit" [ref=e331] [cursor=pointer]: 
+                            - button "Delete" [ref=e332] [cursor=pointer]: 
+                      - button "Add Education" [ref=e334] [cursor=pointer]:
+                        - generic [ref=e335]: Add Education
+              - listitem [ref=e336]:
+                - generic [ref=e338]:
+                  - generic [ref=e339]:
+                    - heading "Languages" [level=3] [ref=e341]
+                    - paragraph [ref=e342]: Please indicate which languages you speak.
+                  - region "Languages Please indicate which languages you speak." [ref=e343]:
+                    - button "Add Language" [ref=e347] [cursor=pointer]:
+                      - generic [ref=e348]: Add Language
+              - listitem [ref=e349]:
+                - generic [ref=e351]:
+                  - generic [ref=e352]:
+                    - heading "Experience" [level=3] [ref=e354]
+                    - paragraph [ref=e355]: Please provide details about your work experience.
+                  - region "Experience Please provide details about your work experience." [ref=e356]:
+                    - generic [ref=e358]:
+                      - text:  
+                      - generic [ref=e496]:
+                        - generic [ref=e497]:
+                          - generic "Employer Name" [ref=e499]:
+                            - generic [ref=e500]: Employer Name
+                            - generic [ref=e501]: "*"
+                          - generic [ref=e502]:
+                            - textbox "Employer Name" [invalid] [ref=e503]
+                            - paragraph [ref=e504]: The Employer Name field is required.
+                        - generic [ref=e505]:
+                          - generic "Job Title" [ref=e507]:
+                            - generic [ref=e508]: Job Title
+                          - textbox "Job Title" [ref=e510]
+                        - generic "Start Date" [ref=e511]:
+                          - generic "Start Date" [ref=e513]:
+                            - generic [ref=e514]: Start Date
+                          - generic [ref=e516]:
+                            - generic [ref=e520]:
+                              - generic [ref=e521]:
+                                - generic: Month
+                                - combobox "Start Date Month" [ref=e522]
+                              - button "Open the drop-down list for Month." [ref=e524] [cursor=pointer]: 
+                            - generic [ref=e528]:
+                              - generic [ref=e529]:
+                                - generic: Year
+                                - combobox "Start Date Year" [ref=e530]
+                              - button "Open the drop-down list for Year." [ref=e532] [cursor=pointer]: 
+                        - generic "End Date" [ref=e533]:
+                          - generic "End Date" [ref=e535]:
+                            - generic [ref=e536]: End Date
+                          - generic [ref=e538]:
+                            - generic [ref=e542]:
+                              - generic [ref=e543]:
+                                - generic: Month
+                                - combobox "End Date Month" [ref=e544]
+                              - button "Open the drop-down list for Month." [ref=e546] [cursor=pointer]: 
+                            - generic [ref=e550]:
+                              - generic [ref=e551]:
+                                - generic: Year
+                                - combobox "End Date Year" [ref=e552]
+                              - button "Open the drop-down list for Year." [ref=e554] [cursor=pointer]: 
+                        - generic "Current Job" [ref=e555]:
+                          - checkbox "Current Job"
+                          - status [ref=e557]:
+                            - generic [ref=e559] [cursor=pointer]: Current Job
+                        - generic [ref=e560]:
+                          - generic "Employer State or Province" [ref=e562]:
+                            - generic [ref=e563]: Employer State or Province
+                          - textbox "Employer State or Province" [ref=e565]
+                        - generic [ref=e566]:
+                          - generic "Responsibilities" [ref=e568]:
+                            - generic [ref=e569]: Responsibilities
+                          - generic [ref=e570]:
+                            - textbox "Responsibilities" [ref=e571]
+                            - textbox [ref=e572]
+                        - generic [ref=e573]:
+                          - generic "Other Job Function" [ref=e575]:
+                            - generic [ref=e576]: Other Job Function
+                          - textbox "Other Job Function" [ref=e578]
+                        - generic [ref=e579]:
+                          - generic "Additional Information" [ref=e581]:
+                            - generic [ref=e582]: Additional Information
+                          - generic [ref=e583]:
+                            - textbox "Additional Information" [ref=e584]
+                            - textbox [ref=e585]
+                      - generic [ref=e587]:
+                        - button "Cancel" [ref=e588] [cursor=pointer]:
+                          - generic [ref=e589]: Cancel
+                        - button "Save" [ref=e590] [cursor=pointer]:
+                          - generic [ref=e591]: Save
+            - list [ref=e373]:
+              - listitem [ref=e374]:
+                - generic [ref=e376]:
+                  - generic [ref=e377]:
+                    - heading "Licenses and Certificates" [level=3] [ref=e379]
+                    - paragraph [ref=e380]: Please provide details about your licenses and certificates.
+                  - region "Licenses and Certificates Please provide details about your licenses and certificates." [ref=e381]:
+                    - button "Add License" [ref=e385] [cursor=pointer]:
+                      - generic [ref=e386]: Add License
+              - listitem [ref=e387]:
+                - generic [ref=e389]:
+                  - generic [ref=e390]:
+                    - heading "Work Preferences" [level=3] [ref=e392]
+                    - paragraph [ref=e393]: Please enter your work preferences.
+                  - region "Work Preferences Please enter your work preferences." [ref=e394]:
+                    - generic [ref=e395]:
+                      - generic [ref=e396]:
+                        - generic "Travel Domestically" [ref=e398]:
+                          - generic [ref=e399]: Travel Domestically
+                        - list "Travel Domestically" [ref=e402]:
+                          - listitem [ref=e403]:
+                            - button "No" [ref=e404] [cursor=pointer]:
+                              - generic [ref=e405]: "No"
+                          - listitem [ref=e406]:
+                            - button "Yes" [ref=e407] [cursor=pointer]:
+                              - generic [ref=e408]: "Yes"
+                      - generic [ref=e409]:
+                        - generic "Travel Internationally" [ref=e411]:
+                          - generic [ref=e412]: Travel Internationally
+                        - list "Travel Internationally" [ref=e415]:
+                          - listitem [ref=e416]:
+                            - button "No" [ref=e417] [cursor=pointer]:
+                              - generic [ref=e418]: "No"
+                          - listitem [ref=e419]:
+                            - button "Yes" [ref=e420] [cursor=pointer]:
+                              - generic [ref=e421]: "Yes"
+                      - generic [ref=e422]:
+                        - generic "Comments" [ref=e424]:
+                          - generic [ref=e425]: Comments
+                        - generic [ref=e426]:
+                          - textbox "Comments" [ref=e427]
+                          - textbox [ref=e428]
+                      - generic [ref=e429]:
+                        - generic "Minimum Pay" [ref=e431]:
+                          - generic [ref=e432]: Minimum Pay
+                        - textbox "Minimum Pay" [ref=e434]
+              - listitem [ref=e435]:
+                - generic [ref=e437]:
+                  - generic [ref=e438]:
+                    - heading "Skills" [level=3] [ref=e440]
+                    - paragraph [ref=e441]: Add your skills.
+                  - region "Skills Add your skills." [ref=e442]:
+                    - generic [ref=e443]:
+                      - generic [ref=e444]: These skills are preferred for this job. Select the ones you already have.
+                      - generic [ref=e447]:
+                        - button "Add Skill AI Platform" [ref=e449] [cursor=pointer]:
+                          - generic [ref=e450]: AI Platform
+                          - generic [ref=e451]: 
+                        - button "Add Skill Agentic AI" [ref=e453] [cursor=pointer]:
+                          - generic [ref=e454]: Agentic AI
+                          - generic [ref=e455]: 
+                    - button "Add More Skills" [ref=e459] [cursor=pointer]:
+                      - generic [ref=e460]: Add More Skills
+              - listitem [ref=e461]:
+                - region [ref=e464]:
+                  - generic [ref=e465]:
+                    - generic [ref=e467]:
+                      - checkbox "I agree to receive updates about new job opportunities."
+                      - generic [ref=e470] [cursor=pointer]: I agree to receive updates about new job opportunities.
+                    - generic [ref=e473]:
+                      - checkbox "I agree to receive marketing communications"
+                      - generic [ref=e478] [cursor=pointer]:
+                        - text: I agree to receive
+                        - link "marketing communications" [ref=e479]:
+                          - /url: "#"
+            - button "Submit" [ref=e483] [cursor=pointer]:
+              - generic [ref=e484]: Submit
+          - generic [ref=e485]:
+            - generic:
+              - alert
+      - generic:
+        - generic [ref=e486]: Link
+        - alert [ref=e487]

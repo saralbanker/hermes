@@ -1,0 +1,263 @@
+- generic [active] [ref=e1]:
+  - navigation "Primary" [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - button "Skip to main content" [ref=e8] [cursor=pointer]:
+            - generic [ref=e9]: Skip to main content
+          - link "Indeed Home" [ref=e10] [cursor=pointer]:
+            - /url: /?from=gnav-viewjob
+            - img [ref=e12]
+        - generic [ref=e14]:
+          - list [ref=e15]:
+            - listitem [ref=e16]:
+              - link "My jobs" [ref=e18] [cursor=pointer]:
+                - /url: https://myjobs.indeed.com?from=gnav-util-viewjob&gnavTK=1jrshpncih87m800&tk=1jrshpncf26q1002&co=IN&hl=en
+                - img [ref=e19]
+            - listitem [ref=e21]:
+              - link "Messages Unread count 0" [ref=e23] [cursor=pointer]:
+                - /url: https://messages.indeed.com?from=gnav-util-viewjob&gnavTK=1jrshpncih87m800&tk=1jrshpncf26q1002&co=IN&hl=en
+                - img [ref=e24]
+                - generic [ref=e29]: Messages Unread count 0
+            - listitem [ref=e30]:
+              - link "Notifications Unread count 0" [ref=e32] [cursor=pointer]:
+                - /url: https://in.indeed.com/notifications?from=gnav-util-viewjob&gnavTK=1jrshpncih87m800&tk=1jrshpncf26q1002&hl=en
+                - img [ref=e33]
+            - listitem
+          - button "Primary navigation" [ref=e38] [cursor=pointer]:
+            - generic [ref=e39]:
+              - img [ref=e40]
+              - generic [ref=e42]:
+                - text: "1"
+                - generic [ref=e43]: new update
+      - generic [ref=e44]: Start of main content
+  - main [ref=e47]:
+    - generic [ref=e50]:
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - heading "Senior Automation QA Engineer" [level=1] [ref=e55]
+            - generic [ref=e59]:
+              - generic [ref=e60]:
+                - link "Ciklum (opens in a new tab)" [ref=e63] [cursor=pointer]:
+                  - /url: https://in.indeed.com/cmp/Ciklum?campaignid=mobvjcmp&from=mobviewjob&tk=1jrshpncf26q1002&fromjk=18f4d3deb135d664
+                  - text: Ciklum
+                  - img [ref=e64]
+                - generic [ref=e66]:
+                  - generic [ref=e67]: · 4.3
+                  - generic [ref=e68]: 4.3 out of 5 stars
+                  - img [ref=e69]
+              - generic [ref=e72]: Remote
+          - navigation [ref=e75]:
+            - link "Ciklum 4.3 out of 5 stars 48 reviews Read what people are saying about working here." [ref=e76] [cursor=pointer]:
+              - /url: https://in.indeed.com/cmp/Ciklum/reviews?campaignid=mobvjcmp&cmpratingc=mobviewjob&from=mobviewjob&tk=1jrshpncf26q1002&fromjk=18f4d3deb135d664&jt=Senior+Automation+QA+Engineer
+              - heading "Ciklum" [level=2] [ref=e77]
+              - generic [ref=e78]:
+                - img "4.3 out of 5 stars" [ref=e79]:
+                  - img [ref=e80]
+                  - img [ref=e82]
+                  - img [ref=e84]
+                  - img [ref=e86]
+                  - generic [ref=e88]:
+                    - img [ref=e89]
+                    - img [ref=e91]
+                - generic [ref=e93]: 48 reviews
+              - generic [ref=e94]: Read what people are saying about working here.
+            - img "direction right icon" [ref=e95]
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - generic [ref=e105]:
+              - generic [ref=e106]:
+                - generic [ref=e107]:
+                  - heading "Job details" [level=2] [ref=e108]
+                  - generic [ref=e109]:
+                    - text: Here’s how the job details align with your
+                    - link "job preferences (opens in a new window)" [ref=e110] [cursor=pointer]:
+                      - /url: https://profile.indeed.com/
+                      - text: profile
+                      - img [ref=e111]
+                    - text: .
+                - group "Job type" [ref=e114]:
+                  - img [ref=e115]
+                  - generic [ref=e118]:
+                    - heading "Job type" [level=3] [ref=e119]
+                    - list [ref=e121]:
+                      - listitem [ref=e122]:
+                        - button "Job type Full-time matching preference" [ref=e123]:
+                          - generic [ref=e126]:
+                            - img [ref=e127]
+                            - generic [ref=e129]: Full-time
+                            - img "matching preference" [ref=e130]
+              - separator [ref=e132]:
+                - generic [ref=e133]: "&nbsp;"
+            - generic [ref=e134]:
+              - heading "Location" [level=2] [ref=e135]
+              - generic [ref=e136]:
+                - img [ref=e137]
+                - generic [ref=e140]: Remote
+              - separator [ref=e141]:
+                - generic [ref=e142]: "&nbsp;"
+            - generic [ref=e143]:
+              - heading "Benefits" [level=3] [ref=e144]
+              - paragraph [ref=e145]: Pulled from the full job description
+              - list [ref=e149]:
+                - listitem [ref=e150]: Health insurance
+              - separator [ref=e151]:
+                - generic [ref=e152]: "&nbsp;"
+            - heading "Full job description" [level=2] [ref=e154]
+            - generic [ref=e155]:
+              - paragraph
+              - generic [ref=e158]:
+                - generic [ref=e165]:
+                  - generic [ref=e166]: Ciklum is looking for a Senior Automation QA Engineer to join our team full-time in India.
+                  - paragraph [ref=e167]: We are a custom product engineering company that supports both multinational organizations and scaling startups to solve their most complex business challenges. With a global team of over 4,000 highly skilled developers, consultants, analysts and product owners, we engineer technology that redefines industries and shapes the way people live.
+                  - paragraph [ref=e168]: "About the role:"
+                  - paragraph [ref=e169]: As a Senior Automation QA Engineer, become a part of a cross-functional development team engineering experiences of tomorrow.
+                  - paragraph [ref=e170]: "You will own the test automation that spans the whole platform: the Frontend and Backend that agent developers depend on, the long-running Temporal workflows that must survive worker crashes and provider failures, the multi-tenant isolation boundaries that protect one customer's data from another, and the performance and concurrency targets defined in the platform's NFRs. Much of your craft is adversarial and failure-first injecting worker kills, retry storms, and malformed documents to verify the system recovers exactly as specified, and negative-testing disallowed tool calls and egress paths to confirm the sandbox holds. Where agent behavior must be judged rather than asserted, you will partner closely with the evaluation function, contributing the test infrastructure, synthetic-data pipelines, and CI integration that make quality measurable and repeatable."
+                  - paragraph [ref=e171]: This is a high-visibility role where we establish the production-ready foundation the rest of the program is built on. Your automated suites become release gates, and the evidence they produce feeds directly into client milestone sign-offs so your work must be reproducible, trustworthy, and defensible to a sophisticated client. As the platform scales toward an "agent-a-month" delivery cadence, you will build the reusable test scaffolds and harnesses that let quality keep pace with delivery, ensuring that month twelve ships as safely as month one. You will work shoulder-to-shoulder with AI engineers, platform engineers, and the evaluation team, embedding quality from the design stage rather than inspecting for it at the end.
+                  - paragraph [ref=e172]: "Responsibilities:"
+                  - list [ref=e173]:
+                    - listitem [ref=e174]: Design, build, and maintain automated test suites for the platform, Frontend and Backend, including contract tests that protect the agent-developer experience as the SDK evolves
+                    - listitem [ref=e175]: Build automated tests for long-running Temporal workflows including failure injection (worker kill, provider outage, retry storms) to verify durable-execution guarantees such as zero lost runs and correct compensation/saga behavior
+                    - listitem [ref=e176]: Automate multi-tenant isolation verification cross-tenant data access, configuration bleed, and cost-attribution correctness executed per release as a platform acceptance criterion
+                    - listitem [ref=e177]: Verify agent execution sandboxing and egress controls through negative testing of disallowed tool calls and network destinations
+                    - listitem [ref=e178]: "Design test strategies for LLM-driven behavior: statistical assertions over repeated runs (pass^k consistency), semantic-similarity scoring, confidence-threshold validation, and flakiness quarantine that distinguishes model variance from genuine regression"
+                    - listitem [ref=e179]: Build and continuously extend adversarial test corpora document-borne prompt injection in lease PDFs, tool-call hijack, and data-exfiltration probes aligned to OWASP LLM Top 10 and recognized red-team taxonomies
+                    - listitem [ref=e180]: Verify Human-in-the-Loop (HITL) escalation behavior confidence thresholds fire correctly and no gated/irreversible action completes without authorization
+                    - listitem [ref=e181]: Partner with the evaluation function on golden-dataset-driven checks, contributing test infrastructure, synthetic-data (synthetic lease) pipelines, and CI integration that make agent quality measurable and repeatable
+                    - listitem [ref=e182]: Automate verification of platform NFRs invocation overhead (p95), concurrency targets, queue backpressure behavior, and LLM provider failover time and surface trends per release
+                    - listitem [ref=e183]: "Use tracing data (Langfuse / OpenTelemetry spans) as a first-class test asset: assert on trace completeness, token/cost-accounting accuracy, and alerting behavior for anomalous runs"
+                    - listitem [ref=e184]: Wire test suites into CI/CD as hard release gates with automated, per-metric regression flagging on pull requests
+                    - listitem [ref=e185]: Produce auditable, reproducible test-evidence packs that feed directly into client milestone sign-off
+                    - listitem [ref=e186]: Embed with AI and platform engineers from the design stage making acceptance criteria, testability, and observability inputs to architecture, not afterthoughts
+                    - listitem [ref=e187]: Maintain test environments, mocked LLM/provider layers, and synthetic data generators that keep test runs fast, deterministic where possible, and affordable
+                    - listitem [ref=e188]: Mentor mid-level QA engineers, codify AI testing patterns into reusable internal frameworks, and contribute to Ciklum's quality engineering practice and AI Academy
+                  - paragraph [ref=e189]: "Requirements:"
+                  - list [ref=e190]:
+                    - listitem [ref=e191]: 8+ years of test automation with strong Python pytest at depth, API testing, and building test frameworks other engineers adopt, not just test cases
+                    - listitem [ref=e192]: Hands-on experience testing LLM-powered or other non-deterministic systems statistical assertions, semantic scoring, and managing model variance (this is the differentiator; cite real examples)
+                    - listitem [ref=e193]: Experience testing asynchronous, event-driven systems failure injection, idempotency verification, eventual-consistency assertions; Temporal or a similar workflow engine a strong plus
+                    - listitem [ref=e194]: Strong CI/CD integration skills (GitHub Actions or equivalent) and the discipline to design release gates
+                    - listitem [ref=e195]: Solid SQL and data-validation skills; comfort building synthetic test-data pipelines and measuring dataset quality
+                    - listitem [ref=e196]: A security-testing and adversarial mindset; familiarity with prompt-injection techniques or a strong AppSec testing background with willingness to specialize fast
+                    - listitem [ref=e197]: Demonstrated judgment on what "tested enough" means under milestone pressure, and the ability to defend quality evidence to non-engineering stakeholders
+                    - listitem [ref=e198]: "QA Automation Core: Extensive experience in building automated test frameworks (Python-based) and integrating them into high-security CI/CD pipelines"
+                    - listitem [ref=e199]: "AI/LLM Literacy: Deep understanding of Large Language Model behaviors, prompt sensitivity, and the common failure modes of RAG (Retrieval-Augmented Generation) systems"
+                    - listitem [ref=e200]: "Analytical Mindset: Strong capability in statistical analysis to interpret evaluation scores and provide actionable feedback to AI Engineers for prompt tuning"
+                  - paragraph [ref=e201]: "Desirable:"
+                  - list [ref=e202]:
+                    - listitem [ref=e203]: Performance/load tooling (k6, Locust) for concurrency and latency NFR verification
+                    - listitem [ref=e204]: Prior testing of multi-tenant SaaS isolation
+                    - listitem [ref=e205]: Exposure to eval/observability stacks (Langfuse, LangSmith, Promptfoo, DeepEval, Arize Phoenix)
+                    - listitem [ref=e206]: Compliance evidence experience (SOC 2, GDPR) or accessibility testing (Section 508 / WCAG)
+                    - listitem [ref=e207]: Familiarity with Commercial Real Estate workflows (lease accounting, CAM reconciliation) or document-extraction systems (OCR, layout parsing)
+                    - listitem [ref=e208]: Experience using LLMs to generate test cases, adversarial payloads, or synthetic documents
+                    - listitem [ref=e209]: "Performance Testing: Experience testing high-concurrency background processing within agentic systems"
+                  - paragraph [ref=e210]: "What`s in it for you?"
+                  - list [ref=e211]:
+                    - listitem [ref=e212]: "Strong community: Work alongside top professionals in a friendly, open-door environment"
+                    - listitem [ref=e213]: "Growth focus: Take on large-scale projects with a global impact and expand your expertise"
+                    - listitem [ref=e214]: "Tailored learning: Boost your skills with internal events (meetups, conferences, workshops), Udemy access, language courses, and company-paid certifications"
+                    - listitem [ref=e215]: "Endless opportunities: Explore diverse domains through internal mobility, finding the best fit to gain hands-on experience with cutting-edge technologies"
+                    - listitem [ref=e216]: "Care: We’ve got you covered with company-paid medical insurance, mental health support, and financial & legal consultations"
+                  - paragraph [ref=e217]: "About us:"
+                  - paragraph [ref=e218]: At Ciklum, we are always exploring innovations, empowering each other to achieve more, and engineering solutions that matter. With us, you’ll work with cutting-edge technologies, contribute to impactful projects, and be part of a One Team culture that values collaboration and progress.
+                  - paragraph [ref=e219]: India is a strategic innovation hub for Ciklum, with growing teams in Chennai and Pune leading advancements in EdgeTech, AR/VR, IoT, and beyond. Join us to collaborate on game-changing solutions and take your career to the next level.
+                  - paragraph [ref=e220]: Explore, empower, engineer with Ciklum!
+                  - paragraph [ref=e221]: Interested already? We would love to get to know you! Submit your application. We can’t wait to see you at Ciklum.
+                  - paragraph [ref=e222]: "#LI-MK2"
+                - generic [ref=e228]:
+                  - paragraph [ref=e229]: REQUIRED SKILLS
+                  - list [ref=e231]:
+                    - paragraph [ref=e232]: AI Platform
+                    - paragraph [ref=e233]: Agentic AI
+                - generic [ref=e239]:
+                  - paragraph [ref=e240]: JOB INFO
+                  - list [ref=e244]:
+                    - generic [ref=e245]:
+                      - generic [ref=e246]: Job Identification
+                      - generic [ref=e247]: "3453"
+                    - generic [ref=e248]:
+                      - generic [ref=e249]: Job Category
+                      - generic [ref=e250]: Quality Engineering
+                    - generic [ref=e251]:
+                      - generic [ref=e252]: Posting Date
+                      - generic [ref=e253]: 06/22/2026, 05:07 AM
+                    - generic [ref=e254]:
+                      - generic [ref=e255]: Locations
+                      - generic [ref=e256]:
+                        - generic [ref=e258]: IN-Remote
+                        - text: (Remote)
+              - paragraph
+            - separator [ref=e259]:
+              - generic [ref=e260]: "&nbsp;"
+          - generic [ref=e261]:
+            - button "Report job" [ref=e267] [cursor=pointer]: Report job
+            - generic [ref=e270]:
+              - button "Apply on company site (opens in a new tab)" [ref=e276] [cursor=pointer]:
+                - generic [ref=e277]: Apply on company site
+                - img [ref=e278]
+              - button "Save job" [ref=e283] [cursor=pointer]:
+                - img "save-icon" [ref=e284]
+              - button "Share Job" [ref=e286] [cursor=pointer]
+              - separator:
+                - generic [ref=e288]: "&nbsp;"
+      - generic [ref=e289]:
+        - separator [ref=e290]:
+          - generic [ref=e291]: "&nbsp;"
+        - generic [ref=e294]:
+          - link "Senior Automation Engineer jobs in Remote" [ref=e296] [cursor=pointer]:
+            - /url: /q-senior-automation-engineer-l-remote-jobs.html
+          - link "Jobs at Ciklum in Remote" [ref=e298] [cursor=pointer]:
+            - /url: /q-ciklum-l-remote-jobs.html
+          - link "Senior Automation Engineer salaries in Remote" [ref=e300] [cursor=pointer]:
+            - /url: /salary?q1=Senior+Automation+Engineer&l1=Remote
+  - contentinfo [ref=e305]:
+    - generic [ref=e306]:
+      - list [ref=e307]:
+        - listitem [ref=e308]:
+          - link "Career advice" [ref=e310] [cursor=pointer]:
+            - /url: https://in.indeed.com/career-advice
+        - listitem [ref=e311]:
+          - link "Browse jobs" [ref=e313] [cursor=pointer]:
+            - /url: https://in.indeed.com/browsejobs
+        - listitem [ref=e314]:
+          - link "Browse companies" [ref=e316] [cursor=pointer]:
+            - /url: https://in.indeed.com/companies/browse-companies
+        - listitem [ref=e317]:
+          - link "Salaries" [ref=e319] [cursor=pointer]:
+            - /url: https://in.indeed.com/career/salaries
+        - listitem [ref=e320]:
+          - link "Indeed Events" [ref=e322] [cursor=pointer]:
+            - /url: https://www.indeedevents.com/en-in/
+        - listitem [ref=e323]:
+          - link "Work at Indeed" [ref=e325] [cursor=pointer]:
+            - /url: https://in.indeed.com/cmp/Indeed/about
+        - listitem [ref=e326]:
+          - link "Countries" [ref=e328] [cursor=pointer]:
+            - /url: https://in.indeed.com/worldwide
+        - listitem [ref=e329]:
+          - link "About" [ref=e331] [cursor=pointer]:
+            - /url: https://in.indeed.com/about
+        - listitem [ref=e332]:
+          - link "Help" [ref=e334] [cursor=pointer]:
+            - /url: https://in.indeed.com/help/job-seekers?hl=en&co=in
+        - listitem [ref=e335]:
+          - link "ESG at Indeed" [ref=e337] [cursor=pointer]:
+            - /url: https://in.indeed.com/esg?from=gnav-viewjob
+        - listitem [ref=e338]:
+          - link "Guidelines for safe job search" [ref=e340] [cursor=pointer]:
+            - /url: https://support.indeed.com/hc/en-in/articles/216354123-Guidelines-for-Safe-Job-Search
+      - list [ref=e341]:
+        - listitem [ref=e342]: © 2026 Indeed
+        - listitem [ref=e343]:
+          - link "Accessibility at Indeed" [ref=e345] [cursor=pointer]:
+            - /url: https://in.indeed.com/esg/accessibility?hl=en
+        - listitem [ref=e346]:
+          - link "Privacy Centre and Ad Choices" [ref=e348] [cursor=pointer]:
+            - /url: https://hrtechprivacy.com/brands/indeed#privacypolicy
+        - listitem [ref=e349]:
+          - link "Terms" [ref=e351] [cursor=pointer]:
+            - /url: https://in.indeed.com/legal?hl=en
+      - list:
+        - listitem

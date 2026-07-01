@@ -1,0 +1,239 @@
+- generic [active] [ref=e1]:
+  - navigation "Primary" [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - button "Skip to main content" [ref=e8] [cursor=pointer]:
+            - generic [ref=e9]: Skip to main content
+          - link "Indeed Home" [ref=e10] [cursor=pointer]:
+            - /url: /?from=gnav-viewjob
+            - img [ref=e12]
+        - generic [ref=e14]:
+          - list [ref=e15]:
+            - listitem [ref=e16]:
+              - link "My jobs" [ref=e18] [cursor=pointer]:
+                - /url: https://myjobs.indeed.com?from=gnav-util-viewjob&gnavTK=1jrsru9ath87m801&tk=1jrsru9aqhmq4800&co=IN&hl=en
+                - img [ref=e19]
+            - listitem [ref=e21]:
+              - link "Messages Unread count 0" [ref=e23] [cursor=pointer]:
+                - /url: https://messages.indeed.com?from=gnav-util-viewjob&gnavTK=1jrsru9ath87m801&tk=1jrsru9aqhmq4800&co=IN&hl=en
+                - img [ref=e24]
+                - generic [ref=e29]:
+                  - text: Messages Unread count 0
+                  - generic [ref=e30]: .
+            - listitem [ref=e31]:
+              - link "Notifications Unread count 0" [ref=e33] [cursor=pointer]:
+                - /url: https://in.indeed.com/notifications?from=gnav-util-viewjob&gnavTK=1jrsru9ath87m801&tk=1jrsru9aqhmq4800&hl=en
+                - img [ref=e34]
+            - listitem
+          - button "Primary navigation" [ref=e39] [cursor=pointer]:
+            - generic [ref=e40]:
+              - img [ref=e41]
+              - generic [ref=e43]:
+                - text: "1"
+                - generic [ref=e44]: new update
+      - generic [ref=e45]: Start of main content
+  - main [ref=e48]:
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - generic [ref=e54]:
+            - heading "Staff Software Engineer, Security Product (Full-Stack)" [level=1] [ref=e56]
+            - generic [ref=e60]:
+              - generic [ref=e61]:
+                - link "CommandLink (opens in a new tab)" [ref=e64] [cursor=pointer]:
+                  - /url: https://in.indeed.com/cmp/Commandlink?campaignid=mobvjcmp&from=mobviewjob&tk=1jrsru9aqhmq4800&fromjk=aa92ac0732737a65
+                  - text: CommandLink
+                  - img [ref=e65]
+                - generic [ref=e67]:
+                  - generic [ref=e68]: · 3.5
+                  - generic [ref=e69]: 3.5 out of 5 stars
+                  - img [ref=e70]
+              - generic [ref=e73]: Remote
+          - navigation [ref=e76]:
+            - link "CommandLink 3.5 out of 5 stars 8 reviews Read what people are saying about working here." [ref=e77] [cursor=pointer]:
+              - /url: https://in.indeed.com/cmp/Commandlink/reviews?campaignid=mobvjcmp&cmpratingc=mobviewjob&from=mobviewjob&tk=1jrsru9aqhmq4800&fromjk=aa92ac0732737a65&jt=Staff+Software+Engineer%2C+Security+Product+%28Full-Stack%29
+              - heading "CommandLink" [level=2] [ref=e78]
+              - generic [ref=e79]:
+                - img "3.5 out of 5 stars" [ref=e80]:
+                  - img [ref=e81]
+                  - img [ref=e83]
+                  - img [ref=e85]
+                  - generic [ref=e87]:
+                    - img [ref=e88]
+                    - img [ref=e90]
+                  - img [ref=e92]
+                - generic [ref=e94]: 8 reviews
+              - generic [ref=e95]: Read what people are saying about working here.
+            - img "direction right icon" [ref=e96]
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - generic [ref=e106]:
+              - generic [ref=e107]:
+                - generic [ref=e108]:
+                  - heading "Job details" [level=2] [ref=e109]
+                  - generic [ref=e110]:
+                    - text: Here’s how the job details align with your
+                    - link "job preferences (opens in a new window)" [ref=e111] [cursor=pointer]:
+                      - /url: https://profile.indeed.com/
+                      - text: profile
+                      - img [ref=e112]
+                    - text: .
+                - group "Job type" [ref=e115]:
+                  - img [ref=e116]
+                  - generic [ref=e119]:
+                    - heading "Job type" [level=3] [ref=e120]
+                    - list [ref=e122]:
+                      - listitem [ref=e123]:
+                        - button "Job type Full-time matching preference" [ref=e124]:
+                          - generic [ref=e127]:
+                            - img [ref=e128]
+                            - generic [ref=e130]: Full-time
+                            - img "matching preference" [ref=e131]
+              - separator [ref=e133]:
+                - generic [ref=e134]: "&nbsp;"
+            - generic [ref=e135]:
+              - heading "Location" [level=2] [ref=e136]
+              - generic [ref=e137]:
+                - img [ref=e138]
+                - generic [ref=e141]: Remote
+              - separator [ref=e142]:
+                - generic [ref=e143]: "&nbsp;"
+            - heading "Full job description" [level=2] [ref=e145]
+            - generic [ref=e146]:
+              - generic [ref=e147]:
+                - paragraph [ref=e148]: About Command|Link
+                - paragraph
+                - paragraph [ref=e149]: Command|Link is a global SaaS Platform providing network, voice services, and IT security solutions, helping corporations consolidate their core infrastructure into a single vendor and layering on a proprietary single pane of glass platform. Command|Link has revolutionized the IT industry by tackling the problems our competitors create. In recognition for our unprecedented innovation and dedication, Command|Link was recognized as the SD-WAN Product of the Year, ITSM Visionary Spotlight, UCaaS Product of the Year, NaaS Product of the Year, Supplier of the Year, and the AT&T Strategic Growth Partner. Command|Link has built the only IT platform for scale that solves ISP vendor sprawl and IT headaches. We make it easy for our customers to get more done, maximize uptime and improve the bottom line.
+                - paragraph
+                - paragraph [ref=e150]: Learn more about us here!
+                - paragraph
+                - paragraph [ref=e151]:
+                  - generic [ref=e152]: This is a 100% remote position
+                - paragraph
+                - paragraph [ref=e153]:
+                  - generic [ref=e154]: "About your new role:"
+                - paragraph [ref=e155]: "This role owns the security product at its highest level of accountability: the API and UI that transform ingested security telemetry into a coherent, investigable picture for analysts. As a Staff Engineer, you won't just build this surface; you'll define how it should work, set the architectural direction that shapes it, and ensure the teams and systems that feed into it are aligned to a common standard. You'll work across a broad range of security data sources and partner with alert, classification, and ingestion teams to establish the data contracts that determine how security signal flows across the platform. This is full-stack work with a strong security-domain emphasis, and it requires someone who can operate at the intersection of system design, domain depth, and cross-functional influence."
+                - paragraph
+                - paragraph [ref=e156]:
+                  - generic [ref=e157]: "Key Responsibilities:"
+                - list [ref=e158]:
+                  - listitem [ref=e159]: Own the security service API and UI end-to-end, including architectural decisions, system design, and long-term roadmap direction.
+                  - listitem [ref=e160]: Define and enforce the data contracts between security product teams and adjacent services, including alert, classification, and ingestion.
+                  - listitem [ref=e161]: "Integrate and present a wide range of security telemetry: syslog, NetFlow, SNMP, firewall telemetry, OTel, EDR telemetry, and MDR ingest."
+                  - listitem [ref=e162]: Make cloud environments and their audit trails first-class within the product.
+                  - listitem [ref=e163]: Surface enriched entities, alerts, and topology in ways that map to how security teams actually investigate.
+                  - listitem [ref=e164]: Drive architectural decisions across ambiguous problem spaces where requirements are incomplete or competing.
+                  - listitem [ref=e165]: Establish technical patterns and standards that other engineers on the team can build against reliably.
+                  - listitem [ref=e166]: Mentor and develop engineers across the security product team, raising the quality and consistency of output across the group.
+                  - listitem [ref=e167]: Takes on additional responsibilities and projects as needed to support the success of the team and organization.
+                - paragraph [ref=e168]: "What you'll need for success:"
+                - paragraph [ref=e169]: "Required:"
+                - list [ref=e170]:
+                  - listitem [ref=e171]: Production experience with Kafka and OpenSearch in high-volume, latency-sensitive environments.
+                  - listitem [ref=e172]: Deep familiarity with protobuf and contract-driven development at a multi-team scale.
+                  - listitem [ref=e173]: Broad security telemetry experience across syslog, NetFlow, SNMP, firewall telemetry, OTel, EDR, and MDR ingest.
+                  - listitem [ref=e174]: Strong working knowledge of cloud environments and audit trails.
+                  - listitem [ref=e175]: Familiarity with a range of security products including NDR, XDR, and similar.
+                  - listitem [ref=e176]: Demonstrated ability to reason across diverse data sources and derive usable network and system topologies from them.
+                  - listitem [ref=e177]: Experience operating with significant autonomy across ambiguous, cross-functional problem spaces.
+                  - listitem [ref=e178]: Proven track record of cross-team technical influence that drives alignment on architecture or standards beyond your immediate team.
+                - paragraph [ref=e179]: "Nice to Have:"
+                - list [ref=e180]:
+                  - listitem [ref=e181]: Hands-on experience with Memgraph or other graph data platforms.
+                  - listitem [ref=e182]: Familiarity with stream processing frameworks such as Flink.
+                  - listitem [ref=e183]: Experience working with LLM-based reasoning systems or providing structured context to LLMs for troubleshooting and investigation workflows.
+                  - listitem [ref=e184]: Prior work in security product companies or on security platforms with analyst-facing tooling.
+                - paragraph
+                - paragraph [ref=e185]:
+                  - generic [ref=e186]: Why you'll love life at Command|Link
+                - paragraph [ref=e187]: Join us at CommandLink, where you'll have the opportunity to shape the future of business communication. We value the innovative spirit and seek individuals ready to bring their unique vision and expertise to a team that values bold ideas and strategic thinking. Are you ready to make an impact?
+                - paragraph
+                - list [ref=e188]:
+                  - listitem [ref=e189]: Room to grow at a high-growth company
+                  - listitem [ref=e190]: An environment that celebrates ideas and innovation
+                  - listitem [ref=e191]: Your work will have a tangible impact
+                  - listitem [ref=e192]: Generous Medical, Dental, and Vision coverage for full-time employees
+                  - listitem [ref=e193]: Flexible time off
+                  - listitem [ref=e194]: 401k to help you save for the future
+                  - listitem [ref=e195]: Fun events at cool locations
+                  - listitem [ref=e196]: Free DoorDash lunches on Fridays
+                  - listitem [ref=e197]: Employee referral bonuses to encourage the addition of great new people to the team
+                - paragraph
+                - paragraph [ref=e198]: Commandlink hires individuals in a number of geographic regions and the pay ranges listed reflect the cost of labor across these regions. The base pay for this position as displayed at the bottom of the job description is a range based on our lowest geographic region, up to our highest geographic region. Pay is based on location among other factors, such as skill-set, experience, and qualifications held.
+                - paragraph
+                - paragraph [ref=e199]: At CommandLink, we’re committed to creating a fair, consistent, and efficient hiring experience. As part of our process, we use AI-assisted tools to help review and analyze applications. These tools support our recruiting team by identifying qualifications and experience that align with the requirements of each role.
+                - paragraph
+                - paragraph [ref=e200]: AI tools are used only to assist in the evaluation process — they do not make final hiring decisions. Every application is reviewed by a member of our recruiting or hiring team before any decisions are made.
+              - paragraph
+            - separator [ref=e201]:
+              - generic [ref=e202]: "&nbsp;"
+          - generic [ref=e203]:
+            - button "Report job" [ref=e209] [cursor=pointer]: Report job
+            - generic [ref=e212]:
+              - button "Apply with Indeed" [ref=e220] [cursor=pointer]:
+                - img "loading" [ref=e223]
+              - button "Save job" [ref=e229] [cursor=pointer]:
+                - img "save-icon" [ref=e230]
+              - button "Share Job" [ref=e232] [cursor=pointer]
+              - separator:
+                - generic [ref=e234]: "&nbsp;"
+      - generic [ref=e235]:
+        - separator [ref=e236]:
+          - generic [ref=e237]: "&nbsp;"
+        - generic [ref=e240]:
+          - link "Staff Software Engineer jobs in Remote" [ref=e242] [cursor=pointer]:
+            - /url: /q-staff-software-engineer-l-remote-jobs.html
+          - link "Jobs at CommandLink in Remote" [ref=e244] [cursor=pointer]:
+            - /url: /q-commandlink-l-remote-jobs.html
+          - link "Staff Software Engineer salaries in Remote" [ref=e246] [cursor=pointer]:
+            - /url: /salary?from=vj&q1=Staff+Software+Engineer&l1=Remote
+  - contentinfo [ref=e251]:
+    - generic [ref=e252]:
+      - list [ref=e253]:
+        - listitem [ref=e254]:
+          - link "Career advice" [ref=e256] [cursor=pointer]:
+            - /url: https://in.indeed.com/career-advice
+        - listitem [ref=e257]:
+          - link "Browse jobs" [ref=e259] [cursor=pointer]:
+            - /url: https://in.indeed.com/browsejobs
+        - listitem [ref=e260]:
+          - link "Browse companies" [ref=e262] [cursor=pointer]:
+            - /url: https://in.indeed.com/companies/browse-companies
+        - listitem [ref=e263]:
+          - link "Salaries" [ref=e265] [cursor=pointer]:
+            - /url: https://in.indeed.com/career/salaries
+        - listitem [ref=e266]:
+          - link "Indeed Events" [ref=e268] [cursor=pointer]:
+            - /url: https://www.indeedevents.com/en-in/
+        - listitem [ref=e269]:
+          - link "Work at Indeed" [ref=e271] [cursor=pointer]:
+            - /url: https://in.indeed.com/cmp/Indeed/about
+        - listitem [ref=e272]:
+          - link "Countries" [ref=e274] [cursor=pointer]:
+            - /url: https://in.indeed.com/worldwide
+        - listitem [ref=e275]:
+          - link "About" [ref=e277] [cursor=pointer]:
+            - /url: https://in.indeed.com/about
+        - listitem [ref=e278]:
+          - link "Help" [ref=e280] [cursor=pointer]:
+            - /url: https://in.indeed.com/help/job-seekers?hl=en&co=in
+        - listitem [ref=e281]:
+          - link "ESG at Indeed" [ref=e283] [cursor=pointer]:
+            - /url: https://in.indeed.com/esg?from=gnav-viewjob
+        - listitem [ref=e284]:
+          - link "Guidelines for safe job search" [ref=e286] [cursor=pointer]:
+            - /url: https://support.indeed.com/hc/en-in/articles/216354123-Guidelines-for-Safe-Job-Search
+      - list [ref=e287]:
+        - listitem [ref=e288]: © 2026 Indeed
+        - listitem [ref=e289]:
+          - link "Accessibility at Indeed" [ref=e291] [cursor=pointer]:
+            - /url: https://in.indeed.com/esg/accessibility?hl=en
+        - listitem [ref=e292]:
+          - link "Privacy Centre and Ad Choices" [ref=e294] [cursor=pointer]:
+            - /url: https://hrtechprivacy.com/brands/indeed#privacypolicy
+        - listitem [ref=e295]:
+          - link "Terms" [ref=e297] [cursor=pointer]:
+            - /url: https://in.indeed.com/legal?hl=en
+      - list:
+        - listitem

@@ -1,0 +1,35 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: .
+    - generic [ref=e4]: ..
+    - generic [ref=e5]: .
+  - generic [ref=e6]:
+    - link "Skip to main content." [ref=e244] [cursor=pointer]:
+      - /url: "#main"
+    - generic:
+      - alert
+    - generic [ref=e246]:
+      - banner [ref=e248]:
+        - generic [ref=e250]:
+          - link "Back to Job Details" [ref=e251] [cursor=pointer]:
+            - generic [ref=e252]: 
+          - generic [ref=e254]:
+            - generic [ref=e255]: Senior Automation QA Engineer
+            - generic [ref=e256]: ...
+      - main "Job application form" [ref=e258]:
+        - heading "Job application form" [level=1] [ref=e259]
+        - generic [ref=e297]:
+          - heading "Confirm Your Identity" [level=1] [ref=e299]
+          - generic [ref=e300]:
+            - generic [ref=e301]:
+              - alert [ref=e325]: "The verification code was sent to this email address: saralbanker1@gmail.com. When you get the code, type the code into the field to confirm your identity and complete your job application. Note that it may take some time before you receive the code."
+              - generic [ref=e329]:
+                - spinbutton "Enter verification code digit 1 of six." [active] [ref=e331]: "8"
+                - spinbutton "Enter verification code digit 2 of six." [ref=e333]: "1"
+                - spinbutton "Enter verification code digit 3 of six." [ref=e335]: "9"
+                - spinbutton "Enter verification code digit 4 of six." [ref=e337]: "7"
+                - spinbutton "Enter verification code digit 5 of six." [ref=e339]: "0"
+                - spinbutton "Enter verification code digit 6 of six." [ref=e341]: "3"
+            - button "Verify" [ref=e342] [cursor=pointer]:
+              - generic [ref=e343]: Verify
+            - button "Send New Code" [ref=e324] [cursor=pointer]

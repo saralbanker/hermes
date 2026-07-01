@@ -1,0 +1,265 @@
+- generic [active] [ref=e1]:
+  - navigation "Primary" [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - button "Skip to main content" [ref=e8] [cursor=pointer]:
+            - generic [ref=e9]: Skip to main content
+          - link "Indeed Home" [ref=e10] [cursor=pointer]:
+            - /url: /?from=gnav-viewjob
+            - img [ref=e12]
+          - list [ref=e14]:
+            - listitem [ref=e15]:
+              - link "Home" [ref=e17] [cursor=pointer]:
+                - /url: https://in.indeed.com/
+            - listitem [ref=e18]:
+              - link "Company reviews" [ref=e20] [cursor=pointer]:
+                - /url: https://in.indeed.com/companies
+            - listitem [ref=e21]:
+              - link "Salary guide" [ref=e23] [cursor=pointer]:
+                - /url: https://in.indeed.com/career/salaries
+        - generic [ref=e24]:
+          - list [ref=e25]:
+            - listitem [ref=e26]:
+              - link "Sign in" [ref=e29] [cursor=pointer]:
+                - /url: https://secure.indeed.com/auth?hl=en_IN&co=IN&continue=https%3A%2F%2Fin.indeed.com%2Fviewjob%3Fjk%3D56b4a28ee59c8d8a&tmpl=desktop&from=gnav-util-viewjob&jsContinue=https%3A%2F%2Fprofile.indeed.com%2Fwelcome%3Fhl%3Den_IN%26co%3DIN%26from%3Dgnav-viewjob%26continue%3Dhttps%253A%252F%252Fonboarding.indeed.com%252Fonboarding%253Fhl%253Den_IN%2526co%253DIN%2526from%253Dgnav-viewjob&empContinue=https%3A%2F%2Faccount.indeed.com%2Fmyaccess
+          - link "Employers / Post Job" [ref=e34] [cursor=pointer]:
+            - /url: https://in.indeed.com/hire?co=IN&hl=en
+      - generic [ref=e35]: Start of main content
+  - main [ref=e38]:
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e45]: What
+        - 'textbox "What: job title, keywords or company" [ref=e46]':
+          - /placeholder: Job title, keywords, or company
+      - generic [ref=e47]:
+        - generic [ref=e49]: Where
+        - 'textbox "Where: city, county or postcode" [ref=e50]':
+          - /placeholder: City, state, or zip code
+          - text: Ahmedabad, Gujarat
+      - button "Find Jobs" [ref=e51] [cursor=pointer]:
+        - generic [ref=e52]: Find Jobs
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - heading "Technical support Engineer" [level=1] [ref=e61]
+            - generic [ref=e65]:
+              - link "Sprinto (opens in a new tab)" [ref=e69] [cursor=pointer]:
+                - /url: https://in.indeed.com/cmp/Sprinto-1?campaignid=mobvjcmp&from=mobviewjob&tk=1jrv4s6o9hmh8803&fromjk=56b4a28ee59c8d8a
+                - text: Sprinto
+                - img [ref=e70]
+              - generic [ref=e73]: Remote
+          - generic [ref=e74]:
+            - button "Apply with Indeed" [ref=e82] [cursor=pointer]:
+              - generic [ref=e84]: Apply with Indeed
+            - button "Save job" [ref=e88] [cursor=pointer]:
+              - img "save-icon" [ref=e89]
+            - button "Share Job" [ref=e91] [cursor=pointer]
+            - separator:
+              - generic [ref=e93]: "&nbsp;"
+        - generic [ref=e95]:
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - heading "Location" [level=2] [ref=e98]
+              - generic [ref=e99]:
+                - img [ref=e100]
+                - generic [ref=e103]: Remote
+              - separator [ref=e104]:
+                - generic [ref=e105]: "&nbsp;"
+            - generic [ref=e106]:
+              - heading "Benefits" [level=3] [ref=e107]
+              - paragraph [ref=e108]: Pulled from the full job description
+              - list [ref=e112]:
+                - listitem [ref=e113]: Health insurance
+              - separator [ref=e114]:
+                - generic [ref=e115]: "&nbsp;"
+            - heading "Full job description" [level=2] [ref=e117]
+            - generic [ref=e119]:
+              - generic [ref=e120]:
+                - text: Sprinto is an Autonomous Trust Platform that centralizes trust requirements across security frameworks, vendors, and customers.
+                - text: Sprinto autonomously executes tasks needed to maintain trust across compliance, audits, risk management, vendor risk, privacy, and AI governance, enabling organizations to maintain a strong, reliable trust posture without draining operational bandwidth and resources on repetitive tasks.
+                - text: Backed by top-tier investors such as Accel, Elevation, and Blume Ventures, we’ve raised $31.8M in funding to fuel our mission. Trusted by over 3,000 organizations across 75 countries, Sprinto helps organizations stay audit-ready, manage real-time risks, and scale fearlessly. With 300+ native integrations and AI-driven automation, Sprinto supports 200+ global security standards natively, including SOC 2, ISO 27001, GDPR, HIPAA, PCI-DSS, and more. Sprinto's extensible architecture enables organizations to build and support an infinite number of custom integrations and frameworks.
+                - text: Founded in 2020 by second-time founders Girish Redekar and Raghuveer Kancherla, Sprinto powers compliance for organizations like Whatfix, Encora, Anaconda, Whatnot, Ultrahuman, WeWork, Everstage, AI Foundation, HackerRank, and many more.
+              - generic [ref=e121]: "Your Mission:"
+              - generic [ref=e122]: Be the technical champion behind Sprinto’s exceptional customer experience. You’ll solve challenging technical issues, support seamless integrations and APIs, and directly impact customer success every day.
+              - heading "What does a typical day look like?" [level=3] [ref=e123]
+              - list [ref=e124]:
+                - listitem [ref=e125]: Provide fast, effective customer support across chat, email, Slack, and video (24x7).
+                - listitem [ref=e126]: Deliver clear, helpful solutions-troubleshooting integrations, APIs, and cloud infrastructure issues.
+                - listitem [ref=e127]: Proactively identify emerging trends, escalate crucial feedback, and improve documentation.
+                - listitem [ref=e128]: Stay on the cutting-edge of product developments and security compliance.
+                - listitem [ref=e129]: Swiftly recognise and manage critical outages, collaborating closely with engineering and leadership teams.
+              - heading "What would make you a good fit for this role?" [level=3] [ref=e130]
+              - list [ref=e131]:
+                - listitem [ref=e132]: 2-4 years of customer or technical support experience.
+                - listitem [ref=e133]: Skilled communicator (verbal and written) with proven technical troubleshooting abilities.
+                - listitem [ref=e134]: Hands-on experience with Cloud platforms, API integrations, and change management tools is preferred.
+                - listitem [ref=e135]: Calm under pressure, empathetic, patient, and customer-focused.
+                - listitem [ref=e136]: Familiarity with Freshdesk is a bonus.
+              - heading "Benefits at Sprinto" [level=3] [ref=e137]
+              - list [ref=e138]:
+                - listitem [ref=e139]: Remote First Policy
+                - listitem [ref=e140]: 5 Days Working With FLEXI Hours
+                - listitem [ref=e141]: Group Medical Insurance (Parents, Spouse, Children)
+                - listitem [ref=e142]: Group Accident Cover
+                - listitem [ref=e143]: Company Sponsored Device
+                - listitem [ref=e144]: New Skill Development Policy
+              - paragraph [ref=e145]: We may use artificial intelligence (AI) tools to support parts of the hiring process, such as reviewing applications, analyzing resumes, or assessing responses and identifying potential inconsistencies or verification signals in application materials based on available information. These tools assist our recruitment team but do not replace human judgment. Final hiring decisions are ultimately made by humans. If you would like more information about how your data is processed, please contact us.
+            - separator [ref=e146]:
+              - generic [ref=e147]: "&nbsp;"
+          - button "Report job" [ref=e154] [cursor=pointer]: Report job
+      - generic [ref=e157]:
+        - generic [ref=e158]:
+          - button "Company and salary information" [ref=e159] [cursor=pointer]:
+            - heading "Company and salary information" [level=3] [ref=e161]
+            - img [ref=e162]
+          - generic [ref=e164]:
+            - link [ref=e166] [cursor=pointer]:
+              - /url: /cmp/Sprinto-1/reviews
+              - text: Review for Sprinto
+            - link [ref=e168] [cursor=pointer]:
+              - /url: /cmp/Sprinto-1/reviews?fcountry=IN&floc=Remote
+              - text: Review for Sprinto, Remote
+            - link [ref=e170] [cursor=pointer]:
+              - /url: /cmp/Sprinto-1/reviews?fjobtitle=Technical+Support+Engineer&fcountry=IN
+              - text: Review for Technical Support Engineer at Sprinto
+            - link [ref=e172] [cursor=pointer]:
+              - /url: /cmp/Sprinto-1/reviews?fjobtitle=Technical+Support+Engineer&fcountry=IN&floc=Remote
+              - text: Review for Technical Support Engineer at Sprinto, Remote
+            - link [ref=e174] [cursor=pointer]:
+              - /url: /cmp/Sprinto-1/salaries
+              - text: Salaries for Sprinto
+            - link [ref=e176] [cursor=pointer]:
+              - /url: /cmp/Sprinto-1/salaries?location=Remote
+              - text: Salaries for Sprinto, Remote
+            - link [ref=e178] [cursor=pointer]:
+              - /url: /cmp/Sprinto-1/salaries/Technical+Support+Engineer
+              - text: Salaries for Technical Support Engineer at Sprinto
+            - link [ref=e180] [cursor=pointer]:
+              - /url: /cmp/Sprinto-1/salaries/Technical+Support+Engineer/Remote
+              - text: Salaries for Technical Support Engineer at Sprinto, Remote
+            - link [ref=e182] [cursor=pointer]:
+              - /url: /career/technical-support-engineer/salaries
+              - text: Salaries for Technical Support Engineer
+            - link [ref=e184] [cursor=pointer]:
+              - /url: /career/technical-support-engineer/salaries/Remote
+              - text: Salaries for Technical Support Engineer, Remote
+        - generic [ref=e185]:
+          - button "Jobs with similar titles" [ref=e186] [cursor=pointer]:
+            - heading "Jobs with similar titles" [level=3] [ref=e188]
+            - img [ref=e189]
+          - generic [ref=e191]:
+            - link [ref=e193] [cursor=pointer]:
+              - /url: /q-application-support-engineer-l-remote-jobs.html
+              - text: Application Support Engineer jobs
+            - link [ref=e195] [cursor=pointer]:
+              - /url: /q-desktop-support-engineer-l-remote-jobs.html
+              - text: Desktop Support Engineer jobs
+            - link [ref=e197] [cursor=pointer]:
+              - /url: /q-information-technology-l-remote-jobs.html
+              - text: Information Technology jobs
+            - link [ref=e199] [cursor=pointer]:
+              - /url: /q-support-engineer-l-remote-jobs.html
+              - text: Support Engineer jobs
+            - link [ref=e201] [cursor=pointer]:
+              - /url: /q-tech-support-analyst-l-remote-jobs.html
+              - text: Tech Support Analyst jobs
+            - link [ref=e203] [cursor=pointer]:
+              - /url: /q-technical-support-executive-l-remote-jobs.html
+              - text: Technical Support Executive jobs
+        - generic [ref=e204]:
+          - button "Similar job categories" [ref=e205] [cursor=pointer]:
+            - heading "Similar job categories" [level=3] [ref=e207]
+            - img [ref=e208]
+          - generic [ref=e210]:
+            - link [ref=e212] [cursor=pointer]:
+              - /url: /explorer/high-paying-civil-engineering-jobs-vadodara,-gj
+              - text: High-paying Civil Engineering Jobs In Vadodara, GJ jobs
+            - link [ref=e214] [cursor=pointer]:
+              - /url: /explorer/high-paying-engineering-jobs-indore,-mp
+              - text: High-paying Engineering Jobs In Indore, MP jobs
+        - generic [ref=e215]:
+          - button "Career Guide articles" [ref=e216] [cursor=pointer]:
+            - heading "Career Guide articles" [level=3] [ref=e218]
+            - img [ref=e219]
+          - generic [ref=e221]:
+            - link [ref=e223] [cursor=pointer]:
+              - /url: /career-advice/career-development/qualities-of-good-manager?from=viewjob
+              - text: 14 Qualities Of A Good Manager (And Why They Are Important)
+            - link [ref=e225] [cursor=pointer]:
+              - /url: /career-advice/finding-a-job/data-analyst-role?from=viewjob
+              - text: "Data Analyst Role: Requirements, Duties And Skills"
+            - link [ref=e227] [cursor=pointer]:
+              - /url: /career-advice/finding-a-job/how-to-become-optometrist?from=viewjob
+              - text: How To Become An Optometrist (With Salary And Skills)
+            - link [ref=e229] [cursor=pointer]:
+              - /url: /career-advice/career-development/insert-line-in-word?from=viewjob
+              - text: How To Insert A Line In Word (With Methods And Tips)
+            - link [ref=e231] [cursor=pointer]:
+              - /url: /career-advice/resumes-cover-letters/cashier-resignation-letter?from=viewjob
+              - text: How To Write A Cashier Resignation Letter In 7 Steps
+            - link [ref=e233] [cursor=pointer]:
+              - /url: /career-advice/resumes-cover-letters/how-to-write-hospitality-resume?from=viewjob
+              - text: How To Write A Hospitality Resume (With Steps And Examples)
+            - link [ref=e235] [cursor=pointer]:
+              - /url: /career-advice/resumes-cover-letters/java-backend-developer-resume?from=viewjob
+              - text: How To Write A Java Backend Developer Resume (With Example & Template)
+            - link [ref=e237] [cursor=pointer]:
+              - /url: /career-advice/resumes-cover-letters/hr-business-partner-resume?from=viewjob
+              - text: How To Write An HR Business Partner Resume (With Example)
+            - link [ref=e239] [cursor=pointer]:
+              - /url: /career-advice/starting-new-job/resignation-letter-from-society-treasurer-position?from=viewjob
+              - text: Resignation Letter From A Society Treasurer Position
+            - link [ref=e241] [cursor=pointer]:
+              - /url: /career-advice/resumes-cover-letters/associate-product-manager-resume?from=viewjob
+              - text: Writing An Associate Product Manager Resume (With Template)
+  - contentinfo [ref=e246]:
+    - generic [ref=e247]:
+      - list [ref=e248]:
+        - listitem [ref=e249]:
+          - link "Career advice" [ref=e251] [cursor=pointer]:
+            - /url: https://in.indeed.com/career-advice
+        - listitem [ref=e252]:
+          - link "Browse jobs" [ref=e254] [cursor=pointer]:
+            - /url: https://in.indeed.com/browsejobs
+        - listitem [ref=e255]:
+          - link "Browse companies" [ref=e257] [cursor=pointer]:
+            - /url: https://in.indeed.com/companies/browse-companies
+        - listitem [ref=e258]:
+          - link "Salaries" [ref=e260] [cursor=pointer]:
+            - /url: https://in.indeed.com/career/salaries
+        - listitem [ref=e261]:
+          - link "Indeed Events" [ref=e263] [cursor=pointer]:
+            - /url: https://www.indeedevents.com/en-in/
+        - listitem [ref=e264]:
+          - link "Work at Indeed" [ref=e266] [cursor=pointer]:
+            - /url: https://in.indeed.com/cmp/Indeed/about
+        - listitem [ref=e267]:
+          - link "Countries" [ref=e269] [cursor=pointer]:
+            - /url: https://in.indeed.com/worldwide
+        - listitem [ref=e270]:
+          - link "About" [ref=e272] [cursor=pointer]:
+            - /url: https://in.indeed.com/about
+        - listitem [ref=e273]:
+          - link "Help" [ref=e275] [cursor=pointer]:
+            - /url: https://in.indeed.com/help/job-seekers?hl=en&co=in
+        - listitem [ref=e276]:
+          - link "ESG at Indeed" [ref=e278] [cursor=pointer]:
+            - /url: https://in.indeed.com/esg?from=gnav-viewjob
+        - listitem [ref=e279]:
+          - link "Guidelines for safe job search" [ref=e281] [cursor=pointer]:
+            - /url: https://support.indeed.com/hc/en-in/articles/216354123-Guidelines-for-Safe-Job-Search
+      - list [ref=e282]:
+        - listitem [ref=e283]: © 2026 Indeed
+        - listitem [ref=e284]:
+          - link "Accessibility at Indeed" [ref=e286] [cursor=pointer]:
+            - /url: https://in.indeed.com/esg/accessibility?hl=en
+        - listitem [ref=e287]:
+          - link "Privacy Centre and Ad Choices" [ref=e289] [cursor=pointer]:
+            - /url: https://hrtechprivacy.com/brands/indeed#privacypolicy
+        - listitem [ref=e290]:
+          - link "Terms" [ref=e292] [cursor=pointer]:
+            - /url: https://in.indeed.com/legal?hl=en
+      - list:
+        - listitem

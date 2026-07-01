@@ -1,0 +1,45 @@
+- generic [active] [ref=e1]:
+  - navigation "Primary" [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - button "Skip to main content" [ref=e7] [cursor=pointer]:
+            - generic [ref=e8]: Skip to main content
+          - link "Indeed Home" [ref=e9] [cursor=pointer]:
+            - /url: /?from=gnav-indapply-SmartApply
+            - img [ref=e11]
+        - generic [ref=e13]:
+          - list [ref=e14]:
+            - listitem [ref=e15]:
+              - link "My jobs" [ref=e17] [cursor=pointer]:
+                - /url: https://myjobs.indeed.com?from=gnav-util-indapply-SmartApply&gnavTK=1jrsgfmjmhc4n801&tk=1jrsgfck6hb9t801&co=IN&hl=en
+                - img [ref=e18]
+            - listitem [ref=e20]:
+              - link "Messages Unread count 0" [ref=e22] [cursor=pointer]:
+                - /url: https://messages.indeed.com?from=gnav-util-indapply-SmartApply&gnavTK=1jrsgfmjmhc4n801&tk=1jrsgfck6hb9t801&co=IN&hl=en
+                - img [ref=e23]
+                - generic [ref=e28]: Messages Unread count 0
+            - listitem [ref=e29]:
+              - link "Notifications Unread count 0" [ref=e31] [cursor=pointer]:
+                - /url: https://in.indeed.com/notifications?from=gnav-util-indapply-SmartApply&gnavTK=1jrsgfmjmhc4n801&tk=1jrsgfck6hb9t801&hl=en
+                - img [ref=e32]
+            - listitem
+          - button "Primary navigation" [ref=e37] [cursor=pointer]:
+            - generic [ref=e38]:
+              - img [ref=e39]
+              - generic [ref=e41]:
+                - text: "1"
+                - generic [ref=e42]: new update
+      - generic [ref=e43]: Start of main content
+  - generic [ref=e427]:
+    - main [ref=e428]:
+      - img "Loading" [ref=e434]
+    - contentinfo [ref=e438]:
+      - generic [ref=e439]:
+        - text: This site is protected by reCAPTCHA and the Google
+        - link "Privacy Policy" [ref=e440] [cursor=pointer]:
+          - /url: https://policies.google.com/privacy
+        - text: and
+        - link "Terms of Service" [ref=e441] [cursor=pointer]:
+          - /url: https://policies.google.com/terms
+        - text: apply.

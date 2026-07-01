@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--user-data-dir", "/home/virus/.config/hermes-browser"
+      ],
+      "env": {}
+    },
+    "gatesolve": {
+      "command": "npx",
+      "args": ["-y", "@gatesolve/mcp@latest"],
+      "env": {
+        "GATESOLVE_API_KEY": "${GATESOLVE_API_KEY}"
+      }
+    }
+  }
+}

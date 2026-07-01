@@ -1,0 +1,49 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: .
+    - generic [ref=e4]: ..
+    - generic [ref=e5]: .
+  - generic [ref=e6]:
+    - link "Skip to main content." [ref=e244] [cursor=pointer]:
+      - /url: "#main"
+    - generic:
+      - alert
+    - generic [ref=e246]:
+      - banner [ref=e248]:
+        - generic [ref=e250]:
+          - link "Back to Job Details" [ref=e251] [cursor=pointer]:
+            - generic [ref=e252]: 
+          - generic [ref=e254]:
+            - generic [ref=e255]: Senior Automation QA Engineer
+            - generic [ref=e256]: ...
+      - main "Job application form" [ref=e258]:
+        - heading "Job application form" [level=1] [ref=e259]
+        - generic [ref=e261]:
+          - heading "Authentication screen. You don't need to have an account" [level=1] [ref=e263]:
+            - generic: Authentication screen.
+            - text: You don't need to have an account
+          - generic [ref=e264]:
+            - paragraph [ref=e265]: Get started right away by simply using your email. Your profile will be created and kept up to date automatically as you enter details for each of your job applications.
+            - generic [ref=e267]:
+              - generic [ref=e268]:
+                - generic "Email Address" [ref=e270]:
+                  - generic [ref=e271]: Email Address
+                  - generic [ref=e272]: "*"
+                - textbox "Email Address" [ref=e274]: saralbanker1@gmail.com
+              - generic:
+                - generic [ref=e276]: honeypot
+                - textbox [ref=e278]
+              - generic [ref=e279]: This is how we'll communicate with you.
+              - generic [ref=e281]:
+                - checkbox "I agree with my personal data being processed in line with the privacy notice" [checked] [active]
+                - generic [ref=e284] [cursor=pointer]:
+                  - generic [ref=e286]:
+                    - text: I agree with my personal data being processed in line with the
+                    - link "privacy notice" [ref=e287]:
+                      - /url: "#"
+                  - generic [ref=e288]: "*"
+          - generic [ref=e289]:
+            - button "Cancel" [ref=e290] [cursor=pointer]:
+              - generic [ref=e292]: Cancel
+            - button "Next" [ref=e293] [cursor=pointer]:
+              - generic [ref=e294]: Next

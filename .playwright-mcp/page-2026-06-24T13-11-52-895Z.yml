@@ -1,0 +1,254 @@
+- generic [active] [ref=e1]:
+  - navigation "Primary" [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - button "Skip to main content" [ref=e8] [cursor=pointer]:
+            - generic [ref=e9]: Skip to main content
+          - link "Indeed Home" [ref=e10] [cursor=pointer]:
+            - /url: /?from=gnav-viewjob
+            - img [ref=e12]
+        - generic [ref=e14]:
+          - list [ref=e15]:
+            - listitem [ref=e16]:
+              - link "My jobs" [ref=e18] [cursor=pointer]:
+                - /url: https://myjobs.indeed.com?from=gnav-util-viewjob&gnavTK=1jrss4af0hc36801&tk=1jrss4aeuhn1p800&co=IN&hl=en
+                - img [ref=e19]
+            - listitem [ref=e21]:
+              - link "Messages Unread count 0" [ref=e23] [cursor=pointer]:
+                - /url: https://messages.indeed.com?from=gnav-util-viewjob&gnavTK=1jrss4af0hc36801&tk=1jrss4aeuhn1p800&co=IN&hl=en
+                - img [ref=e24]
+                - generic [ref=e29]:
+                  - text: Messages Unread count 0
+                  - generic [ref=e30]: .
+            - listitem [ref=e31]:
+              - link "Notifications Unread count 0" [ref=e33] [cursor=pointer]:
+                - /url: https://in.indeed.com/notifications?from=gnav-util-viewjob&gnavTK=1jrss4af0hc36801&tk=1jrss4aeuhn1p800&hl=en
+                - img [ref=e34]
+            - listitem
+          - button "Primary navigation" [ref=e39] [cursor=pointer]:
+            - generic [ref=e40]:
+              - img [ref=e41]
+              - generic [ref=e43]:
+                - text: "1"
+                - generic [ref=e44]: new update
+      - generic [ref=e45]: Start of main content
+  - main [ref=e48]:
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - generic [ref=e54]:
+            - heading "React Full Stack - Immediate Joiner" [level=1] [ref=e56]
+            - generic [ref=e60]:
+              - generic [ref=e62]: Quantum Veda
+              - generic [ref=e64]: Remote
+          - generic [ref=e68]: ₹3,79,084.28 - ₹16,29,537.48 a year
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - generic [ref=e77]:
+              - generic [ref=e78]:
+                - generic [ref=e79]:
+                  - heading "Job details" [level=2] [ref=e80]
+                  - generic [ref=e81]:
+                    - text: Here’s how the job details align with your
+                    - link "job preferences (opens in a new window)" [ref=e82] [cursor=pointer]:
+                      - /url: https://profile.indeed.com/
+                      - text: profile
+                      - img [ref=e83]
+                    - text: .
+                - generic [ref=e85]:
+                  - group "Pay" [ref=e86]:
+                    - img [ref=e87]
+                    - generic [ref=e89]:
+                      - heading "Pay" [level=3] [ref=e90]
+                      - list [ref=e92]:
+                        - listitem [ref=e93]:
+                          - button "Pay ₹3,79,084.28 - ₹16,29,537.48 a year matching preference" [ref=e94]:
+                            - generic [ref=e97]:
+                              - img [ref=e98]
+                              - generic [ref=e100]: ₹3,79,084.28 - ₹16,29,537.48 a year
+                              - img "matching preference" [ref=e101]
+                  - group "Job type" [ref=e103]:
+                    - img [ref=e104]
+                    - generic [ref=e107]:
+                      - heading "Job type" [level=3] [ref=e108]
+                      - list [ref=e110]:
+                        - listitem [ref=e111]:
+                          - button "Job type Full-time matching preference" [ref=e112]:
+                            - generic [ref=e115]:
+                              - img [ref=e116]
+                              - generic [ref=e118]: Full-time
+                              - img "matching preference" [ref=e119]
+              - separator [ref=e121]:
+                - generic [ref=e122]: "&nbsp;"
+            - generic [ref=e123]:
+              - heading "Location" [level=2] [ref=e124]
+              - generic [ref=e125]:
+                - img [ref=e126]
+                - generic [ref=e129]: Remote
+              - separator [ref=e130]:
+                - generic [ref=e131]: "&nbsp;"
+            - generic [ref=e132]:
+              - heading "Benefits" [level=3] [ref=e133]
+              - paragraph [ref=e134]: Pulled from the full job description
+              - list [ref=e138]:
+                - listitem [ref=e139]: Flexible schedule
+              - separator [ref=e140]:
+                - generic [ref=e141]: "&nbsp;"
+            - heading "Full job description" [level=2] [ref=e143]
+            - generic [ref=e144]:
+              - paragraph [ref=e145]: "Job Description: React Full Stack DeveloperQuantumVeda – Education & Spiritual Tech Division POSITION OVERVIEWParameterDetailsJob TitleReact Full Stack DeveloperDepartmentEducation Technology & Spiritual TechnologyLocationMumbai (Remote/Hybrid Options Available)Employment TypeFull-TimeExperience3–8 YearsReporting ToHead of AI & Product Development ROLE SUMMARY"
+              - paragraph [ref=e146]: QuantumVeda is seeking a passionate and innovative React Full Stack Developer to lead the development of transformative web applications across our Education Tech and Spiritual Tech domains. You will be at the forefront of building platforms that revolutionize how millions of students prepare for competitive examinations (NEET, JEE, UPSC) and how spiritual seekers engage with meditation, wellness, and ancient wisdom through technology.
+              - paragraph [ref=e147]: The role involves building production-ready web applications, AI-powered learning platforms, intelligent tutoring systems, and immersive spiritual experiences. You will take end-to-end ownership of both front-end and back-end systems, driving high-quality development and delivering technical solutions across the entire product lifecycle.
+              - paragraph [ref=e148]: KEY RESPONSIBILITIES1. Front-End Development (React Ecosystem)
+              - list [ref=e149]:
+                - listitem [ref=e150]: "Build User-Facing Interfaces: Develop responsive, high-performance web interfaces using React and TypeScript with clean, reusable components, state management (Zustand/Redux), forms/validation, and responsive UI"
+                - listitem [ref=e151]: "Modern Framework Implementation: Set up and maintain modern frameworks (Next.js or Vite) with proper routing, server-side rendering, and optimal performance"
+                - listitem [ref=e152]: "AI Avatar Integration: Build interfaces for lifelike AI avatars that serve as virtual teachers, meditation guides, and spiritual mentors with real-time interaction capabilities"
+                - listitem [ref=e153]: "Interactive Learning Experiences: Develop interactive video players with quizzes, clickable annotations, and adaptive difficulty adjustments"
+                - listitem [ref=e154]: "Performance Optimization: Ensure fast load times, smooth animations, and optimal Core Web Vitals across all devices"
+              - paragraph [ref=e155]: 2. Back-End Development (Node.js Ecosystem)
+              - list [ref=e156]:
+                - listitem [ref=e157]: "API Development: Design and implement RESTful APIs and microservices with Node.js, Express.js, and FastAPI, focusing on performance, security, and fault tolerance"
+                - listitem [ref=e158]: "Database Architecture: Model data in PostgreSQL, implement caching with Redis, write efficient SQL, and maintain migrations and seed scripts"
+                - listitem [ref=e159]: "AI Integration: Integrate with LLM APIs (OpenAI, Anthropic/Claude, Gemini, LLaMA) for content generation, tutoring, and personalized recommendations"
+                - listitem [ref=e160]: "Authentication & Security: Implement JWT/OAuth authentication, RBAC/permissions, input validation, rate limiting, and security hardening"
+              - paragraph [ref=e161]: 3. Educational Technology Platforms
+              - list [ref=e162]:
+                - listitem [ref=e163]: "Intelligent Tutoring Systems: Build AI-powered tutors that provide real-time feedback, personalized hints, and adaptive learning paths for competitive exam preparation"
+                - listitem [ref=e164]: "Question Bank Management: Develop systems for comprehensive, structured question banks for NEET, JEE, UPSC using AI-driven content authoring tools"
+                - listitem [ref=e165]: "Automated Exam Content Generation: Build algorithms that dynamically generate mock tests, practice papers, and personalized question sets based on student performance"
+                - listitem [ref=e166]: "Learning Analytics: Implement machine learning models to analyze student performance data and predict outcomes for early intervention"
+              - paragraph [ref=e167]: 4. Spiritual Technology Platforms
+              - list [ref=e168]:
+                - listitem [ref=e169]: "Meditation & Wellness Applications: Build platforms for guided meditation, breathing exercises, and spiritual discourse delivery"
+                - listitem [ref=e170]: "Vedic Wisdom Digitization: Create interfaces for digitized, translated, and interpreted ancient texts with NLP-powered search"
+                - listitem [ref=e171]: "Personalized Spiritual Journeys: Build recommendation engines for customized spiritual learning paths based on user profiles and progress"
+                - listitem [ref=e172]: "AI-Generated Spiritual Content: Develop systems for daily affirmations, meditation scripts, and inspirational messages"
+              - paragraph [ref=e173]: 5. AI-Powered Content Generation
+              - list [ref=e174]:
+                - listitem [ref=e175]: "Automated Video Creation: Build systems that transform text-based content into engaging, narrated whiteboard-style videos"
+                - listitem [ref=e176]: "Smart Question Generation: Implement LLMs and NLP models for automatic question generation from topics, textbooks, or syllabus documents"
+                - listitem [ref=e177]: "Multilingual Content: Create educational content systems in multiple Indian languages for inclusive learning"
+                - listitem [ref=e178]: "RAG Pipeline Implementation: Build Retrieval-Augmented Generation pipelines for accurate and contextual content retrieval from knowledge bases"
+              - paragraph [ref=e179]: 6. Platform, Scale & Delivery
+              - list [ref=e180]:
+                - listitem [ref=e181]: "CI/CD & DevOps: Implement CI/CD pipelines (GitHub Actions, GitLab CI) with automated testing, monitoring, and observability"
+                - listitem [ref=e182]: "Cloud Infrastructure: Deploy scalable applications on AWS, Azure, or GCP with containerization (Docker)"
+                - listitem [ref=e183]: "Testing & Quality Assurance: Write unit/integration/E2E tests (Jest, React Testing Library, Playwright) and maintain code quality standards"
+                - listitem [ref=e184]: "Production Support: Diagnose and resolve production issues, optimize database queries, and implement observability (logging, metrics, alerts)"
+              - paragraph [ref=e185]: TECHNICAL SKILLS & QUALIFICATIONSEssential QualificationsCategoryRequirementsEducationBachelor's or master's degree in Computer Science, Software Engineering, or related fieldExperience3–8 years of experience in full stack developmentFront-EndReact, Next.js, TypeScript, JavaScript (ES6+), HTML5, CSS3, Tailwind CSSState ManagementRedux, Zustand, or Context APIBack-EndNode.js, Express.js, Python (FastAPI/Django)DatabasesPostgreSQL, MongoDB, Redis, SQL/NoSQLAPI DevelopmentRESTful APIs, GraphQL, Webhooks, API integrationTestingJest, React Testing Library, Playwright, pytestCI/CDGitHub Actions, GitLab CI, JenkinsCloudAWS, Azure, or GCP; Docker, KubernetesVersion ControlGit, GitHub/GitLabPreferred QualificationsCategoryPreferencesEdTech ExperienceExperience in developing AI solutions for education or e-learning platformsAI/ML IntegrationExperience with LLM APIs, RAG pipelines, and AI-powered featuresVideo/Avatar TechKnowledge of AI video generation, avatar creation, and speech synthesis toolsSpiritual/Wellness DomainFamiliarity with meditation, wellness, or spiritual content creationCompetitive ExamsUnderstanding of NEET, JEE, UPSC examination patternsMultilingualExperience with multilingual NLP and Indian languagesPortfolioShipped web applications and/or AI-enabled apps showing end-to-end ownership SOFT SKILLS & COMPETENCIES
+              - list [ref=e186]:
+                - listitem [ref=e187]: "Innovative Mindset: Ability to think creatively and propose novel web solutions for educational and spiritual challenges"
+                - listitem [ref=e188]: "Problem-Solving: Strong analytical and problem-solving skills to tackle complex technical challenges"
+                - listitem [ref=e189]: "Collaboration: Proven ability to work in cross-functional teams and mentor junior engineers"
+                - listitem [ref=e190]: "Communication: Excellent verbal and written communication skills to explain complex technical concepts to diverse audiences"
+                - listitem [ref=e191]: "Ownership: Self-motivated with the ability to take end-to-end ownership of features and products"
+                - listitem [ref=e192]: "Adaptability: Willingness to learn and adapt to new technologies and domains"
+                - listitem [ref=e193]: "Ethical Tech: Commitment to responsible AI principles, accessibility, and user privacy"
+              - paragraph [ref=e194]: WHAT WE OFFERBenefitDetailsCompetitive SalaryMarket-aligned compensation packageGrowth OpportunitiesCareer development and leadership tracksInnovative EnvironmentWork on cutting-edge AI and web technologiesFlexible WorkHybrid/remote work options with flexible hoursLearning & DevelopmentAccess to courses, conferences, and workshopsMeaningful ImpactContribute to education and spiritual well-being of millionsShare OptionsA stake in the success of the company ABOUT QUANTUMVEDA
+              - paragraph [ref=e195]: "QuantumVeda is a pioneering organization operating in two transformative domains:"
+              - paragraph [ref=e196]: Education Tech
+              - list [ref=e197]:
+                - listitem [ref=e198]: AI-powered preparation for competitive examinations (NEET, JEE, UPSC)
+                - listitem [ref=e199]: Personalized learning platforms and intelligent tutoring systems
+                - listitem [ref=e200]: Automated content generation and video creation for all subjects
+                - listitem [ref=e201]: Smart question banks and adaptive testing systems
+              - paragraph [ref=e202]: Spiritual Tech
+              - list [ref=e203]:
+                - listitem [ref=e204]: AI-driven meditation and wellness tools
+                - listitem [ref=e205]: Digital transformation of ancient wisdom and spiritual practices
+                - listitem [ref=e206]: Personalized spiritual guidance through AI avatars
+                - listitem [ref=e207]: Vedic wisdom digitization and translation
+              - paragraph [ref=e208]: QuantumVeda – Where Quantum Science Meets Vedic Wisdom
+              - paragraph [ref=e209]: HOW TO APPLY
+              - paragraph [ref=e210]: "Interested candidates can send their resume and a brief cover letter to:"
+              - list [ref=e211]:
+                - listitem [ref=e212]: "Email: careers@quantumveda.com"
+                - listitem [ref=e213]: "Subject Line: \"Application for React Full Stack Developer – [Your Name]\""
+                - listitem [ref=e214]: "Attach: Resume, Portfolio (GitHub/Projects), and links to deployed applications"
+              - paragraph [ref=e215]: QuantumVeda – Empowering Minds, Nurturing Souls
+              - paragraph [ref=e216]: QuantumVeda – Where Quantum Science Meets Vedic Wisdom
+              - paragraph [ref=e217]: "Pay: ₹379,084.28 - ₹1,629,537.48 per year"
+              - paragraph [ref=e218]: "Work Location: Remote"
+            - separator [ref=e219]:
+              - generic [ref=e220]: "&nbsp;"
+          - generic [ref=e221]:
+            - button "Report job" [ref=e227] [cursor=pointer]: Report job
+            - generic [ref=e230]:
+              - generic [ref=e235]:
+                - generic:
+                  - generic:
+                    - button "Apply with Indeed" [disabled]:
+                      - generic:
+                        - generic:
+                          - img "loading"
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - button [disabled]:
+                        - img
+                        - generic: Applied
+              - button "Share Job" [ref=e236] [cursor=pointer]
+              - separator:
+                - generic [ref=e238]: "&nbsp;"
+      - generic [ref=e239]:
+        - separator [ref=e240]:
+          - generic [ref=e241]: "&nbsp;"
+        - generic [ref=e244]:
+          - link "Full Stack Developer jobs in Remote" [ref=e246] [cursor=pointer]:
+            - /url: /q-full-stack-developer-l-remote-jobs.html
+          - link "Jobs at Quantum Veda in Remote" [ref=e248] [cursor=pointer]:
+            - /url: /q-quantum-veda-l-remote-jobs.html
+          - link "Full Stack Developer salaries in Remote" [ref=e250] [cursor=pointer]:
+            - /url: /salary?from=vj&q1=Full+Stack+Developer&l1=Remote
+  - contentinfo [ref=e255]:
+    - generic [ref=e256]:
+      - list [ref=e257]:
+        - listitem [ref=e258]:
+          - link "Career advice" [ref=e260] [cursor=pointer]:
+            - /url: https://in.indeed.com/career-advice
+        - listitem [ref=e261]:
+          - link "Browse jobs" [ref=e263] [cursor=pointer]:
+            - /url: https://in.indeed.com/browsejobs
+        - listitem [ref=e264]:
+          - link "Browse companies" [ref=e266] [cursor=pointer]:
+            - /url: https://in.indeed.com/companies/browse-companies
+        - listitem [ref=e267]:
+          - link "Salaries" [ref=e269] [cursor=pointer]:
+            - /url: https://in.indeed.com/career/salaries
+        - listitem [ref=e270]:
+          - link "Indeed Events" [ref=e272] [cursor=pointer]:
+            - /url: https://www.indeedevents.com/en-in/
+        - listitem [ref=e273]:
+          - link "Work at Indeed" [ref=e275] [cursor=pointer]:
+            - /url: https://in.indeed.com/cmp/Indeed/about
+        - listitem [ref=e276]:
+          - link "Countries" [ref=e278] [cursor=pointer]:
+            - /url: https://in.indeed.com/worldwide
+        - listitem [ref=e279]:
+          - link "About" [ref=e281] [cursor=pointer]:
+            - /url: https://in.indeed.com/about
+        - listitem [ref=e282]:
+          - link "Help" [ref=e284] [cursor=pointer]:
+            - /url: https://in.indeed.com/help/job-seekers?hl=en&co=in
+        - listitem [ref=e285]:
+          - link "ESG at Indeed" [ref=e287] [cursor=pointer]:
+            - /url: https://in.indeed.com/esg?from=gnav-viewjob
+        - listitem [ref=e288]:
+          - link "Guidelines for safe job search" [ref=e290] [cursor=pointer]:
+            - /url: https://support.indeed.com/hc/en-in/articles/216354123-Guidelines-for-Safe-Job-Search
+      - list [ref=e291]:
+        - listitem [ref=e292]: © 2026 Indeed
+        - listitem [ref=e293]:
+          - link "Accessibility at Indeed" [ref=e295] [cursor=pointer]:
+            - /url: https://in.indeed.com/esg/accessibility?hl=en
+        - listitem [ref=e296]:
+          - link "Privacy Centre and Ad Choices" [ref=e298] [cursor=pointer]:
+            - /url: https://hrtechprivacy.com/brands/indeed#privacypolicy
+        - listitem [ref=e299]:
+          - link "Terms" [ref=e301] [cursor=pointer]:
+            - /url: https://in.indeed.com/legal?hl=en
+      - list:
+        - listitem

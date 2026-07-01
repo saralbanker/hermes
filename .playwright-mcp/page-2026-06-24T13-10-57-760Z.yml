@@ -1,0 +1,136 @@
+- generic [active] [ref=e1]:
+  - navigation "Primary" [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - button "Skip to main content" [ref=e7] [cursor=pointer]:
+            - generic [ref=e8]: Skip to main content
+          - link "Indeed Home" [ref=e9] [cursor=pointer]:
+            - /url: /?from=gnav-indapply-SmartApply
+            - img [ref=e11]
+        - generic [ref=e13]:
+          - list [ref=e14]:
+            - listitem [ref=e15]:
+              - link "My jobs" [ref=e17] [cursor=pointer]:
+                - /url: https://myjobs.indeed.com?from=gnav-util-indapply-SmartApply&gnavTK=1jrsruii5hbnr800&tk=1jrsrua0ghb9t800&co=IN&hl=en
+                - img [ref=e18]
+            - listitem [ref=e20]:
+              - link "Messages Unread count 0" [ref=e22] [cursor=pointer]:
+                - /url: https://messages.indeed.com?from=gnav-util-indapply-SmartApply&gnavTK=1jrsruii5hbnr800&tk=1jrsrua0ghb9t800&co=IN&hl=en
+                - img [ref=e23]
+                - generic [ref=e28]: Messages Unread count 0
+            - listitem [ref=e29]:
+              - link "Notifications Unread count 1" [ref=e31] [cursor=pointer]:
+                - /url: https://in.indeed.com/notifications?from=gnav-util-indapply-SmartApply&gnavTK=1jrsruii5hbnr800&tk=1jrsrua0ghb9t800&hl=en
+                - img [ref=e32]
+                - generic [ref=e34]: "1"
+            - listitem
+          - button "Primary navigation" [ref=e38] [cursor=pointer]:
+            - generic [ref=e39]:
+              - img [ref=e40]
+              - generic [ref=e42]:
+                - text: "1"
+                - generic [ref=e43]: new update
+      - generic [ref=e44]: Start of main content
+  - generic [ref=e50]:
+    - complementary "Staff Software Engineer, Security Product (Full-Stack)" [ref=e52]:
+      - generic [ref=e55]:
+        - heading "Staff Software Engineer, Security Product (Full-Stack)" [level=1] [ref=e56]
+        - generic [ref=e57]: CommandLink - Remote
+        - button "See more details" [ref=e58] [cursor=pointer]
+    - generic [ref=e59]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - button "Go back" [ref=e146] [cursor=pointer]:
+            - img [ref=e147]
+          - button "Save and close" [ref=e66] [cursor=pointer]:
+            - generic [ref=e67]: Save and close
+        - generic [ref=e68]:
+          - progressbar "Progress" [ref=e69]
+          - generic [ref=e71]: 56%
+      - generic [ref=e226]:
+        - main [ref=e227]:
+          - generic [ref=e633]:
+            - heading "Answer these questions from the employer" [level=1] [ref=e635]
+            - generic [ref=e636]:
+              - text: These questions are from the employer. If a question seems inappropriate, you can
+              - button "report the job" [ref=e637] [cursor=pointer]
+              - text: .
+            - generic [ref=e638]:
+              - text: Fields marked with
+              - generic [ref=e639]: an asterisk
+              - text: (*) are required.
+            - generic [ref=e641]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: When are you available to start or what is your notice period?
+                    - text: "*"
+              - generic [ref=e646]:
+                - generic:
+                  - radio "As soon as possible" [checked] [disabled]
+                  - generic:
+                    - generic: As soon as possible
+                - generic:
+                  - radio "1-2 weeks" [disabled]
+                  - generic:
+                    - generic: 1-2 weeks
+                - generic:
+                  - radio "3-4 weeks" [disabled]
+                  - generic:
+                    - generic: 3-4 weeks
+                - generic:
+                  - radio "6+ weeks" [disabled]
+                  - generic:
+                    - generic: 6+ weeks
+            - generic [ref=e664]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: Where did you hear about this position?
+                    - text: "*"
+              - generic [ref=e670]:
+                - combobox "Where did you hear about this position?":
+                  - generic: Indeed
+                  - generic:
+                    - img
+            - generic [ref=e677]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: Were you referred by anyone?
+              - generic [ref=e682]:
+                - generic:
+                  - radio "Yes" [disabled]
+                  - generic:
+                    - generic: "Yes"
+                - generic:
+                  - radio "No" [checked] [disabled]
+                  - generic:
+                    - generic: "No"
+              - button "Clear your answer" [disabled]:
+                - generic: Clear your answer
+            - generic [ref=e692]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: Is there anything else you would like us to know when considering your application?
+              - generic:
+                - textbox "Is there anything else you would like us to know when considering your application?" [disabled]: I'm drawn to high-ownership engineering roles where I can architect and ship complete systems end-to-end. I independently designed and built Neuro-Zenith — a 70k+ LOC production AI platform spanning RAG pipelines, real-time collaboration, async job processing, and multi-provider LLM routing. I've also delivered a production financial system as a paid contract engagement. I thrive with autonomy and hard problems.
+            - button "Loading..." [disabled]:
+              - generic:
+                - img "Loading..."
+              - generic: Continue
+        - generic [ref=e353]:
+          - button "Report an issue" [ref=e356] [cursor=pointer]:
+            - img [ref=e357]
+            - text: Report an issue
+          - contentinfo [ref=e359]:
+            - generic [ref=e360]:
+              - text: This site is protected by reCAPTCHA and the Google
+              - link "Privacy Policy" [ref=e361] [cursor=pointer]:
+                - /url: https://policies.google.com/privacy
+              - text: and
+              - link "Terms of Service" [ref=e362] [cursor=pointer]:
+                - /url: https://policies.google.com/terms
+              - text: apply.

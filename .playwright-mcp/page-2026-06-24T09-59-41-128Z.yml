@@ -1,0 +1,156 @@
+- generic [active] [ref=e1]:
+  - navigation "Primary" [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - button "Skip to main content" [ref=e7] [cursor=pointer]:
+            - generic [ref=e8]: Skip to main content
+          - link "Indeed Home" [ref=e9] [cursor=pointer]:
+            - /url: /?from=gnav-indapply-SmartApply
+            - img [ref=e11]
+        - generic [ref=e13]:
+          - list [ref=e14]:
+            - listitem [ref=e15]:
+              - link "My jobs" [ref=e17] [cursor=pointer]:
+                - /url: https://myjobs.indeed.com?from=gnav-util-indapply-SmartApply&gnavTK=1jrsh186nhbnr801&tk=1jrsh03gohbcm801&co=IN&hl=en
+                - img [ref=e18]
+            - listitem [ref=e20]:
+              - link "Messages Unread count 0" [ref=e22] [cursor=pointer]:
+                - /url: https://messages.indeed.com?from=gnav-util-indapply-SmartApply&gnavTK=1jrsh186nhbnr801&tk=1jrsh03gohbcm801&co=IN&hl=en
+                - img [ref=e23]
+                - generic [ref=e28]: Messages Unread count 0
+            - listitem [ref=e29]:
+              - link "Notifications Unread count 0" [ref=e31] [cursor=pointer]:
+                - /url: https://in.indeed.com/notifications?from=gnav-util-indapply-SmartApply&gnavTK=1jrsh186nhbnr801&tk=1jrsh03gohbcm801&hl=en
+                - img [ref=e32]
+            - listitem
+          - button "Primary navigation" [ref=e37] [cursor=pointer]:
+            - generic [ref=e38]:
+              - img [ref=e39]
+              - generic [ref=e41]:
+                - text: "1"
+                - generic [ref=e42]: new update
+      - generic [ref=e43]: Start of main content
+  - generic [ref=e49]:
+    - complementary "AI Operations Data & Analytics Analyst" [ref=e51]:
+      - generic [ref=e54]:
+        - heading "AI Operations Data & Analytics Analyst" [level=1] [ref=e55]
+        - generic [ref=e56]: GoZupees - Remote
+        - button "See more details" [ref=e57] [cursor=pointer]
+    - generic [ref=e58]:
+      - generic [ref=e60]:
+        - generic [ref=e61]:
+          - button "Go back" [ref=e145] [cursor=pointer]:
+            - img [ref=e146]
+          - button "Save and close" [ref=e65] [cursor=pointer]:
+            - generic [ref=e66]: Save and close
+        - generic [ref=e67]:
+          - progressbar "Progress" [ref=e68]
+          - generic [ref=e70]: 100%
+      - generic [ref=e265]:
+        - main [ref=e266]:
+          - generic [ref=e271]:
+            - generic [ref=e295]:
+              - heading "Review your application" [level=1] [ref=e296]
+              - paragraph [ref=e297]: You will not be able to edit your application after you submit.
+            - iframe [ref=e299]:
+              - generic [ref=f5e3]:
+                - generic [ref=f5e4]:
+                  - generic [ref=f5e5]:
+                    - heading "Contact information" [level=2] [ref=f5e6]
+                    - button "Edit contact information" [ref=f5e9] [cursor=pointer]: Edit
+                  - generic [ref=f5e11]:
+                    - term [ref=f5e12]: Full name
+                    - definition [ref=f5e13]: Saral Banker
+                    - term [ref=f5e14]: Email
+                    - definition [ref=f5e15]: saralbanker1@gmail.com
+                    - paragraph [ref=f5e16]: To reduce fraud, Indeed may hide your contact information from the employer.
+                    - term [ref=f5e17]: Phone number
+                    - definition [ref=f5e18]: +91 90169 90136
+                    - term [ref=f5e19]: City, state/territory
+                    - definition [ref=f5e20]: Ahmedabad, Gujarat
+                - generic [ref=f5e21]:
+                  - generic [ref=f5e22]:
+                    - heading "Resume" [level=2] [ref=f5e23]
+                    - generic [ref=f5e24]:
+                      - link "Download resume" [ref=f5e25] [cursor=pointer]:
+                        - /url: https://apply-preview.indeed.com/indeedapply/applicationpreview/attachment?apiToken=aa102235a5ccb18bd3668c0e14aa3ea7e2503cfac2a7a9bf3d6549899e125af4&iaUid=1jrsh03gohbcm801&previewUid=1jrsh3cofhmcv800&id=780e2dfd655cb0264b59661b1b51a1e0c2e9de1e36a688449e8d84255c936968&fileToken=RIGw5Kzww_kRSeCLtwAKQIn0rb3VV2JDT_zht5EmWoz4pcnaW4Woy75zqYQ7GEtUUJ7ZP5GKOB-w3LdVYxTg9thbPbEdulaJohur-G39xyEFjiEo-D-X0Y-uMzMaMRQfc8B4OSydtIjHEwQqx0SgNYGr_JTrfDXYEQO8X5nhKaxA3nhivRMa8j9OV3B-ZpK_RKfoG8wJcfNB_67tslViKmh_6NzyfGzu0XiDtqQ5xI9-rj9fztlrMJN0I8lJHC2eNIav5h90vXwFP03MzvGehYHxlB990FQLjvbjBeC_PyRCTjMCS7ulIIp4gvqZmBmgljtlCSRLtIxcEK3Kmo3KVp4_6Y7W9IiniJHo55VLITQD7ePhLd-XbE6vJ8qG449k87dASVJEZB5RIHhXEB03FAsbhLdlGruzkw9vFxHOQdzo1ZyPqApBXPTcBw4AxNKODxrTh8_FuyaI6RVu5ntN4WmnzR0G3oQ6y_3nipU-N0Z1hbE
+                        - text: Download
+                      - button "Edit resume" [ref=f5e27] [cursor=pointer]: Edit
+                  - generic [ref=f5e30]:
+                    - link "resume-ai.pdf Uploaded just now" [ref=f5e31] [cursor=pointer]:
+                      - /url: https://apply-preview.indeed.com/indeedapply/applicationpreview/attachment?apiToken=aa102235a5ccb18bd3668c0e14aa3ea7e2503cfac2a7a9bf3d6549899e125af4&iaUid=1jrsh03gohbcm801&previewUid=1jrsh3cofhmcv800&id=780e2dfd655cb0264b59661b1b51a1e0c2e9de1e36a688449e8d84255c936968&fileToken=RIGw5Kzww_kRSeCLtwAKQIn0rb3VV2JDT_zht5EmWoz4pcnaW4Woy75zqYQ7GEtUUJ7ZP5GKOB-w3LdVYxTg9thbPbEdulaJohur-G39xyEFjiEo-D-X0Y-uMzMaMRQfc8B4OSydtIjHEwQqx0SgNYGr_JTrfDXYEQO8X5nhKaxA3nhivRMa8j9OV3B-ZpK_RKfoG8wJcfNB_67tslViKmh_6NzyfGzu0XiDtqQ5xI9-rj9fztlrMJN0I8lJHC2eNIav5h90vXwFP03MzvGehYHxlB990FQLjvbjBeC_PyRCTjMCS7ulIIp4gvqZmBmgljtlCSRLtIxcEK3Kmo3KVp4_6Y7W9IiniJHo55VLITQD7ePhLd-XbE6vJ8qG449k87dASVJEZB5RIHhXEB03FAsbhLdlGruzkw9vFxHOQdzo1ZyPqApBXPTcBw4AxNKODxrTh8_FuyaI6RVu5ntN4WmnzR0G3oQ6y_3nipU-N0Z1hbE
+                      - img [ref=f5e33]
+                      - generic [ref=f5e35]:
+                        - generic [ref=f5e36]: resume-ai.pdf
+                        - generic [ref=f5e37]: Uploaded just now
+                    - group "PDF" [ref=f5e38]:
+                      - img "preview of page 1 of 4" [ref=f5e40]:
+                        - img "preview of page 1 of 4" [ref=f5e41]
+                        - generic [ref=f5e42]: "Saral Banker Full Stack Engineer · AI Application Developer · Founding Engineer Candidate Ahmedabad, Gujarat, India · saralbanker1@gmail.com · +91 9016990136 github.com/saralbanker orvion-co.Vercel.app PROFESSIONAL SUMMARY Full Stack and AI Application Engineer who architects and ships complete, production-grade systems — from PostgreSQL schema and REST API design through to React frontend and containerised deployment. Independently designed and built Neuro-Zenith (NeuroDashboard): a 70k+ LOC modular AI productivity platform spanning a full RAG pipeline, Socket.IO real-time collaboration, async job processing (BullMQ/Redis), multi-provider LLM routing (OpenRouter, Gemini, local Qwen 2.5 Instruct), RBAC auth, Sentry error tracking, Prometheus metrics, and a 4-pipeline GitHub Actions CI/CD system. Delivered a second production system as a paid contract — a financial operations platform that replaced manual Excel billing and physical collection calls for a 220-unit rental business, enforcing automated late-fee penalties and saving an estimated 40+ hours per monthly billing cycle. Experienced in AI model evaluation across GPT-4, Claude, Gemini, DeepSeek, Qwen, Kimi, Gemma, and MiniMax. At my best with hard problems, full ownership, and the autonomy to ship. TECHNICAL SKILLS Languages TypeScript, JavaScript, Python, SQL, Java, Kotlin, HTML, CSS Frontend React 18, Next.js, Vite, Tailwind CSS, shadcn/ui, Radix UI, Framer Motion, TanStack React Query, Zustand, Tiptap, Recharts, FullCalendar Backend Node.js, Express 4, FastAPI, REST API Design, Socket.IO 4, SSE AI & LLMs RAG Pipelines · pgvector (HNSW) · Semantic Search · BGE-base-576M Embeddings (Sentence-Transformers) · OpenRouter API · Gemini API · Local LLM Inference (Qwen 2.5 Instruct) · Prompt Engineering · Structured Output Parsing (Zod) · AI Workflow Automation · Multi-Provider LLM Integration · AI Model Evaluation (GPT-4, Claude, Gemini, DeepSeek, Qwen, Kimi, Gemma, MiniMax) Databases PostgreSQL (raw pg driver, 44 migrations), Supabase, Redis 7, MySQL, SQLite, pgvector Infrastructure Docker, Docker Compose, GitHub Actions (CI + Staging CD + Prod CD + Terraform IaC), GHCR, Terraform, Supabase CLI Architecture Modular Monolith + Intelligence Microservice · BullMQ Async Job Processing · DB Polling Queue (SKIP LOCKED) · Event-Driven (Redis Pub/Sub) · Multi-Tenant RBAC · JWT Auth · Rate Limiting · Audit Logging · Software Requirements Engineering · PRD Writing · System Architecture Design Observability Sentry (@sentry/node), Prometheus (prom-client), Pino structured logging Mobile Kotlin, XML, SQLite (Android) Tools Zod, Vitest, Jest 29, Supertest, Postman, Git, Cisco Packet Tracer EXPERIENCE Contract Full Stack Engineer Jan 2025 – Mar 2026 Financial Operations Platform (Shade Ledger) · Confidential Client · Ahmedabad, Gujarat • Owned the complete project lifecycle for a rental property financial operations platform serving 220 units — replaced a workflow where the client manually entered data in Excel and physically called each of 220 vendors every month, with no enforceable penalty for late fees due to face-to-face relationship dependency. • Built a recurring billing engine with automated PDF invoice generation (react-pdf), WhatsApp Business API direct delivery, and structured late-fee penalty logic — eliminating ad-hoc fee waivers and recovering previously lost penalty revenue on every billing cycle. • Engineered a bulk Excel import pipeline with row-level schema validation and error reporting, reducing monthly tenant data entry from a multi-hour manual process to a single structured file upload. • Built a maintenance management module for tracking repair requests, vendor assignments, and resolution status across all 220 units. • Designed an immutable financial audit log capturing all mutations (payments, voids, penalty charges, adjustments) with actor identity, timestamp, and before/after state — replacing informal verbal agreements with a traceable, queryable system of record."
+                      - img "preview of page 2 of 4" [ref=f5e44]:
+                        - img "preview of page 2 of 4" [ref=f5e45]
+                        - generic [ref=f5e46]: "• Delivered a complete, documented, production-ready PostgreSQL-based financial system as a Rs.60,000 paid contract engagement, independently managing requirements through to client handoff; eliminated an estimated 40+ hours of manual billing and collection work per monthly cycle. Stack: React, Next.js, TypeScript, Node.js, PostgreSQL, Supabase, react-pdf, WhatsApp Business API PROJECTS Neuro-Zenith (NeuroDashboard) [70k+ LOC] 2025 – 2026 github.com/saralbanker/neuro-zenith · Role: Founder, Lead Architect, Lead Developer Independently designed and shipped a production-grade modular AI platform across a full-stack TypeScript monolith with an attached Python intelligence microservice — architected from first principles across 400+ source files, 115 directories, and 44 database migrations. • Core Modules: Knowledge Hub (AI knowledge management, semantic document retrieval, embeddings, vector search, AI summaries, action-item extraction, note-to-task conversion) · Notes System with real-time collaboration · Tasks & Action Items · AI Insights Engine · Workspace Management · Analytics Dashboard · Activity Tracking · Document Processing Pipeline · Calendar (FullCalendar) · Admin & Billing (Stripe). • Architecture: Designed a Modular Monolith + Intelligence Microservice architecture: Node.js/Express core handling auth, REST routes, WebSocket, and job orchestration, with a FastAPI Python sidecar (uvicorn, port 8000) owning all CPU-bound embedding and semantic inference — communicating via internal HTTP, sharing a single PostgreSQL/pgvector source of truth. • RAG Pipeline: Built a full RAG pipeline: document ingestion  text extraction  chunking  BGE-base-576M embedding generation (Sentence-Transformers, Python)  pgvector HNSW index storage  hybrid semantic + keyword retrieval — serving the /api/search/semantic endpoint. • Async Processing: Designed a dual async processing system: BullMQ/Redis event-driven worker (aiWorker.ts) handling AI jobs (generate-embedding, note-summary, note-action-items, note-to-tasks, file-process, email dispatch) and a DB polling queue (SELECT FOR UPDATE SKIP LOCKED, 2s interval) for transactional jobs — decoupling all heavy processing from API response latency. • LLM Routing: Integrated multi-provider LLM routing via OpenRouter API (cloud — GPT-4, Gemini, and others), Gemini API, and local Qwen 2.5 Instruct (offline mode) behind a unified AIProvider abstraction layer — enabling model switching, cost- aware routing, and fallback logic without changes to business logic. • Auth & RBAC: Implemented JWT authentication with a 3-layer RBAC system: authMiddleware.ts (GoTrue token validation), workspaceMiddleware.ts (membership scoping), and projectMiddleware.ts (project-level isolation) — enforced via roleMiddleware.ts and permissionMiddleware.ts on all protected API surfaces. • Real-Time: Built real-time collaboration using Socket.IO 4 across two namespaces (/collab, /notes) backed by Redis pub/sub for multi-process event broadcasting — supporting concurrent document editing and live notification dispatch. • Observability: Configured full production observability: Sentry (@sentry/node) for error telemetry, Prometheus (prom- client, /metrics endpoint) for runtime metrics, and Pino structured HTTP logging — giving the system complete crash and performance visibility. • CI/CD & Deployment: Deployed via a 4-pipeline GitHub Actions system: PR CI (Node 18/20 matrix, unit + integration tests), Staging CD (pg_dump DB backup + migrations + smoke tests + auto-rollback), Prod CD (Docker build + push to GHCR), and Terraform IaC pipeline — running against a Docker Compose stack (Node server, Redis 7, Python service). • Database & Testing: Designed a 44-migration PostgreSQL schema (raw pg driver, no ORM) with multi-tenant workspace isolation, Supabase RLS policies, soft-delete, and full audit logging — supported by 30 backend test files (Jest 29 + Supertest) covering auth, queue, semantic search, WebSocket, and AI service layers; 6 frontend test files (Vitest + Testing Library). Stack: React 18, Vite 7, TypeScript, Node.js 20, Express 4, FastAPI, Python 3.14, PostgreSQL, Supabase, Redis 7, BullMQ 5, pgvector, Socket.IO 4, OpenRouter, Gemini API, Qwen 2.5 Instruct, BGE-base-576M, Sentence-Transformers, Docker, GitHub Actions, Terraform, Sentry, Prometheus, Pino, Zod, TanStack Query, shadcn/ui, Framer Motion, Tiptap, FullCalendar, Stripe Smart Parking Management System 2025 github.com/saralbanker/smart-parking • Built a real-time parking occupancy system with live slot status broadcasting, online slot booking, reservation management, and an admin capacity dashboard. • Designed optimistic concurrency control for simultaneous check-in/check-out requests, preventing double-booking under concurrent load."
+                      - img "preview of page 3 of 4" [ref=f5e48]:
+                        - img "preview of page 3 of 4" [ref=f5e49]
+                        - generic [ref=f5e50]: "Stack: React, Node.js, Express, Supabase, Tailwind CSS, TypeScript, WebSocket Carbon Compass 2025 github.com/saralbanker/carbon-compass • Designed a personal emissions tracking platform with activity logging across transport, energy, and food categories, an emissions modelling engine, and a time-series sustainability reporting dashboard. Stack: React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Chart.js Employee Management System 2024 • Built a full HR management system for employee tracking, workforce administration, department management, and attendance records. Stack: HTML, CSS, JavaScript, MySQL Home Service Platform 2025 • Developed an Android application for home service booking, customer management, and appointment scheduling with a service provider matching flow. Stack: Kotlin, XML, SQLite (Android) Tax Calculator System 2024 • Built a GST and income tax computation tool with multi-slab logic and financial summary output. Stack: Java, React Steam Boiler Company Website 2024 • Redesigned and modernised a steam boiler company's corporate web presence, delivering a clean responsive site to replace an outdated static HTML page. Stack: HTML, CSS, JavaScript ADDITIONAL EXPERIENCE & CAPABILITIES – AI Model Evaluation — hands-on comparative evaluation of GPT-4, Claude (Anthropic), Gemini, DeepSeek, Qwen, Kimi, Gemma, and MiniMax across reasoning, code generation, and instruction-following tasks. – Prompt Engineering Systems — design and iteration of system prompts, few-shot examples, chain-of-thought frameworks, and custom prompt generation pipelines for production AI features. – Software Requirements Engineering — authored Product Requirement Documents (PRDs), system design specifications, and technical documentation across multiple projects. – Knowledge System Design — designed domain ontologies, chunking strategies, retrieval evaluation frameworks, and document workflow pipelines for AI-powered knowledge platforms. – Workflow Automation Design — designed semi-automated billing, notification, and document processing workflows replacing fully manual operational processes. – Cisco Packet Tracer — designed and simulated WLAN network topologies for academic infrastructure planning project. – AI-Assisted Development Workflows — integrated AI coding assistants into development workflow for code review, architecture validation, and documentation generation. EDUCATION Diploma in Computer Engineering LJ Polytechnic, Ahmadabad May 2026 CGPA 8.36 / 10 · Top 10% of class CERTIFICATIONS IBM Python for Data Science, AI & Development · Generative AI: Prompt Engineering Basics · Getting Started with Git and GitHub Google Foundations of Cybersecurity · Agile Project Management"
+                      - img "preview of page 4 of 4" [ref=f5e52]:
+                        - img "preview of page 4 of 4" [ref=f5e53]
+                        - generic [ref=f5e54]: Packt JavaScript DOM — Interactive and Dynamic Web Pages Hong Kong University of Science and Technology (HKUST) Programming with Scratch
+                - generic [ref=f5e55]:
+                  - generic [ref=f5e56]:
+                    - heading "Relevant experience" [level=2] [ref=f5e57]
+                    - button "Edit relevant experience" [ref=f5e60] [cursor=pointer]: Edit
+                  - generic [ref=f5e62]:
+                    - generic [ref=f5e63]: Contract Full Stack Engineer
+                    - generic [ref=f5e64]: Shade Ledger
+                - generic [ref=f5e65]:
+                  - generic [ref=f5e66]:
+                    - heading "Supporting documents" [level=2] [ref=f5e67]
+                    - button "Add supporting documents" [ref=f5e70] [cursor=pointer]: Add
+                  - paragraph [ref=f5e73]: No cover letter or additional documents added. This is optional to add.
+            - generic [ref=e300]:
+              - generic [ref=e301]:
+                - generic [ref=e305]:
+                  - generic [ref=e306] [cursor=pointer]:
+                    - switch "Get email updates for the latest data analyst jobs in Remote" [ref=e307]
+                    - img [ref=e310]
+                    - generic [ref=e313]: Get email updates for the latest data analyst jobs in Remote
+                  - paragraph [ref=e316]:
+                    - text: By creating a job alert, you agree to our
+                    - link "Terms (opens in a new tab)" [ref=e317] [cursor=pointer]:
+                      - /url: https://www.indeed.com/legal?hl=en
+                      - text: Terms
+                      - img [ref=e318]
+                    - text: . You can change your consent settings at any time by unsubscribing or as detailed in our terms.
+                - generic "Top Choice Apply Module"
+                - paragraph [ref=e322]:
+                  - text: By submitting your application, 1) you agree to our
+                  - link "Terms, Cookie & Privacy Policies Opens in a new window" [ref=e323] [cursor=pointer]:
+                    - /url: http://in.indeed.com/legal?hl=en_IN&redirect=true
+                    - text: Terms, Cookie & Privacy Policies
+                    - img "Opens in a new window" [ref=e324]
+                  - text: ; 2) you consent to your application being transmitted to the Employer (Indeed does not guarantee receipt), & processed & analysed in accordance with its & Indeed's terms & privacy policies; & 3) you acknowledge that when you apply to jobs outside your country it may involve you sending your personal data to countries with lower levels of data protection; & 4) that we may hide your contact information until this employer moves forward with your application.
+                  - button "Preview what the employer sees" [ref=e326] [cursor=pointer]
+                - generic [ref=e327]:
+                  - text: You're currently subscribed to receiving calls or text messages from employers you've applied to, and Indeed. You can change this in
+                  - link "privacy settings Opens in a new window" [ref=e328] [cursor=pointer]:
+                    - /url: https://secure.indeed.com/settings/privacy?hl=en_IN&co=IN
+                    - text: privacy settings
+                    - img "Opens in a new window" [ref=e329]
+                  - text: .
+              - button "Submit your application" [ref=e331] [cursor=pointer]:
+                - generic [ref=e332]: Submit your application
+        - generic [ref=e285]:
+          - button "Report an issue" [ref=e288] [cursor=pointer]:
+            - img [ref=e289]
+            - text: Report an issue
+          - contentinfo [ref=e291]:
+            - generic [ref=e292]:
+              - text: This site is protected by reCAPTCHA and the Google
+              - link "Privacy Policy" [ref=e293] [cursor=pointer]:
+                - /url: https://policies.google.com/privacy
+              - text: and
+              - link "Terms of Service" [ref=e294] [cursor=pointer]:
+                - /url: https://policies.google.com/terms
+              - text: apply.

@@ -1,0 +1,235 @@
+- generic [active] [ref=e1]:
+  - navigation "Primary" [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - button "Skip to main content" [ref=e8] [cursor=pointer]:
+            - generic [ref=e9]: Skip to main content
+          - link "Indeed Home" [ref=e10] [cursor=pointer]:
+            - /url: /?from=gnav-viewjob
+            - img [ref=e12]
+        - generic [ref=e14]:
+          - list [ref=e15]:
+            - listitem [ref=e16]:
+              - link "My jobs" [ref=e18] [cursor=pointer]:
+                - /url: https://myjobs.indeed.com?from=gnav-util-viewjob&gnavTK=1jrsrlm3fh87m800&tk=1jrsrlm3bhbbn800&co=IN&hl=en
+                - img [ref=e19]
+            - listitem [ref=e21]:
+              - link "Messages Unread count 0" [ref=e23] [cursor=pointer]:
+                - /url: https://messages.indeed.com?from=gnav-util-viewjob&gnavTK=1jrsrlm3fh87m800&tk=1jrsrlm3bhbbn800&co=IN&hl=en
+                - img [ref=e24]
+                - generic [ref=e29]:
+                  - text: Messages Unread count 0
+                  - generic [ref=e30]: .
+            - listitem [ref=e31]:
+              - link "Notifications Unread count 1" [ref=e33] [cursor=pointer]:
+                - /url: https://in.indeed.com/notifications?from=gnav-util-viewjob&gnavTK=1jrsrlm3fh87m800&tk=1jrsrlm3bhbbn800&hl=en
+                - img [ref=e34]
+                - generic [ref=e36]: "1"
+            - listitem
+          - button "Primary navigation" [ref=e40] [cursor=pointer]:
+            - generic [ref=e41]:
+              - img [ref=e42]
+              - generic [ref=e44]:
+                - text: "1"
+                - generic [ref=e45]: new update
+      - generic [ref=e46]: Start of main content
+  - main [ref=e49]:
+    - generic [ref=e52]:
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - heading "Devops Engineer" [level=1] [ref=e57]
+            - generic [ref=e61]:
+              - generic [ref=e62]:
+                - link "Innovecture (opens in a new tab)" [ref=e65] [cursor=pointer]:
+                  - /url: https://in.indeed.com/cmp/Innovecture-1?campaignid=mobvjcmp&from=mobviewjob&tk=1jrsrlm3bhbbn800&fromjk=138b3591a1461c21
+                  - text: Innovecture
+                  - img [ref=e66]
+                - generic [ref=e68]:
+                  - generic [ref=e69]: · 5.0
+                  - generic [ref=e70]: 5.0 out of 5 stars
+                  - img [ref=e71]
+              - generic [ref=e74]: Remote
+          - navigation [ref=e77]:
+            - link "Innovecture 5 out of 5 stars 2 reviews Read what people are saying about working here." [ref=e78] [cursor=pointer]:
+              - /url: https://in.indeed.com/cmp/Innovecture-1/reviews?campaignid=mobvjcmp&cmpratingc=mobviewjob&from=mobviewjob&tk=1jrsrlm3bhbbn800&fromjk=138b3591a1461c21&jt=Devops+Engineer
+              - heading "Innovecture" [level=2] [ref=e79]
+              - generic [ref=e80]:
+                - img "5 out of 5 stars" [ref=e81]:
+                  - img [ref=e82]
+                  - img [ref=e84]
+                  - img [ref=e86]
+                  - img [ref=e88]
+                  - img [ref=e90]
+                - generic [ref=e92]: 2 reviews
+              - generic [ref=e93]: Read what people are saying about working here.
+            - img "direction right icon" [ref=e94]
+        - generic [ref=e97]:
+          - generic [ref=e98]:
+            - generic [ref=e104]:
+              - generic [ref=e105]:
+                - generic [ref=e106]:
+                  - heading "Job details" [level=2] [ref=e107]
+                  - generic [ref=e108]:
+                    - text: Here’s how the job details align with your
+                    - link "job preferences (opens in a new window)" [ref=e109] [cursor=pointer]:
+                      - /url: https://profile.indeed.com/
+                      - text: profile
+                      - img [ref=e110]
+                    - text: .
+                - group "Shift and schedule" [ref=e113]:
+                  - img [ref=e114]
+                  - generic [ref=e116]:
+                    - heading "Shift and schedule" [level=3] [ref=e117]
+                    - list [ref=e119]:
+                      - listitem [ref=e120]:
+                        - button "Shift and schedule Weekend availability missing preference" [ref=e121]:
+                          - generic [ref=e124]:
+                            - generic [ref=e125]: Weekend availability
+                            - img "missing preference" [ref=e126]
+              - separator [ref=e128]:
+                - generic [ref=e129]: "&nbsp;"
+            - generic [ref=e130]:
+              - heading "Location" [level=2] [ref=e131]
+              - generic [ref=e132]:
+                - img [ref=e133]
+                - generic [ref=e136]: Remote
+              - separator [ref=e137]:
+                - generic [ref=e138]: "&nbsp;"
+            - heading "Full job description" [level=2] [ref=e140]
+            - generic [ref=e142]:
+              - generic [ref=e143]:
+                - text: We at Innovecture are hiring for a "Devops Engineer" to expand our team, this is a Remote position in India. You will work across various Innovecture and client teams and apply your technical expertise to some of the most complex and challenging technology problems.
+                - text: "About Innovecture:"
+                - text: Founded in 2007 under the leadership of CEO Shreyas Kamat, Innovecture LLC, began as a U.S.-based Information Technology and Management Consulting Company focusing on technology consulting and services. With international development centers located in Salt Lake City, USA, and Pune, India, Innovecture leverages its Global Agile Delivery Model to effectively deliver client projects within budget scope and project deadline. The primary focus of Innovecture is to provide a unique wealth of expertise and experience to the IT and Management Consulting realm by utilizing various technologies across multiple industry domains. Innovecture uses best-in-class design processes and top-quality talent to ensure the highest quality deliverables. With innovation embedded in its consulting and services approach, Innovecture will continue to deliver outstanding results for its Fortune 500 clients and employees.
+              - generic [ref=e144]: Qualification
+              - list [ref=e145]:
+                - listitem [ref=e146]: 4+ years experience as a DevOps Engineer or equivalent software-engineering role
+              - list [ref=e147]:
+                - listitem [ref=e148]: Excellent communication skills in English
+              - list [ref=e149]:
+                - listitem [ref=e150]: Strong experience with automation tools used for CI/CD, preferably GitHub Actions and Jenkins
+              - list [ref=e151]:
+                - listitem [ref=e152]: Strong experience in Docker technologies and containerization
+              - list [ref=e153]:
+                - listitem [ref=e154]: Strong experience in deploying and debugging applications within Kubernetes environments
+              - list [ref=e155]:
+                - listitem [ref=e156]: Ability to understand and work across diverse pipelines, from design to implementation using various technologies, and migrate applications between such pipelines
+              - list [ref=e157]:
+                - listitem [ref=e158]: Experience using Apigee or similar API management tools
+              - list [ref=e159]:
+                - listitem [ref=e160]: Experience in Infrastructure as Code (IaC) practices and tools
+              - generic [ref=e161]: Responsibility
+              - list [ref=e162]:
+                - listitem [ref=e163]: "Monitor Incidents queues: troubleshoots and completes or assign tickets as required"
+              - list [ref=e164]:
+                - listitem [ref=e165]: Provide technical support and transparency to stakeholders on existing problems
+              - list [ref=e166]:
+                - listitem [ref=e167]: Implement automation tools and frameworks (CI/CD pipelines)
+              - list [ref=e168]:
+                - listitem [ref=e169]: Provide technical guidance to one or more engineers and act as a role model for your peer group
+              - list [ref=e170]:
+                - listitem [ref=e171]: Work on onboarding applications in existing pipelines, or on migrating applications between the pipelines
+              - list [ref=e172]:
+                - listitem [ref=e173]: Troubleshoot production issues and coordinate with the development team to streamline code deployment
+              - list [ref=e174]:
+                - listitem [ref=e175]: Troubleshoot issues that might arise at any step of the CI/CD pipeline
+              - list [ref=e176]:
+                - listitem [ref=e177]: Collaborate with team members to improve the company’s engineering tools, systems and procedures, and data security
+              - list [ref=e178]:
+                - listitem [ref=e179]: Candidate must be flexible in terms of working hours due to the nature of the role
+              - list [ref=e180]:
+                - listitem [ref=e181]: Establish and maintain regular written or verbal communication with the stake holders regarding project updates
+              - list [ref=e182]:
+                - listitem [ref=e183]: Candidate should have analytical approach to issue troubleshooting and be resourceful in the times of heavy workload
+              - list [ref=e184]:
+                - listitem [ref=e185]: Weekend work and extended days to support organized changes or incidents may be required – but through prior agreement
+              - list [ref=e186]:
+                - listitem [ref=e187]: Candidate should be eager to learn and work with new technologies as required by the team.
+              - generic [ref=e188]: Good to Have
+              - list [ref=e189]:
+                - listitem [ref=e190]: Experience working with Linux systems and environments
+              - list [ref=e191]:
+                - listitem [ref=e192]: Experience on any incident management and change management tool like CA Service Desk
+              - list [ref=e193]:
+                - listitem [ref=e194]: Experience in deploying and debugging applications within Kubernetes environments
+              - list [ref=e195]:
+                - listitem [ref=e196]: The ability to communicate effectively to both technical and non-technical colleagues in a cross-functional environment
+              - list [ref=e197]:
+                - listitem [ref=e198]: Experience with cloud native technologies, preferably AWS or Azure
+              - list [ref=e199]:
+                - listitem [ref=e200]: Working knowledge of Groovy, PowerShell and known DevOps tools like Git and GitHub
+              - list [ref=e201]:
+                - listitem [ref=e202]: Good knowledge of NodeJS, Angular Builds, NPM, .Net and .Net Core
+            - separator [ref=e203]:
+              - generic [ref=e204]: "&nbsp;"
+          - generic [ref=e205]:
+            - button "Report job" [ref=e211] [cursor=pointer]: Report job
+            - generic [ref=e214]:
+              - button "Apply with Indeed" [ref=e222] [cursor=pointer]:
+                - generic [ref=e224]: Apply with Indeed
+              - button "Save job" [ref=e228] [cursor=pointer]:
+                - img "save-icon" [ref=e229]
+              - button "Share Job" [ref=e231] [cursor=pointer]
+              - separator:
+                - generic [ref=e233]: "&nbsp;"
+      - generic [ref=e234]:
+        - separator [ref=e235]:
+          - generic [ref=e236]: "&nbsp;"
+        - generic [ref=e239]:
+          - link "DevOps Engineer jobs in Remote" [ref=e241] [cursor=pointer]:
+            - /url: /q-devops-engineer-l-remote-jobs.html
+          - link "Jobs at Innovecture in Remote" [ref=e243] [cursor=pointer]:
+            - /url: /q-innovecture-l-remote-jobs.html
+          - link "DevOps Engineer salaries in Remote" [ref=e245] [cursor=pointer]:
+            - /url: /salary?from=vj&q1=DevOps+Engineer&l1=Remote
+  - contentinfo [ref=e250]:
+    - generic [ref=e251]:
+      - list [ref=e252]:
+        - listitem [ref=e253]:
+          - link "Career advice" [ref=e255] [cursor=pointer]:
+            - /url: https://in.indeed.com/career-advice
+        - listitem [ref=e256]:
+          - link "Browse jobs" [ref=e258] [cursor=pointer]:
+            - /url: https://in.indeed.com/browsejobs
+        - listitem [ref=e259]:
+          - link "Browse companies" [ref=e261] [cursor=pointer]:
+            - /url: https://in.indeed.com/companies/browse-companies
+        - listitem [ref=e262]:
+          - link "Salaries" [ref=e264] [cursor=pointer]:
+            - /url: https://in.indeed.com/career/salaries
+        - listitem [ref=e265]:
+          - link "Indeed Events" [ref=e267] [cursor=pointer]:
+            - /url: https://www.indeedevents.com/en-in/
+        - listitem [ref=e268]:
+          - link "Work at Indeed" [ref=e270] [cursor=pointer]:
+            - /url: https://in.indeed.com/cmp/Indeed/about
+        - listitem [ref=e271]:
+          - link "Countries" [ref=e273] [cursor=pointer]:
+            - /url: https://in.indeed.com/worldwide
+        - listitem [ref=e274]:
+          - link "About" [ref=e276] [cursor=pointer]:
+            - /url: https://in.indeed.com/about
+        - listitem [ref=e277]:
+          - link "Help" [ref=e279] [cursor=pointer]:
+            - /url: https://in.indeed.com/help/job-seekers?hl=en&co=in
+        - listitem [ref=e280]:
+          - link "ESG at Indeed" [ref=e282] [cursor=pointer]:
+            - /url: https://in.indeed.com/esg?from=gnav-viewjob
+        - listitem [ref=e283]:
+          - link "Guidelines for safe job search" [ref=e285] [cursor=pointer]:
+            - /url: https://support.indeed.com/hc/en-in/articles/216354123-Guidelines-for-Safe-Job-Search
+      - list [ref=e286]:
+        - listitem [ref=e287]: © 2026 Indeed
+        - listitem [ref=e288]:
+          - link "Accessibility at Indeed" [ref=e290] [cursor=pointer]:
+            - /url: https://in.indeed.com/esg/accessibility?hl=en
+        - listitem [ref=e291]:
+          - link "Privacy Centre and Ad Choices" [ref=e293] [cursor=pointer]:
+            - /url: https://hrtechprivacy.com/brands/indeed#privacypolicy
+        - listitem [ref=e294]:
+          - link "Terms" [ref=e296] [cursor=pointer]:
+            - /url: https://in.indeed.com/legal?hl=en
+      - list:
+        - listitem
