@@ -1,0 +1,9 @@
+python-jobspy==1.1.80
+python-dotenv
+pyyaml
+scikit-learn
+spacy
+reportlab
+Pillow
+rich
+requests

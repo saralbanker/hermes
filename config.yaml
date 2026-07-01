@@ -1,0 +1,87 @@
+profile:
+  name: "Saral Banker"
+  email: "saralbanker1@gmail.com"
+  phone: "+91 9016990136"
+  location: "Ahmedabad, Gujarat, India"
+  github: "github.com/saralbanker"
+  portfolio: "orvion-co.vercel.app"
+  years_experience: 2
+  education: "Diploma in Computer Engineering, LJ Polytechnic (May 2026), CGPA 8.36/10, Top 10%"
+  work_authorization: "India — authorized, no sponsorship needed"
+  willing_to_relocate: false
+  available: "Immediately"
+
+search:
+  target_roles:
+    - "full stack engineer"
+    - "software engineer"
+    - "backend engineer"
+    - "AI engineer"
+    - "founding engineer"
+    - "AI application developer"
+    - "TypeScript engineer"
+  location: "Remote"
+  country_indeed: "India"
+  results_wanted: 30
+  hours_old: 72
+  min_score: 7.5
+
+limits:
+  linkedin_per_day: 15
+  other_per_day: 30
+  total_per_day: 40
+  min_delay_seconds: 15
+  max_delay_seconds: 30
+
+resumes:
+  fullstack: "resumes/resume-fullstack.pdf"
+  backend: "resumes/resume-backend.pdf"
+  ai: "resumes/resume-ai.pdf"
+  default: "resumes/resume-fullstack.pdf"
+
+# Local Ollama model — qwen3:4b fits in 4.4 GB available RAM (2.5 GB model size)
+# Runs CPU-only on Ryzen 7 7730U — stable for 6-8 hr overnight sessions
+ollama:
+  base_url: "http://localhost:11434"
+  model: "qwen3:4b"
+  timeout: 120
+  keep_alive: "10m"
+
+# Keep legacy key for any code that still reads cfg["qwen"]
+qwen:
+  base_url: "http://localhost:11434"
+  model: "qwen3:4b"
+  timeout: 120
+
+screening_answers:
+  years_experience_total: "2"
+  years_experience_typescript: "2"
+  years_experience_react: "2"
+  years_experience_node: "2"
+  years_experience_python: "2"
+  degree: "Diploma in Computer Engineering"
+  currently_employed: "No"
+  notice_period: "Immediately available"
+  salary_expectation_inr: "Open to competitive offers"
+  salary_expectation_usd: "Open to competitive offers"
+  work_authorization: "Yes, authorized to work in India"
+  requires_visa_sponsorship: "No"
+  willing_to_relocate: "Open to fully remote positions"
+  why_interested_template: >
+    I'm drawn to high-ownership engineering roles where I can architect and
+    ship complete systems end-to-end. I independently designed and built
+    Neuro-Zenith — a 70k+ LOC production AI platform spanning RAG pipelines,
+    real-time collaboration, async job processing, and multi-provider LLM
+    routing. I've also delivered a production financial system as a paid
+    contract engagement. I thrive with autonomy and hard problems.
+  biggest_achievement: >
+    Independently architected and shipped Neuro-Zenith: a 70,000+ LOC
+    modular AI productivity platform across 400+ source files, 44 database
+    migrations, a full RAG pipeline, Socket.IO real-time collaboration,
+    BullMQ async processing, multi-provider LLM routing, and a 4-pipeline
+    GitHub Actions CI/CD system — from first principles, with no team.
+  describe_yourself: >
+    Full Stack and AI Application Engineer who ships complete production-grade
+    systems independently. Strong in TypeScript/Node.js/React/PostgreSQL with
+    deep AI/LLM integration experience. I prefer founding-stage environments,
+    full ownership, and hard problems.
