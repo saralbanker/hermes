@@ -28,6 +28,11 @@ SUCCESS_KEYWORDS = [
 FAILURE_KEYWORDS = [
     "sign in", "log in", "create an account", "login required",
 ]
+OTP_KEYWORDS = [
+    "enter the code", "verification code", "check your email", "check your phone",
+    "we sent a code", "confirm your identity", "security code", "verify your email",
+    "verify your phone", "we've sent", "enter code",
+]
 
 
 def _load_cfg() -> dict:
@@ -283,6 +288,70 @@ def _fill_form_page(page, cfg: dict, cover_letter: str, resume_path: str) -> boo
     return False
 
 
+def _resolve_otp(page) -> str | None:
+    """
+    Try to get a verification code and enter it into the page.
+    1. Poll Gmail for an email OTP (if GMAIL_APP_PASSWORD is set).
+    2. Phone OTP: cannot automate — return None so job is skipped.
+    Returns the code string if successfully entered, None if not resolved.
+    """
+    from otp_resolver import fetch_otp, is_configured
+
+    # Determine what kind of OTP is needed from page text
+    html = page.html.lower()
+    needs_email = any(kw in html for kw in ["email", "gmail", "inbox"])
+    needs_phone = any(kw in html for kw in ["phone", "sms", "text message", "mobile"])
+
+    if needs_phone and not needs_email:
+        print("  [otp] Phone/SMS OTP required — cannot automate without paid SMS service")
+        print("  [otp] Job will be marked otp_required for manual retry")
+        return None
+
+    if not is_configured():
+        print("  [otp] Email OTP needed but GMAIL_APP_PASSWORD not set")
+        print("  [otp] To enable: export GMAIL_APP_PASSWORD='xxxx xxxx xxxx xxxx'")
+        print("  [otp] Get an App Password: myaccount.google.com → Security → App passwords")
+        return None
+
+    code = fetch_otp(timeout=90)
+    if not code:
+        return None
+
+    # Find the OTP input field and enter the code
+    for selector in [
+        'input[name*="code" i]',
+        'input[name*="otp" i]',
+        'input[name*="verify" i]',
+        'input[placeholder*="code" i]',
+        'input[placeholder*="verification" i]',
+        'input[type="tel"]',
+        'input[type="number"]',
+        'input[maxlength="6"]',
+    ]:
+        try:
+            el = page.ele(f'css:{selector}', timeout=2)
+            if el:
+                _human_type(el, code)
+                _human_sleep(0.5, 1.0)
+                # Submit it
+                for btn_text in ["verify", "submit", "confirm", "continue"]:
+                    try:
+                        btn = page.ele(
+                            f'xpath://button[contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "{btn_text}")]',
+                            timeout=2,
+                        )
+                        if btn:
+                            btn.click()
+                            break
+                    except Exception:
+                        pass
+                return code
+        except Exception:
+            pass
+
+    return None
+
+
 def run_indeed_apply(
     job_url: str,
     cover_letter: str,
@@ -382,6 +451,23 @@ def run_indeed_apply(
 
             if any(kw in page_text for kw in FAILURE_KEYWORDS):
                 break
+
+            # OTP / identity verification challenge
+            if any(kw in page_text for kw in OTP_KEYWORDS):
+                otp = _resolve_otp(page)
+                if otp is None:
+                    # Screenshot so user can see what was on screen
+                    try:
+                        Path(screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                        page.get_screenshot(path=screenshot_path)
+                    except Exception:
+                        pass
+                    return {"success": False, "error": "otp_required", "screenshot": screenshot_path}
+                # OTP entered — let the page process it
+                _human_sleep(2.0, 4.0)
+                page_text = page.html.lower()
+                if any(kw in page_text for kw in FAILURE_KEYWORDS):
+                    break
 
             did_submit = _fill_form_page(page, cfg, cover_letter, resume_path)
             if did_submit:

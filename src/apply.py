@@ -109,8 +109,16 @@ def apply_to_job(job: dict, cfg: dict, dry_run: bool = False) -> bool:
         return True
     else:
         error = result.get("error", "unknown")
-        update_job(url, {"status": "error", "status_reason": f"apply_error: {error}"})
-        print(f"  [apply] ✗ Failed — {error[:120]}")
+        if error == "otp_required":
+            # Keep as tailored so it's retried once GMAIL_APP_PASSWORD is set
+            update_job(url, {"status": "tailored", "status_reason": "otp_required — set GMAIL_APP_PASSWORD to auto-resolve"})
+            print(f"  [apply] ⚠ OTP required — job kept for retry (set GMAIL_APP_PASSWORD)")
+        elif "login_wall" in error:
+            update_job(url, {"status": "error", "status_reason": error})
+            print(f"  [apply] ✗ Session expired — re-run: python scripts/indeed_setup.py")
+        else:
+            update_job(url, {"status": "error", "status_reason": f"apply_error: {error}"})
+            print(f"  [apply] ✗ Failed — {error[:120]}")
         return False
 
 

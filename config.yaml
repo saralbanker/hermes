@@ -1,3 +1,8 @@
+# OTP auto-resolution (email verification codes from Indeed):
+#   export GMAIL_APP_PASSWORD="xxxx xxxx xxxx xxxx"
+#   Get one: myaccount.google.com → Security → 2-Step Verification → App passwords
+#   Never put the actual password here — use the env var only.
+
 profile:
   name: Saral Banker
   email: saralbanker1@gmail.com
