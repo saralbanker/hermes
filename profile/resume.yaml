@@ -28,7 +28,7 @@ variants:
       and delivered a paid billing platform for an industrial estate of 220+ units. I work with AI
       coding agents (Claude Code) and own the specification, architecture, code review and
       testing. Available immediately for remote roles.
-    project_order: [awis, neuro-zenith, hermes]
+    project_order: [neuro-zenith, awis, hermes]
     skills_order: [languages, backend, data, infra, ai, frontend]
   ai:
     headline: AI Application Engineer · RAG, LLM Integration, TypeScript, Python

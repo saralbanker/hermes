@@ -1,0 +1,8 @@
+[Unit]
+Description=Hermes daily summary notification
+
+[Service]
+Type=oneshot
+WorkingDirectory=/mnt/data/rj/hermes
+ExecStart=/usr/bin/python3 /mnt/data/rj/hermes/src/response_watcher.py --summary
+TimeoutStartSec=5min

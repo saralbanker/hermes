@@ -21,6 +21,8 @@ import pandas as pd
 import requests
 import yaml
 
+import states
+
 ROOT = Path(__file__).parent.parent
 COMPANIES_PATH = ROOT / "data" / "ats_companies.yaml"
 UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) hermes-job-search/1.0"}
@@ -97,7 +99,7 @@ def fetch_greenhouse(token: str) -> list[dict]:
             max_amount=(pay.get("max_cents") or 0) // 100 or None,
             currency=pay.get("currency_type"),
             date_posted=j.get("first_published") or j.get("updated_at"),
-            apply_channel="greenhouse",
+            apply_channel=states.CH_GREENHOUSE,
             # absolute_url is often the company's own careers page; the embed form
             # is Greenhouse-hosted and identical for every board.
             ats_meta=_meta("greenhouse", token, j["id"],
@@ -134,7 +136,7 @@ def fetch_lever(token: str) -> list[dict]:
         rows.append(_row(
             job_url=j["hostedUrl"], company=token, title=j["text"], location=location, site="lever",
             description=desc[:MAX_DESC], min_amount=lo, max_amount=hi, currency=cur,
-            date_posted=created, apply_channel="lever",
+            date_posted=created, apply_channel=states.CH_LEVER,
             ats_meta=_meta("lever", token, j["id"], j.get("applyUrl") or j["hostedUrl"] + "/apply"),
         ))
     return rows
@@ -161,7 +163,7 @@ def fetch_ashby(token: str) -> list[dict]:
             job_url=j["jobUrl"], company=token, title=j["title"], location=location, site="ashby",
             description=(j.get("descriptionPlain") or "")[:MAX_DESC],
             min_amount=lo, max_amount=hi, currency=cur, date_posted=j.get("publishedAt"),
-            apply_channel="ashby",
+            apply_channel=states.CH_ASHBY,
             ats_meta=_meta("ashby", token, j["id"], j.get("applyUrl") or j["jobUrl"] + "/application"),
         ))
     return rows

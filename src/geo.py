@@ -51,16 +51,28 @@ OPEN_TO_INDIA_RE = re.compile(
     r"\b(india|apac|asia|worldwide|world ?wide|anywhere|global(ly)?|any location|all countries|"
     r"ist\b|utc\s*\+\s*5)", re.I)
 # Regions/countries that, when named as the only remote scope, exclude India.
+# Letter-boundaries instead of \b: "U.S." ends in a dot, where \b never matches.
 RESTRICTED_RE = re.compile(
-    r"\b(us|usa|u\.s\.a?|united states|canada|uk|u\.k\.|united kingdom|europe|eu|emea|latam|"
-    r"latin america|brazil|mexico|germany|france|spain|poland|portugal|netherlands|ireland|"
-    r"australia|new zealand|singapore|philippines|japan|americas|north america|"
-    r"[a-z]+,\s*(ca|ny|tx|wa|ma|co|il|ga|fl|or|va|nc|nj|pa|az|ut|mn))\b", re.I)
+    r"(?<![a-z])(us|usa|u\.s\.a?\.?|united states|canada|uk|u\.k\.?|united kingdom|europe|eu|emea|"
+    r"latam|latin america|brazil|mexico|germany|france|spain|poland|portugal|netherlands|ireland|"
+    r"australia|new zealand|singapore|philippines|japan|americas|north america|ca remote|"
+    r"\((bc|on|qc|ab)\b[^)]*only\)|"
+    r"[a-z]+,\s*(ca|ny|tx|wa|ma|co|il|ga|fl|or|va|nc|nj|pa|az|ut|mn))(?![a-z])", re.I)
+# "Location: Remote-first (United States; BC & ON Canada)" lines inside descriptions.
+DESC_LOCATION_RE = re.compile(r"\b(?:location|based in|work location)s?\s*[:\-]\s*([^\n.]{0,120})", re.I)
 RESIDENCY_RE = re.compile(
     r"(must|should|need to) (be )?(located|based|reside|live)[^.]{0,40}\b"
     r"(us|usa|united states|canada|uk|europe|eu|latam|americas)\b|"
     r"(us|u\.s\.|united states)[- ]based (candidates|applicants) only|"
     r"authori[sz]ed to work in the (us|united states|uk|eu)", re.I)
+NIGHT_SHIFT_RE = re.compile(
+    r"\b(night shift|us shift|u\.s\. shift|graveyard shift|graveyard|"
+    r"overnight shift|9\s*pm\s*[-–to]{1,3}\s*6\s*am|9pm\s*-\s*6am|"
+    r"10\s*pm\s*[-–to]{1,3}\s*7\s*am|est shift|pst shift)\b", re.I)
+
+
+def is_night_shift(title: str, description: str) -> bool:
+    return bool(NIGHT_SHIFT_RE.search(title or "") or NIGHT_SHIFT_RE.search((description or "")[:3000]))
 
 
 def haversine_km(a: tuple[float, float], b: tuple[float, float]) -> float:
@@ -91,6 +103,9 @@ def _remote_verdict(location: str, description: str) -> tuple[bool, str]:
         return False, f"remote_restricted:{location[:40]}"
     if RESIDENCY_RE.search(description[:4000]):
         return False, "remote_residency_required"
+    for line in DESC_LOCATION_RE.findall(description[:4000]):
+        if RESTRICTED_RE.search(line) and not OPEN_TO_INDIA_RE.search(line):
+            return False, f"remote_restricted_in_description:{line[:40]}"
     return True, "remote:unrestricted"
 
 
@@ -102,15 +117,19 @@ def is_location_eligible(location: str | None, title: str | None,
 
     is_remote = bool(REMOTE_RE.search(location) or REMOTE_RE.search(title))
     if is_remote:
+        # Remote night shift is fine — no geo restriction applies.
         return _remote_verdict(location, description)
 
-    local = _local_match(location, home, geo["radius_km"])
+    # On-site/hybrid: a night-shift posting must be within the tighter radius.
+    radius = geo["night_radius_km"] if is_night_shift(title, description) else geo["radius_km"]
+
+    local = _local_match(location, home, radius)
     if local is not None:
         return local
     if not location.strip():
         # Unknown location: accept only if the description itself says remote/Ahmedabad.
         if REMOTE_RE.search(description[:3000]):
             return _remote_verdict("", description)
-        local = _local_match(description[:3000], home, geo["radius_km"])
+        local = _local_match(description[:3000], home, radius)
         return local if local else (False, "location_unknown")
     return False, f"onsite:{location[:40]}"

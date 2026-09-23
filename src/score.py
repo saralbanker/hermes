@@ -25,6 +25,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
 from db import init_db, get_jobs_by_status, update_job
+from filters import role_priority
 from llm import LLMUnavailable, chat, cosine, embed, facts, is_ready
 
 SCORE_SYSTEM = (
@@ -133,7 +134,9 @@ def _score_one(job: dict, use_llm: bool) -> tuple[float, str, bool]:
 
 
 def _prerank(jobs: list, cfg: dict, use_llm: bool) -> list:
-    """Drop low-similarity jobs; return the rest best-first (capped per run)."""
+    """Drop low-similarity jobs; return the rest ordered (role_priority, similarity)
+    best-first, capped per run — AI/LLM and backend roles get scored before the LLM
+    budget runs out on lower-priority ones."""
     scfg = cfg.get("scoring", {})
     if not use_llm:
         return jobs[: scfg.get("max_llm_per_run", 250)]
@@ -144,10 +147,13 @@ def _prerank(jobs: list, cfg: dict, use_llm: bool) -> list:
         if sim < floor:
             update_job(job["url"], {"status": "filtered", "status_reason": f"low_similarity:{sim:.2f}"})
         else:
-            keep.append(job)
+            keep.append((sim, job))
     print(f"[score] Embedding pre-rank: {len(keep)} above similarity {floor}, "
           f"{len(ranked) - len(keep)} filtered")
-    return keep[: scfg.get("max_llm_per_run", 250)]
+    keep.sort(key=lambda sj: (role_priority(sj[1].get("title") or "",
+                                            sj[1].get("description") or ""), sj[0]),
+              reverse=True)
+    return [job for _sim, job in keep][: scfg.get("max_llm_per_run", 250)]
 
 
 def main(limit: int | None = None) -> None:

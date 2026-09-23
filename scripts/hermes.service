@@ -1,13 +1,13 @@
 [Unit]
-Description=Hermes Automated Job Application Runner
-After=network.target
+Description=Hermes job pipeline (discover → score → tailor → apply)
+Wants=network-online.target
+After=network-online.target ollama.service
 
 [Service]
-Type=simple
+Type=oneshot
 WorkingDirectory=/mnt/data/rj/hermes
 ExecStart=/mnt/data/rj/hermes/scripts/run_hermes.sh
-Restart=on-failure
-RestartSec=60
-
-[Install]
-WantedBy=default.target
+TimeoutStartSec=5h
+Nice=5
+# Kill only this unit's own processes (Chrome/Xvfb children) when it stops.
+KillMode=control-group

@@ -22,13 +22,15 @@ geo:
   home_name: Shahibaug, Ahmedabad
   home_lat: 23.0555
   home_lon: 72.5936
-  radius_km: 20
+  radius_km: 20              # normal on-site/hybrid
+  night_radius_km: 10        # night-shift on-site/hybrid
 
-# Salary floor. Jobs that publish a salary below this are skipped; jobs without a
-# published salary are kept (most don't publish) but ranked below those that do.
+# Salary floors (owner, 2026-09-23). Jobs that publish pay below the floor are skipped;
+# jobs without published pay are kept (most don't publish). Published pay raises rank.
 salary:
-  min_inr_per_year: 0        # set after owner answers — 0 = no floor
-  min_usd_per_year: 0
+  min_inr_per_month_india: 25000     # India / India-remote roles
+  min_inr_per_month_global: 30000    # global remote roles (converted at usd_to_inr)
+  target_inr_per_month: 100000       # long-term goal — used only for ranking
   usd_to_inr: 88
 
 search:
@@ -56,13 +58,17 @@ search:
   hours_old: 72
   max_job_age_days: 21       # older postings are marked expired, never applied to
   min_score: 6.5
-  # Postings demanding more experience than this are skipped before LLM scoring
-  # (applying to them only burns the daily budget and the candidate's reputation).
-  max_required_years: 3
+  # Tiering (owner, 2026-09-23): ~70% core (≤4 years asked, non-senior title),
+  # ~30% stretch (Senior/Lead/founding/more years). Senior is NOT filtered out.
+  core_max_years: 4
+  stretch_max_years: 8       # beyond this the gap is too large to be worth a slot
+  stretch_share: 0.30
+  stretch_min_score: 7.5     # stretch applications need a stronger fit
 
 scoring:
   min_similarity: 0.55       # embedding cosine floor (calibrated: relevant roles 0.60-0.70)
   max_llm_per_run: 250       # ~10 s each on CPU; the rest wait for the next run
+  max_tailor_per_run: 60     # ~30 s per letter; tailor only what the apply stage can use
 
 limits:
   linkedin_per_day: 0        # LinkedIn automation risks a permanent account ban
@@ -70,6 +76,7 @@ limits:
   total_per_day: 100
   min_delay_seconds: 20
   max_delay_seconds: 45
+  max_apply_minutes: 150     # per scheduled run; the three runs share the daily cap
 
 resumes:
   fullstack: resumes/resume-fullstack.pdf
@@ -89,7 +96,8 @@ notify:
   check_every_minutes: 10
 
 screening_answers:
-  years_experience_total: 1
+  years_experience_total: 1            # paid professional (freelance) years — numeric fields
+  years_experience_text: About 1 year of paid freelance, client-facing work, and about 4 years of hands-on software development overall (projects and coursework).
   degree: Diploma in Computer Engineering
   currently_employed: 'No'
   current_ctc: Not currently employed (freelance)

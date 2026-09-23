@@ -1,75 +1,32 @@
 #!/usr/bin/env bash
-# hermes-status — show current state of the Hermes pipeline
+# hermes-status.sh — One-screen view of Hermes: timers, current run, today's numbers, last errors.
+ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+cd "$ROOT" || exit 1
 
-DB=/mnt/data/rj/hermes/db/applications.db
-LOG=/mnt/data/rj/hermes/output/pipeline_run.log
-
-echo ""
-echo "═══════════════════════════════════════════════════"
-echo "  HERMES STATUS  |  $(date '+%Y-%m-%d %H:%M:%S')"
-echo "═══════════════════════════════════════════════════"
-
-# ── Pipeline process ──────────────────────────────────
-PIPELINE_PID=$(pgrep -f "python3 src/pipeline.py" 2>/dev/null | head -1)
-if [[ -n "$PIPELINE_PID" ]]; then
-    ELAPSED=$(ps -o etimes= -p "$PIPELINE_PID" 2>/dev/null | tr -d ' ')
-    if [[ -n "$ELAPSED" ]]; then
-        MINS=$((ELAPSED / 60))
-        SECS=$((ELAPSED % 60))
-        echo "  ✓ Pipeline RUNNING  (PID $PIPELINE_PID, running ${MINS}m${SECS}s)"
-    else
-        echo "  ✓ Pipeline RUNNING  (PID $PIPELINE_PID)"
-    fi
+echo "═══ HERMES STATUS  $(date '+%F %T') ═══"
+if flock -n output/hermes.lock true 2>/dev/null; then
+    echo "run: idle"
 else
-    echo "  ✗ Pipeline NOT running"
+    echo "run: IN PROGRESS (lock held)"
 fi
-
-# ── Inhibit locks ─────────────────────────────────────
-if systemd-inhibit --list 2>/dev/null | grep -q "Hermes"; then
-    echo "  ✓ Lid-close inhibit  ACTIVE (system will not suspend)"
-else
-    echo "  ✗ Lid-close inhibit  NOT active"
+systemctl --user list-timers 'hermes*' --no-pager 2>/dev/null | head -5
+echo
+python3 - <<'PY'
+import sqlite3, json
+from datetime import date
+c = sqlite3.connect("db/applications.db")
+today = date.today().isoformat()
+q = lambda s, *a: c.execute(s, a).fetchall()
+print("status:", dict(q("SELECT status, COUNT(*) FROM jobs GROUP BY 1 ORDER BY 2 DESC")))
+print("submitted today by tier:", dict(q("SELECT COALESCE(tier,'core'), COUNT(*) FROM jobs "
+      "WHERE status='submitted' AND substr(applied_at,1,10)=? GROUP BY 1", today)))
+print("submitted today by channel:", dict(q("SELECT COALESCE(apply_channel, job_board), COUNT(*) FROM jobs "
+      "WHERE status='submitted' AND substr(applied_at,1,10)=? GROUP BY 1", today)))
+print("attempt outcomes today:", dict(q("SELECT status, COUNT(*) FROM jobs WHERE substr(last_attempt_at,1,10)=? "
+      "GROUP BY 1", today)))
+print("employer responses:", dict(q("SELECT response_status, COUNT(*) FROM jobs WHERE response_status IS NOT NULL GROUP BY 1")))
+PY
+if [[ -f output/metrics.jsonl ]]; then
+    echo; echo "last run metrics:"; tail -1 output/metrics.jsonl | python3 -c "import json,sys; r=json.load(sys.stdin); print(' ', r['at'], 'total', r['total_s'], 's'); [print('  ', s) for s in r['stages']]"
 fi
-
-# ── Monitor ───────────────────────────────────────────
-MONITOR_PID=$(pgrep -f "monitor.sh" 2>/dev/null | head -1)
-if [[ -n "$MONITOR_PID" ]]; then
-    echo "  ✓ Watchdog RUNNING   (PID $MONITOR_PID, checks every 2h)"
-else
-    echo "  ✗ Watchdog NOT running"
-fi
-
-# ── DB stats ──────────────────────────────────────────
-echo ""
-echo "  Job pipeline stats:"
-if [[ -f "$DB" && -s "$DB" ]]; then
-    python3 -c "
-import sqlite3
-conn = sqlite3.connect('$DB')
-rows = conn.execute('SELECT status, COUNT(*) FROM jobs GROUP BY status ORDER BY COUNT(*) DESC').fetchall()
-total = sum(r[1] for r in rows)
-for r in rows:
-    bar = '█' * min(30, int(r[1] * 30 / max(total, 1)))
-    print(f'  {r[0]:12s} {r[1]:4d}  {bar}')
-print(f'  {\"─\" * 30}')
-print(f'  TOTAL        {total:4d}')
-conn.close()
-" 2>/dev/null || echo "  (DB read error)"
-else
-    echo "  (DB empty or missing)"
-fi
-
-# ── Last 8 log lines ──────────────────────────────────
-echo ""
-echo "  Recent pipeline output:"
-echo "  ──────────────────────────────────────────"
-if [[ -f "$LOG" ]]; then
-    tail -8 "$LOG" | sed 's/^/  /'
-else
-    echo "  (no log file)"
-fi
-echo "  ──────────────────────────────────────────"
-echo ""
-echo "  tail -f $LOG"
-echo "  tail -f /mnt/data/rj/hermes/output/monitor.log"
-echo ""
+echo; echo "recent log:"; tail -12 output/hermes_cron.log 2>/dev/null | sed 's/^/  /'

@@ -9,9 +9,11 @@ ats_from_url() turns it into the ats_meta JSON that ats_apply.py consumes.
 
     resolve_apply_target(listing_url) -> {"final_url", "ats_meta" | None, "error" | None}
 
-Browser pattern: headful Chrome parked off-screen. Headless Chrome is served
-Cloudflare challenges on these boards; a real window positioned at -3000,-3000
-passes them and stays invisible on the desktop.
+Browser pattern: headful Chrome inside a private Xvfb display
+(display.ensure_virtual_display()). Headless Chrome is served Cloudflare
+challenges on these boards; a real window passes them. On KDE Wayland a
+headful window cannot be parked off-screen (Wayland ignores window-position),
+so it gets its own private X display instead — see display.py.
 """
 from __future__ import annotations
 
@@ -21,6 +23,8 @@ import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from display import ensure_virtual_display
+
 ROOT = Path(__file__).parent.parent
 PROFILE_DIR = ROOT / "output" / "chrome-redirect-profile"
 CDP_PORT = 9377          # distinct from indeed_apply's browser so both can coexist
@@ -29,7 +33,7 @@ REDIRECT_SETTLE_SECONDS = 6
 
 GREENHOUSE_RE = re.compile(
     r"(?:boards|job-boards)(?:\.eu)?\.greenhouse\.io/(?:embed/job_app\?for=)?([\w-]+)"
-    r"(?:/jobs/|&token=)(\d+)", re.I)
+    r"(?:/jobs/|[?&]token=|[?&]gh_jid=)(\d+)", re.I)
 LEVER_RE = re.compile(r"jobs\.(?:eu\.)?lever\.co/([\w.-]+)/([0-9a-f-]{36})", re.I)
 ASHBY_RE = re.compile(r"jobs\.ashbyhq\.com/([^/?#]+)/([0-9a-f-]{36})", re.I)
 
@@ -97,10 +101,10 @@ def describe_host(url: str) -> str:
 def _open_browser():
     from DrissionPage import ChromiumOptions, ChromiumPage
 
+    ensure_virtual_display()  # headful Chrome inside a private Xvfb display — see display.py
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     co = ChromiumOptions()
     co.headless(False)
-    co.set_argument("--window-position=-3000,-3000")
     co.set_argument("--window-size=1366,900")
     co.set_argument("--disable-blink-features=AutomationControlled")
     co.set_user_data_path(str(PROFILE_DIR))

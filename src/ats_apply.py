@@ -1,22 +1,27 @@
 """
 ats_apply.py — Submit applications on Greenhouse, Lever and Ashby hosted forms.
 
-    run_ats_apply(job, cover_letter, resume_path, screenshot_path, dry_run=False) -> dict
-    returns {"success": bool, "error": str | None, "screenshot": str | None}
+    run_ats_apply(job, cover_letter, resume_path, screenshot_path, dry_run=False)
+        -> states.ApplyResult
 
 How it works:
-  1. Open the ATS-hosted application form in headless Google Chrome (Playwright,
-     persistent profile so cookies/trust signals accumulate across runs).
+  1. Open the ATS-hosted application form in headful Google Chrome inside a private
+     Xvfb display (display.ensure_virtual_display()), via Playwright with a
+     persistent profile so cookies/trust signals accumulate across runs.
   2. Extract every form control with its visible question label, required flag and
      options (one JS pass; each control gets a data-hermes-idx for stable selection).
   3. Answer each control: resume/cover-letter/location handled here, everything else
      via answers.answer_question (truthful rules + fact-grounded LLM).
   4. A required question with no truthful answer aborts the application
-     (error "unanswerable:<label>") — we never guess.
-  5. Submit and classify: success text/URL, captcha challenge, validation errors.
+     (FORM_CHANGED with the question label) — we never guess.
+  5. dry_run fills every field and returns DRY_RUN_OK without clicking submit.
+     Otherwise: submit and classify success text/URL, captcha challenge, or
+     validation errors, into the matching states.ApplyResult.
 
-Error codes: captcha_blocked, posting_closed, unanswerable:<label>,
-form_not_submitted, unsupported_ats, browser_error:<detail>.
+Internal error codes (mapped to ApplyResult states by _result_for_error):
+  captcha_blocked, posting_closed, form_missing_fields, unanswerable:<label>,
+  validation_error:<text>, form_not_submitted, unconfirmed, unsupported_ats,
+  network_error:<detail>, browser_error:<detail>.
 """
 from __future__ import annotations
 
@@ -28,7 +33,17 @@ from pathlib import Path
 import requests
 import yaml
 
+import states
 from answers import answer_question
+from display import ensure_virtual_display
+
+try:
+    from playwright.sync_api import Error as PWError
+    from playwright.sync_api import TimeoutError as PWTimeoutError
+    from playwright.sync_api import sync_playwright
+except ImportError:  # pragma: no cover — pure functions (used by tests) must import fine either way
+    sync_playwright = None
+    PWTimeoutError = PWError = Exception
 
 ROOT = Path(__file__).parent.parent
 PROFILE_DIR = ROOT / "output" / "chrome-ats-profile"
@@ -49,6 +64,12 @@ CLOSED_TEXT = re.compile(
     r"page (you|you're) looking for|couldn't find (that|this) job",
     re.IGNORECASE,
 )
+VALIDATION_ERROR_TEXT = re.compile(
+    r"is required\b|please (enter|select|complete|fill|provide|choose)|this field is required|"
+    r"required field|invalid (email|phone|url|format)|field is missing",
+    re.IGNORECASE,
+)
+CAPTCHA_FRAME_RE = re.compile(r"hcaptcha.*(challenge|frame=challenge)|recaptcha/.*/bframe", re.IGNORECASE)
 DECLINE_OPTION = re.compile(r"decline|prefer not|don.t wish|do not wish|not to (say|disclose)", re.I)
 EEO_LABEL = re.compile(r"\bgender|\brace\b|ethnic|veteran|disabilit|hispanic|sexual orientation|\bpronouns?\b", re.I)
 # Questions asking the candidate to certify a no-AI application. Hermes writes cover letters
@@ -81,11 +102,12 @@ EXTRACT_JS = (ROOT / "src" / "ats_extract.js").read_text()
 # ---------------------------------------------------------------------------
 
 def _launch(pw):
+    ensure_virtual_display()  # headful Chrome inside a private Xvfb display — see display.py
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     return pw.chromium.launch_persistent_context(
         str(PROFILE_DIR),
         channel="chrome",
-        headless=True,
+        headless=False,
         viewport={"width": 1366, "height": 900},
         user_agent=USER_AGENT,
         locale="en-IN",
@@ -327,7 +349,7 @@ def _fill_all(page, fields: list[dict], cover_letter: str, resume_path: str,
 
 def _captcha_challenge_visible(page) -> bool:
     for frame in page.frames:
-        if re.search(r"hcaptcha.*(challenge|frame=challenge)|recaptcha/.*/bframe", frame.url):
+        if CAPTCHA_FRAME_RE.search(frame.url):
             try:
                 el = frame.frame_element()
                 box = el.bounding_box()
@@ -338,44 +360,102 @@ def _captcha_challenge_visible(page) -> bool:
     return False
 
 
-def _submit(page) -> str | None:
-    """Click submit, wait, classify. Returns None on success or an error code."""
+def _submit(page) -> tuple[str | None, str | None]:
+    """Click submit, wait, classify. Returns (error_code, evidence). error_code is
+    None with evidence set on success."""
     button = page.locator(
         'button[type="submit"]:has-text("Submit"), button:has-text("Submit application"), '
         '#btn-submit, button:has-text("Submit Application")'
     ).last
     if not button.count():
-        return "form_not_submitted"
+        return "form_not_submitted", None
     start_url = page.url
-    button.click()
+    try:
+        button.click()
+    except PWTimeoutError as exc:
+        return f"network_error:{str(exc)[:150]}", None
     for _ in range(20):  # up to ~20 s for confirmation
         page.wait_for_timeout(1000)
-        body = page.inner_text("body")[:5000]
-        if SUCCESS_TEXT.search(body) or re.search(r"confirmation|thank|success", page.url, re.I) \
-                and page.url != start_url:
-            return None
+        try:
+            body = page.inner_text("body")[:5000]
+        except Exception:  # page mid-navigation — try again next tick
+            body = ""
+        match = SUCCESS_TEXT.search(body)
+        if match:
+            return None, match.group(0)
+        if page.url != start_url and re.search(r"confirmation|thank|success", page.url, re.I):
+            return None, page.url
         if _captcha_challenge_visible(page):
-            return "captcha_blocked"
-    return "form_not_submitted"
+            return "captcha_blocked", None
+        err = VALIDATION_ERROR_TEXT.search(body)
+        if err:
+            return f"validation_error:{err.group(0)}", None
+    return "unconfirmed", None
 
 
 def _open_form(page, meta: dict) -> str | None:
-    page.goto(meta["apply_url"], wait_until="domcontentloaded", timeout=45000)
+    try:
+        response = page.goto(meta["apply_url"], wait_until="domcontentloaded", timeout=45000)
+    except PWTimeoutError as exc:
+        return f"network_error:{str(exc)[:150]}"
+    if response is not None and response.status in (404, 410):
+        return "posting_closed"
     page.wait_for_timeout(3500)
+    if _captcha_challenge_visible(page):
+        return "captcha_blocked"
     body = page.inner_text("body")[:4000]
     if CLOSED_TEXT.search(body):
         return "posting_closed"
     if not page.locator("input[type=file], input[type=email], input[name=email], #email").count():
-        return "posting_closed"
+        return "form_missing_fields"
     return None
 
 
+# ---------------------------------------------------------------------------
+# Error code -> ApplyResult
+# ---------------------------------------------------------------------------
+
+def _result_for_error(code: str, screenshot: str | None) -> states.ApplyResult:
+    if code == "posting_closed":
+        return states.ApplyResult(state=states.EXPIRED, detail="posting closed or not found",
+                                  screenshot=screenshot)
+    if code == "captcha_blocked":
+        return states.ApplyResult(state=states.CAPTCHA_REQUIRED, detail="captcha challenge visible",
+                                  screenshot=screenshot)
+    if code == "form_missing_fields":
+        return states.ApplyResult(state=states.FORM_CHANGED,
+                                  detail="application form structure not recognized",
+                                  screenshot=screenshot)
+    if code.startswith("unanswerable:"):
+        label = code.split(":", 1)[1]
+        return states.ApplyResult(state=states.FORM_CHANGED,
+                                  detail=f"no truthful answer for required question: {label}",
+                                  screenshot=screenshot)
+    if code.startswith("validation_error:"):
+        return states.ApplyResult(state=states.FORM_CHANGED,
+                                  detail=f"validation error after submit: {code.split(':', 1)[1]}",
+                                  screenshot=screenshot)
+    if code == "form_not_submitted":
+        return states.ApplyResult(state=states.FAILED, detail="submit button not found",
+                                  screenshot=screenshot)
+    if code == "unconfirmed":
+        return states.ApplyResult(state=states.SUBMISSION_UNCONFIRMED,
+                                  detail="submit clicked, no confirmation or error detected",
+                                  screenshot=screenshot)
+    if code == "unsupported_ats":
+        return states.ApplyResult(state=states.FAILED,
+                                  detail="unsupported ats or apply_url missing from ats_meta",
+                                  screenshot=screenshot)
+    if code.startswith("network_error:"):
+        return states.ApplyResult(state=states.NETWORK_ERROR, detail=code, screenshot=screenshot)
+    return states.ApplyResult(state=states.FAILED, detail=code, screenshot=screenshot)
+
+
 def run_ats_apply(job: dict, cover_letter: str, resume_path: str, screenshot_path: str,
-                  dry_run: bool = False) -> dict:
+                  dry_run: bool = False) -> states.ApplyResult:
     meta = json.loads(job.get("ats_meta") or "{}")
-    if meta.get("ats") not in ("greenhouse", "lever", "ashby") or not meta.get("apply_url"):
-        return {"success": False, "error": "unsupported_ats", "screenshot": None}
-    from playwright.sync_api import sync_playwright
+    if meta.get("ats") not in states.ATS_CHANNELS or not meta.get("apply_url"):
+        return _result_for_error("unsupported_ats", None)
 
     # Recruiters see the uploaded filename, so give it a clean, human one.
     cover_dir = Path(tempfile.mkdtemp(prefix="hermes-cover-"))
@@ -389,19 +469,26 @@ def run_ats_apply(job: dict, cover_letter: str, resume_path: str, screenshot_pat
                                          screenshot_path, dry_run)
             finally:
                 ctx.close()
+    except PWTimeoutError as exc:
+        return states.ApplyResult(state=states.NETWORK_ERROR, detail=f"timeout: {str(exc)[:200]}")
+    except PWError as exc:
+        msg = str(exc)
+        if re.search(r"net::ERR_|timeout|ECONNRESET|ENOTFOUND|dns", msg, re.IGNORECASE):
+            return states.ApplyResult(state=states.NETWORK_ERROR, detail=msg[:200])
+        return states.ApplyResult(state=states.FAILED, detail=f"browser_error:{msg[:200]}")
     except Exception as exc:  # Playwright/Chrome crash: report it, pipeline continues
-        return {"success": False, "error": f"browser_error:{str(exc)[:200]}", "screenshot": None}
+        return states.ApplyResult(state=states.FAILED, detail=f"browser_error:{str(exc)[:200]}")
     finally:
         Path(cover_path).unlink(missing_ok=True)
         cover_dir.rmdir()
 
 
 def _apply_in_browser(ctx, meta: dict, cover_letter: str, resume_path: str, cover_path: str,
-                      screenshot_path: str, dry_run: bool) -> dict:
+                      screenshot_path: str, dry_run: bool) -> states.ApplyResult:
     page = ctx.new_page()
     error = _open_form(page, meta)
     if error:
-        return {"success": False, "error": error, "screenshot": _screenshot(page, screenshot_path)}
+        return _result_for_error(error, _screenshot(page, screenshot_path))
     fields = _extract_fields(page)
     if meta["ats"] == "greenhouse":
         _merge_greenhouse(fields, _greenhouse_schema(meta))
@@ -414,9 +501,15 @@ def _apply_in_browser(ctx, meta: dict, cover_letter: str, resume_path: str, cove
             _merge_greenhouse(refreshed, _greenhouse_schema(meta))
         error = _fill_all(page, refreshed, cover_letter, resume_path, cover_path)
     if error:
-        return {"success": False, "error": error, "screenshot": _screenshot(page, screenshot_path)}
+        return _result_for_error(error, _screenshot(page, screenshot_path))
     if dry_run:
         shot = _screenshot(page, screenshot_path)
-        return {"success": True, "error": None, "screenshot": shot, "note": "dry_run"}
-    error = _submit(page)
-    return {"success": error is None, "error": error, "screenshot": _screenshot(page, screenshot_path)}
+        return states.ApplyResult(state=states.DRY_RUN_OK,
+                                  detail="all fields filled, submit deliberately skipped",
+                                  screenshot=shot)
+    error, evidence = _submit(page)
+    if error:
+        return _result_for_error(error, _screenshot(page, screenshot_path))
+    return states.ApplyResult(state=states.SUBMITTED, detail="application submitted",
+                              screenshot=_screenshot(page, screenshot_path),
+                              evidence=evidence or page.url)

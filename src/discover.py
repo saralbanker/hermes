@@ -9,8 +9,10 @@ Sources (enable in config.search.boards):
   - remoteok    RemoteOK public JSON API
 
 Every scraped job passes through filters.passes_filters() (location, staleness,
-seniority, salary). Rejected jobs are stored as status='filtered' with the
-reason, so they are deduplicated on later runs instead of re-evaluated.
+tier/role, salary). Rejected jobs are stored as status='filtered' (or 'expired'
+for stale postings) with the reason, so they are deduplicated on later runs
+instead of re-evaluated. Cross-board duplicates (same company + normalised
+title) are skipped before being written at all.
 
 Usage:
     python src/discover.py [--dry-run] [--limit N]
@@ -32,8 +34,8 @@ import requests
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from db import init_db, upsert_job, get_all_urls  # noqa: E402
-from filters import passes_filters  # noqa: E402
+from db import init_db, upsert_job, update_job, get_all_urls, get_conn, dedupe_key as make_dedupe_key  # noqa: E402
+from filters import passes_filters, classify_tier  # noqa: E402
 
 warnings.filterwarnings("ignore")
 
@@ -229,6 +231,15 @@ def deduplicate(df: pd.DataFrame, existing_urls: set) -> pd.DataFrame:
     return df[mask].reset_index(drop=True)
 
 
+def get_all_dedupe_keys() -> set:
+    """Every dedupe_key already stored, any status — cross-board dedupe before any LLM time."""
+    conn = get_conn()
+    rows = conn.execute("SELECT dedupe_key FROM jobs WHERE dedupe_key IS NOT NULL "
+                        "AND status NOT IN ('filtered', 'expired')").fetchall()
+    conn.close()
+    return {r["dedupe_key"] for r in rows}
+
+
 # ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
@@ -285,26 +296,45 @@ def _strip_html(text: str) -> str:
     return re.sub(r"[ \t]+", " ", html.unescape(text)).strip()
 
 
-def save_to_db(df: pd.DataFrame, cfg: dict) -> tuple[int, int]:
+def save_to_db(df: pd.DataFrame, cfg: dict) -> tuple[int, int, int]:
     """
-    Filter each row (location / staleness / seniority / salary) and save it.
-    Returns (eligible_saved, filtered_saved).
+    Filter each row (location / staleness / tier / salary) and save it.
+    Cross-board duplicates (same company + normalised title, any status) are
+    skipped before any LLM time — one application per role regardless of
+    which board listed it.
+    Returns (eligible_saved, filtered_saved, dedupe_skipped).
     """
-    eligible = filtered = 0
+    eligible = filtered = dedupe_skipped = 0
+    seen_keys = get_all_dedupe_keys()
     for row in df.itertuples(index=False):
         job = _row_to_job(row)
         if not job["url"]:
             continue
+
+        key = make_dedupe_key(job.get("company"), job.get("title"))
+        if key in seen_keys:
+            dedupe_skipped += 1
+            continue
+
         ok, reason = passes_filters(job, cfg)
+        if ok:  # only an eligible listing claims the role; an on-site twin must not block a remote one
+            seen_keys.add(key)
+        tier, years, _tier_reason = classify_tier(
+            job.get("title") or "", job.get("description") or "", cfg)
         job.pop("currency")
         if ok:
             job.update(location_reason=reason)
+        elif reason == "expired":
+            job.update(status="expired", status_reason=reason)
         else:
             job.update(status="filtered", status_reason=reason)
-        if upsert_job(job):
+
+        rowid = upsert_job(job)
+        if rowid:
+            update_job(job["url"], {"tier": tier, "required_years": years, "dedupe_key": key})
             eligible += ok
             filtered += not ok
-    return eligible, filtered
+    return eligible, filtered, dedupe_skipped
 
 
 def scrape_himalayas(cfg: dict, limit: int | None = None) -> pd.DataFrame:
@@ -399,9 +429,9 @@ def main(dry_run: bool = False, limit: int | None = None):
     if dry_run:
         print(f"[discover] --dry-run active: would evaluate {len(new_df)} new jobs (not written)")
     else:
-        eligible, filtered = save_to_db(new_df, cfg)
+        eligible, filtered, dedupe_skipped = save_to_db(new_df, cfg)
         print(f"[discover] Saved {eligible} eligible jobs, {filtered} filtered out "
-              f"(location/seniority/salary/stale)")
+              f"(location/tier/salary/stale), {dedupe_skipped} skipped (cross-board duplicate)")
 
     print(f"[discover] Done in {time.time() - t0:.1f}s")
 

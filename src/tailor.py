@@ -23,7 +23,7 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from db import init_db, get_jobs_above_score, update_job
+from db import init_db, update_job
 from keywords import extract_keywords, missing_keywords
 from llm import LLMUnavailable, chat, facts
 
@@ -93,8 +93,15 @@ BANNED_CLAIM_RE = re.compile(
     r"\b(i have|i've|my|experience (in|with)|background in|expertise in|worked (in|with|on))"
     r"[^.]{0,60}\b(aws|gcp|google cloud|azure|kubernetes|k8s|healthcare|fintech|banking|"
     r"java\b|spring|\.net|php|ios|swift|team lead|led a team|managed a team|bachelor|degree in)", re.I)
-HYPE_RE = re.compile(r"%|\bprecisely\b|\bexactly matches\b|\bperfect(ly)? (fit|match)", re.I)
+HYPE_RE = re.compile(r"%|\bprecisely\b|\bexactly matches\b|\bperfect(ly)? (fit|match)|"
+                     r"\b(enterprise|production|industry)[- ]grade\b|\bbattle[- ]tested\b|\bat scale\b|"
+                     r"\bmillions of users\b|\bexpert in\b", re.I)
 NUMBER_RE = re.compile(r"\d[\d,.]*")
+# "4 years" is true only for hands-on development overall — never as employment.
+YEARS_CLAIM_RE = re.compile(
+    r"\b([2-9]|two|three|four|five)\+?\s*(?:years?|yrs)\b[^.]{0,40}?"
+    r"\b(professional|industry|full[- ]time|work experience|employment|commercial|as an? (engineer|developer))",
+    re.I)
 
 
 def _norm_number(raw: str) -> str:
@@ -120,6 +127,9 @@ def validate_letter(text: str) -> list[str]:
     claim = BANNED_CLAIM_RE.search(text)
     if claim:
         problems.append(f"claims a skill/domain the candidate lacks: '{claim.group(0)}'")
+    years = YEARS_CLAIM_RE.search(text)
+    if years:
+        problems.append(f"overstates professional experience: '{years.group(0)}'")
     if HYPE_RE.search(text):
         problems.append("contains a percentage or exaggerated fit claim")
     if len(text.split()) > 170:
@@ -183,7 +193,7 @@ def process_job(job: dict, dry_run: bool = False) -> dict:
         focus_kws = missing_keywords(facts(), extract_keywords(description, top_n=20))
         letter, source = generate_cover_letter(job, focus_kws, variant)
         slug = make_slug(company, title)
-        rel_path = f"output/tailored/{slug}-cover.txt"
+        rel_path = f"output/tailored/{slug}-{job['id']}-cover.txt"  # id: slugs of long titles collide
 
         if dry_run:
             return {**base, "variant": variant, "source": source, "status": "dry_run",
@@ -197,7 +207,7 @@ def process_job(job: dict, dry_run: bool = False) -> dict:
                 "cover_letter_path": rel_path, "error": None}
     except Exception as exc:  # record per-job failure; never abort the whole batch
         if not dry_run:
-            update_job(url, {"status": "error", "status_reason": f"tailor_error: {exc}"})
+            update_job(url, {"status": "failed", "status_reason": f"tailor_error: {exc}"})
         return {**base, "status": "error", "error": str(exc)}
 
 
@@ -216,18 +226,32 @@ def _report(i: int, total: int, result: dict) -> str:
     return f"{head} ERR {who}: {result['error']}"
 
 
+def select_jobs(cfg: dict, limit: int | None) -> list[dict]:
+    """Scored jobs worth a letter: core ≥ min_score, stretch ≥ stretch_min_score,
+    best role/score first, capped to what the apply stage can use this run."""
+    from db import get_jobs_by_status
+    from filters import role_priority
+    search = cfg["search"]
+    def qualifies(j: dict) -> bool:
+        floor = search.get("stretch_min_score", 7.5) if j.get("tier") == "stretch" else search["min_score"]
+        return (j["score"] or 0) >= floor
+    jobs = [dict(j) for j in get_jobs_by_status("scored") if qualifies(dict(j))]
+    jobs.sort(key=lambda j: (role_priority(j["title"] or "", j["description"] or ""), j["score"] or 0),
+              reverse=True)
+    already_queued = len(get_jobs_by_status("tailored"))
+    cap = max(0, cfg["scoring"].get("max_tailor_per_run", 60) - already_queued)
+    return jobs[: min(cap, limit) if limit else cap]
+
+
 def main(limit: int | None = None, dry_run: bool = False) -> None:
     init_db()
     cfg = load_config()
-    min_score = cfg["search"]["min_score"]
-    jobs = [dict(j) for j in get_jobs_above_score(min_score)]
-    if limit:
-        jobs = jobs[:limit]
+    jobs = select_jobs(cfg, limit)
     if not jobs:
-        print(f"[tailor] No jobs with status='scored' and score>={min_score}.")
+        print(f"[tailor] Nothing to tailor (no qualifying scored jobs, or the apply queue is full).")
         return
 
-    print(f"[tailor] {len(jobs)} jobs qualify (score >= {min_score})."
+    print(f"[tailor] {len(jobs)} jobs selected for cover letters."
           f"{' DRY RUN — no files written.' if dry_run else ''}")
     counts: dict[str, int] = {}
     # Sequential — Ollama on CPU is single-stream; parallel calls only cause timeouts.

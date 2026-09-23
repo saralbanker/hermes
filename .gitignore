@@ -40,3 +40,12 @@ resumes/
 # OS
 .DS_Store
 Thumbs.db
+
+# Any database copy / browser profile / session outside output/
+*.db
+*.db-wal
+*.db-shm
+*session*.json
+chrome-*-profile/
+.pytest_cache/
+.claude/settings.local.json

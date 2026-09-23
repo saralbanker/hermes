@@ -18,7 +18,12 @@ here, the candidate cannot claim it.
 - Diploma in Computer Engineering, LJ Polytechnic, Ahmedabad — graduated May 2026, CGPA 8.36/10, top 10% of class.
 - No bachelor's degree.
 
-## Work experience (total professional experience: about 1.5 years, part-time while studying until May 2026)
+## Experience in years (state exactly this way — never merge the two figures)
+- About 4 years of hands-on software development (personal projects, diploma coursework, freelance work).
+- About 1+ year of paid, client-facing professional experience (freelance, Jan 2025 – present, part-time while
+  studying until May 2026). This is NOT full-time employment; never describe it as "4 years of professional experience".
+
+## Work experience
 - Freelance Full-Stack & AI Application Developer, Ahmedabad, Jan 2025 – present.
   - Shade Ledger (paid client contract, Rs. 60,000): maintenance billing and collection system for an
     industrial estate of 220+ shed units. Replaced a manual Excel workflow: owners/tenants, invoices,
