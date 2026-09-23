@@ -1,0 +1,13 @@
+[Unit]
+Description=Hermes Automated Job Application Runner
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/mnt/data/rj/hermes
+ExecStart=/mnt/data/rj/hermes/scripts/run_hermes.sh
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=default.target

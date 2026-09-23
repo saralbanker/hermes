@@ -1,0 +1,91 @@
+# Resume content. Every claim must also appear in profile/facts.md.
+# Build: python scripts/build_resumes.py  → resumes/resume-{fullstack,backend,ai}.pdf
+
+contact:
+  name: Saral Banker
+  line: Ahmedabad, India · +91 9016990136 · saralbanker1@gmail.com
+  links:
+    - [linkedin.com/in/saralbanker, https://www.linkedin.com/in/saralbanker]
+    - [github.com/saralbanker, https://github.com/saralbanker]
+    - [orvion-co.vercel.app, https://orvion-co.vercel.app]
+
+variants:
+  fullstack:
+    headline: Full-Stack Engineer · TypeScript, React, Node.js, PostgreSQL
+    summary: >-
+      Full-stack engineer who ships complete systems, from data model to deployment. Delivered a
+      paid billing platform for an industrial estate of 220+ units that saves the client 40+ hours
+      of manual work a month, and built a 70k-line AI productivity platform and an event-sourced
+      workflow engine in Go. I work with AI coding agents (Claude Code) and own the specification,
+      architecture, code review and testing. Available immediately for remote roles.
+    project_order: [neuro-zenith, awis, hermes]
+    skills_order: [languages, frontend, backend, data, ai, infra]
+  backend:
+    headline: Backend Engineer · Node.js, Python, Go, PostgreSQL
+    summary: >-
+      Backend engineer focused on reliable services and data-heavy workflows. Built AWIS, an
+      event-sourced workflow engine in Go backed by 773 test functions and a race-checked CI gate,
+      and delivered a paid billing platform for an industrial estate of 220+ units. I work with AI
+      coding agents (Claude Code) and own the specification, architecture, code review and
+      testing. Available immediately for remote roles.
+    project_order: [awis, neuro-zenith, hermes]
+    skills_order: [languages, backend, data, infra, ai, frontend]
+  ai:
+    headline: AI Application Engineer · RAG, LLM Integration, TypeScript, Python
+    summary: >-
+      AI application engineer who puts LLMs into real products. Built Neuro-Zenith, a local-first
+      AI platform with a RAG pipeline (BGE embeddings, pgvector HNSW) and multi-provider LLM
+      routing, and Hermes, a job-search pipeline that runs local LLMs through Ollama. I work with
+      AI coding agents (Claude Code) and own the specification, architecture, code review and
+      testing. Available immediately for remote roles.
+    project_order: [neuro-zenith, hermes, awis]
+    skills_order: [ai, languages, backend, data, frontend, infra]
+
+experience:
+  - role: Freelance Full-Stack & AI Application Developer
+    where: Self-employed · Ahmedabad
+    dates: Jan 2025 – Present
+    bullets:
+      - "Shade Ledger (paid client contract): built the maintenance billing and collection system for an industrial estate of 220+ shed units — owners and tenants, invoices, payments, automatic penalty calculation, WhatsApp reminders and reports."
+      - "Replaced the client's manual Excel workflow; the system saves 40+ hours of administrative work every month. Stack: React, TypeScript, Vite, Supabase/PostgreSQL, later migrated to Convex."
+      - "HeatMax (client project): built the product catalog website for an industrial boiler manufacturer with React, TypeScript and Supabase."
+
+projects:
+  awis:
+    name: AWIS — Local-First Workflow Execution Engine
+    stack: Go, SQLite, TypeScript, Python
+    dates: Jul 2026 – Present
+    bullets:
+      - "Event-sourced workflow engine: YAML workflow DSL with retries, fallbacks, compensation, signals and cron triggers; append-only SQLite event log with state rebuilt by replay."
+      - "22-command CLI, read-only REST API, TypeScript dashboard, and an out-of-process plugin system over JSON-RPC with Python SDKs."
+      - "About 25,000 lines of Go covered by 773 Go test functions; CI runs gofmt, vet, golangci-lint, the race detector and an acceptance gate."
+  neuro-zenith:
+    name: Neuro-Zenith — Local-First AI Productivity Platform
+    stack: React, TypeScript, Node.js, FastAPI, PostgreSQL, Redis
+    dates: 2025 – 2026
+    link: github.com/saralbanker/neuro-zenith
+    bullets:
+      - "RAG pipeline with BGE embeddings and pgvector HNSW semantic search across notes, files, events and tasks; multi-provider LLM routing (OpenRouter, Gemini, local Qwen)."
+      - "Redis + BullMQ background jobs for summarization and embeddings; Socket.IO real-time sync; JWT auth with RBAC on PostgreSQL/Supabase across 44 migrations."
+      - "About 70,000 lines across 400+ files, with Sentry and Prometheus observability and GitHub Actions CI."
+  hermes:
+    name: Hermes — Automated Job-Search Pipeline
+    stack: Python, Ollama, Playwright, SQLite
+    dates: 2026
+    bullets:
+      - "Scrapes job boards and ATS APIs, filters by location and seniority, scores fit with a local LLM and embeddings, and drafts fact-checked cover letters that cannot cite unverified claims."
+      - "Runs unattended on systemd timers with a SQLite state machine and desktop notifications for employer replies."
+
+skills:
+  languages: [Languages, "TypeScript, JavaScript, Python, Go, SQL"]
+  frontend: [Frontend, "React, Next.js, Vite, Tailwind CSS, TanStack Query, Zustand"]
+  backend: [Backend, "Node.js, Express, FastAPI, REST APIs, Socket.IO, JWT, RBAC"]
+  data: [Data, "PostgreSQL, Supabase, pgvector, Redis, BullMQ, SQLite, Convex"]
+  ai: [AI, "RAG, embeddings, semantic search, prompt engineering, structured output, local LLMs (Ollama)"]
+  infra: [Infrastructure, "Docker, GitHub Actions, Linux, systemd, Sentry, Prometheus"]
+
+education:
+  degree: Diploma in Computer Engineering
+  school: LJ Polytechnic, Ahmedabad
+  dates: May 2026
+  detail: CGPA 8.36/10 · top 10% of class

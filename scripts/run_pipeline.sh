@@ -4,10 +4,10 @@
 # Works from any directory. Install once:
 #   ln -sf /mnt/data/rj/hermes/scripts/run_pipeline.sh ~/.local/bin/hermes
 #
-# Then just run:
-#   hermes                  full pipeline
+# Usage:
+#   hermes                  full pipeline (background, lid-close safe)
 #   hermes --apply-only     apply to already-tailored jobs
-#   hermes --dry-run        test run, no real submissions
+#   hermes --dry-run        test run, no real submissions (foreground)
 #   hermes --limit 10       cap each stage at 10 jobs
 
 set -euo pipefail
@@ -20,7 +20,7 @@ cd "$PROJECT_ROOT"
 
 LOG="output/pipeline_run.log"
 mkdir -p output screenshots
-chmod 700 output/  # owner-only: contains session cookies + cover letters
+chmod 700 output/
 
 echo ""                                                         | tee -a "$LOG"
 echo "═══════════════════════════════════════════════════════" | tee -a "$LOG"
@@ -69,28 +69,23 @@ done
 
 # ── First-time Indeed session setup ──────────────────────────────────────────
 if [[ ! -f "output/indeed_session.json" ]]; then
-    echo "" | tee -a "$LOG"
-    echo "[hermes] No Indeed session found." | tee -a "$LOG"
-    echo "[hermes] Running first-time login setup..." | tee -a "$LOG"
+    echo "[hermes] No Indeed session found — running first-time login..." | tee -a "$LOG"
     "$PYTHON" scripts/indeed_setup.py
     if [[ ! -f "output/indeed_session.json" ]]; then
-        echo "[hermes] ERROR: Session setup failed or was cancelled." | tee -a "$LOG"
+        echo "[hermes] ERROR: Session setup failed." | tee -a "$LOG"
         exit 1
     fi
 fi
 
-# ── Pre-flight checks (2 tests: Ollama inference + Indeed session) ────────────
-# Skip with: hermes --skip-preflight (e.g. for dry-run or when you know it works)
+# ── Pre-flight checks ─────────────────────────────────────────────────────────
 SKIP_PREFLIGHT=0
 for arg in "$@"; do
     [[ "$arg" == "--skip-preflight" ]] && SKIP_PREFLIGHT=1
 done
 
 if [[ $SKIP_PREFLIGHT -eq 0 ]]; then
-    echo "" | tee -a "$LOG"
     echo "[hermes] Running pre-flight checks..." | tee -a "$LOG"
     if ! "$PYTHON" scripts/preflight.py 2>&1 | tee -a "$LOG"; then
-        echo "" | tee -a "$LOG"
         echo "[hermes] Pre-flight failed — fix the issues above and re-run." | tee -a "$LOG"
         exit 1
     fi
@@ -98,25 +93,74 @@ else
     echo "[hermes] Pre-flight skipped (--skip-preflight)" | tee -a "$LOG"
 fi
 
-# ── Run pipeline (systemd-inhibit keeps laptop awake, lid closed OK) ──────────
-echo "" | tee -a "$LOG"
 echo "[hermes] Pre-flight passed — starting pipeline" | tee -a "$LOG"
 echo "[hermes] Log: $PROJECT_ROOT/$LOG" | tee -a "$LOG"
-echo "" | tee -a "$LOG"
 
-# Strip --skip-preflight before passing args to pipeline.py
+# ── Strip --skip-preflight before forwarding args ─────────────────────────────
 PIPELINE_ARGS=()
 for arg in "$@"; do
     [[ "$arg" != "--skip-preflight" ]] && PIPELINE_ARGS+=("$arg")
 done
 
-if command -v systemd-inhibit > /dev/null 2>&1; then
-    exec systemd-inhibit \
-      --what=sleep:idle:handle-lid-switch \
-      --who="Hermes Job Pipeline" \
-      --why="Automated job applications running overnight" \
-      --mode=block \
-      "$PYTHON" src/pipeline.py "${PIPELINE_ARGS[@]}" 2>&1 | tee -a "$LOG"
+# ── Determine run mode ────────────────────────────────────────────────────────
+# --dry-run or --interactive: stay foreground (user is watching)
+# Everything else: detach from terminal (lid-close safe overnight mode)
+DRY_RUN=0
+for arg in "${PIPELINE_ARGS[@]:-}"; do
+    [[ "$arg" == "--dry-run" || "$arg" == "--interactive" ]] && DRY_RUN=1
+done
+
+if [[ $DRY_RUN -eq 1 ]]; then
+    # ── Foreground mode (dry-run / test) ──────────────────────────────────────
+    echo "[hermes] Running in foreground (dry-run/interactive mode)" | tee -a "$LOG"
+    if command -v systemd-inhibit > /dev/null 2>&1; then
+        exec systemd-inhibit \
+          --what=sleep:idle:handle-lid-switch \
+          --who="Hermes" \
+          --why="Job application pipeline" \
+          --mode=block \
+          "$PYTHON" src/pipeline.py "${PIPELINE_ARGS[@]}" 2>&1 | tee -a "$LOG"
+    else
+        exec "$PYTHON" src/pipeline.py "${PIPELINE_ARGS[@]}" 2>&1 | tee -a "$LOG"
+    fi
 else
-    exec "$PYTHON" src/pipeline.py "${PIPELINE_ARGS[@]}" 2>&1 | tee -a "$LOG"
+    # ── Background / overnight mode (default) ─────────────────────────────────
+    # nohup + new session: survives terminal close AND lid close
+    echo "[hermes] Starting overnight mode — detached from terminal" | tee -a "$LOG"
+    echo "[hermes] You can safely close the terminal or laptop lid." | tee -a "$LOG"
+
+    # Kill any existing pipeline before starting fresh
+    pkill -f "python3 src/pipeline.py" 2>/dev/null || true
+    sleep 1
+
+    nohup systemd-inhibit \
+      --what=sleep:idle:handle-lid-switch \
+      --who="Hermes" \
+      --why="Overnight job applications" \
+      --mode=block \
+      "$PYTHON" src/pipeline.py "${PIPELINE_ARGS[@]}" \
+      >> "$LOG" 2>&1 &
+
+    PIPELINE_PID=$!
+    disown $PIPELINE_PID
+
+    echo "[hermes] Pipeline PID: $PIPELINE_PID" | tee -a "$LOG"
+    echo "[hermes] Watch live:  tail -f $PROJECT_ROOT/$LOG" | tee -a "$LOG"
+    echo "[hermes] Status:      hermes-status" | tee -a "$LOG"
+    echo ""
+    echo "  Pipeline is running in background. You can:"
+    echo "  • Close this terminal — pipeline keeps running"
+    echo "  • Close laptop lid   — pipeline keeps running"
+    echo "  • Watch output:  tail -f $PROJECT_ROOT/$LOG"
+    echo "  • Check status:  hermes-status"
+    echo ""
+
+    # Tail the log for 30s so user sees it's working, then exit
+    if [ -t 1 ]; then
+        echo "  Showing live output for 30s (Ctrl+C to stop watching, pipeline continues)..."
+        echo "  ────────────────────────────────────────"
+        timeout 30 tail -f "$LOG" || true
+        echo "  ────────────────────────────────────────"
+        echo "  Pipeline continues running in background."
+    fi
 fi

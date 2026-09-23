@@ -17,7 +17,9 @@ Usage:
 
 import sys
 import argparse
+import signal
 import time
+import threading
 from pathlib import Path
 from datetime import datetime
 
@@ -32,6 +34,29 @@ def print_header():
     print("  HERMES — Job Application Pipeline")
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("═" * 50)
+
+
+_heartbeat_stop: threading.Event | None = None
+
+
+def _start_heartbeat():
+    """Print a live status line every 30s so the terminal never looks stuck."""
+    global _heartbeat_stop
+    _heartbeat_stop = threading.Event()
+
+    def _beat():
+        t = 0
+        while not _heartbeat_stop.wait(30):
+            t += 30
+            ts = datetime.now().strftime("%H:%M:%S")
+            print(f"[hermes] ♥ alive — {ts} (+{t//60}m{t%60:02d}s)", flush=True)
+
+    threading.Thread(target=_beat, daemon=True).start()
+
+
+def _stop_heartbeat():
+    if _heartbeat_stop:
+        _heartbeat_stop.set()
 
 
 def print_stage(name: str):
@@ -117,6 +142,7 @@ Examples:
     args = parser.parse_args()
 
     print_header()
+    _start_heartbeat()
     init_db()
 
     # Show daily cap status upfront
@@ -159,6 +185,8 @@ Examples:
 
     except KeyboardInterrupt:
         print("\n\n[pipeline] Interrupted by user. Progress saved to DB.")
+    finally:
+        _stop_heartbeat()
 
     elapsed = time.time() - t_start
     print(f"\n[pipeline] Total runtime: {elapsed:.0f}s ({elapsed/60:.1f} min)")

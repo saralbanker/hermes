@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Hermes Job Automation daily at 08:00 AM (Peak recruiter hour)
+
+[Timer]
+OnCalendar=*-*-* 08:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

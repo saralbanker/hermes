@@ -1,10 +1,16 @@
 """
 discover.py — Scrape job listings and save new ones to SQLite.
 
-Sources:
-  - LinkedIn + Indeed via python-jobspy
-  - RemoteOK public JSON API (zero bot risk, free)
-  - Remotive public JSON API (zero bot risk, free)
+Sources (enable in config.search.boards):
+  - indeed      python-jobspy, remote search + on-site search around Ahmedabad
+  - ats         Greenhouse / Lever / Ashby public board APIs (src/sources_ats.py)
+  - himalayas   Himalayas API, filtered server-side to jobs open to India
+  - remotive    Remotive public JSON API
+  - remoteok    RemoteOK public JSON API
+
+Every scraped job passes through filters.passes_filters() (location, staleness,
+seniority, salary). Rejected jobs are stored as status='filtered' with the
+reason, so they are deduplicated on later runs instead of re-evaluated.
 
 Usage:
     python src/discover.py [--dry-run] [--limit N]
@@ -14,6 +20,8 @@ Usage:
 """
 
 import argparse
+import html
+import re
 import sys
 import time
 import warnings
@@ -25,6 +33,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
 from db import init_db, upsert_job, get_all_urls  # noqa: E402
+from filters import passes_filters  # noqa: E402
 
 warnings.filterwarnings("ignore")
 
@@ -53,33 +62,51 @@ def scrape_all_roles(cfg: dict, limit: int | None = None) -> pd.DataFrame:
 
     search = cfg["search"]
     roles = search["target_roles"]
+    boards = search.get("boards", ["indeed"])
     results_wanted = limit if limit is not None else search.get("results_wanted", 30)
     hours_old = search.get("hours_old", 72)
     location = search.get("location", "Remote")
     country_indeed = search.get("country_indeed", "India")
 
-    print(f"[discover] Scraping {len(roles)} roles across 4 boards...")
+    print(f"[discover] Scraping {len(roles)} roles on {boards}...")
+    if "linkedin" in boards:
+        print("[discover] WARNING: linkedin scraping enabled — apply is disabled for it (ban risk)")
 
     frames: list[pd.DataFrame] = []
 
-    for i, role in enumerate(roles):
+    jobspy_boards = [b for b in boards if b in ("indeed", "linkedin")]
+    if not jobspy_boards:
+        return pd.DataFrame()
+    local_location = search.get("local_location")
+    radius_miles = int(cfg["geo"]["radius_km"] / 1.609)
+    searches = [(role, location, None) for role in roles]
+    if local_location:
+        searches += [(role, local_location, radius_miles) for role in roles[:4]]
+
+    for i, (role, where, distance) in enumerate(searches):
+        print(f"[discover] [{i+1}/{len(searches)}] Scraping '{role}' @ {where}...", flush=True)
         try:
             df = scrape_jobs(
-                site_name=["linkedin", "indeed"],
+                site_name=jobspy_boards,
                 search_term=role,
-                location=location,
+                location=where,
+                distance=distance or 50,
+                is_remote=distance is None,
                 results_wanted=results_wanted,
                 hours_old=hours_old,
                 country_indeed=country_indeed,
-                linkedin_fetch_description=True,
+                linkedin_fetch_description=("linkedin" in jobspy_boards),
             )
             if df is not None and not df.empty:
                 frames.append(df)
+                print(f"[discover] [{i+1}/{len(searches)}] '{role}' — {len(df)} results", flush=True)
+            else:
+                print(f"[discover] [{i+1}/{len(searches)}] '{role}' — 0 results", flush=True)
         except Exception as exc:
             print(f"[discover] WARNING: scraping '{role}' failed — {exc}")
 
-        # Rate-limit between roles (skip sleep after the last role)
-        if i < len(roles) - 1:
+        # Rate-limit between searches (skip sleep after the last one)
+        if i < len(searches) - 1:
             time.sleep(2)
 
     if not frames:
@@ -135,11 +162,12 @@ def scrape_remoteok(cfg: dict, limit: int | None = None) -> pd.DataFrame:
             "job_url":     f"https://remoteok.com/remote-jobs/{job.get('slug', job.get('id', ''))}",
             "company":     job.get("company", "Unknown"),
             "title":       job.get("position", "Unknown"),
-            "location":    "Remote",
+            "location":    f"Remote, {job.get('location') or 'Worldwide'}",
             "site":        "remoteok",
             "description": job.get("description", ""),
-            "min_amount":  None,
-            "max_amount":  None,
+            "min_amount":  job.get("salary_min") or None,
+            "max_amount":  job.get("salary_max") or None,
+            "currency":    "USD",
             "date_posted": job.get("date", ""),
         })
 
@@ -168,7 +196,7 @@ def scrape_remotive(cfg: dict, limit: int | None = None) -> pd.DataFrame:
                     "job_url":     job.get("url", ""),
                     "company":     job.get("company_name", "Unknown"),
                     "title":       job.get("title", "Unknown"),
-                    "location":    job.get("candidate_required_location", "Remote"),
+                    "location":    f"Remote, {job.get('candidate_required_location') or 'Worldwide'}",
                     "site":        "remotive",
                     "description": job.get("description", ""),
                     "min_amount":  None,
@@ -223,85 +251,159 @@ def _safe_int(value) -> int | None:
         return None
 
 
-def save_to_db(df: pd.DataFrame) -> int:
+# Where each source's application form lives. 'redirect' = the listing page links
+# out to the employer's ATS; apply.py resolves it in a real browser at apply time.
+CHANNEL_BY_SITE = {
+    "indeed": "indeed", "greenhouse": "greenhouse", "lever": "lever", "ashby": "ashby",
+    "himalayas": "redirect", "remotive": "redirect", "remoteok": "redirect", "linkedin": "none",
+}
+
+
+def _row_to_job(row) -> dict:
+    site = _safe_str(getattr(row, "site", None), "") or ""
+    return {
+        "url":           _safe_str(getattr(row, "job_url", None), ""),
+        "company":       _safe_str(getattr(row, "company", None), "Unknown"),
+        "title":         _safe_str(getattr(row, "title", None), "Unknown"),
+        "location":      _safe_str(getattr(row, "location", None)),
+        "job_board":     site,
+        "description":   _strip_html(_safe_str(getattr(row, "description", None)) or ""),
+        "salary_min":    _safe_int(getattr(row, "min_amount", None)),
+        "salary_max":    _safe_int(getattr(row, "max_amount", None)),
+        "currency":      _safe_str(getattr(row, "currency", None)),
+        "date_posted":   _safe_str(getattr(row, "date_posted", None)),
+        "apply_channel": _safe_str(getattr(row, "apply_channel", None)) or CHANNEL_BY_SITE.get(site, "none"),
+        "ats_meta":      _safe_str(getattr(row, "ats_meta", None)),
+    }
+
+
+def _strip_html(text: str) -> str:
+    if "<" not in text:
+        return text
+    text = re.sub(r"<(br|/p|/li|/h\d)[^>]*>", "\n", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"[ \t]+", " ", html.unescape(text)).strip()
+
+
+def save_to_db(df: pd.DataFrame, cfg: dict) -> tuple[int, int]:
     """
-    Map JobSpy DataFrame columns to upsert_job() dict and save each row.
-    Returns the number of rows actually inserted (IGNORE skips duplicates).
+    Filter each row (location / staleness / seniority / salary) and save it.
+    Returns (eligible_saved, filtered_saved).
     """
-    saved = 0
+    eligible = filtered = 0
     for row in df.itertuples(index=False):
-        job = {
-            "url":          _safe_str(getattr(row, "job_url", None), ""),
-            "company":      _safe_str(getattr(row, "company", None), "Unknown"),
-            "title":        _safe_str(getattr(row, "title", None), "Unknown"),
-            "location":     _safe_str(getattr(row, "location", None)),
-            "job_board":    _safe_str(getattr(row, "site", None)),
-            "description":  _safe_str(getattr(row, "description", None)),
-            "salary_min":   _safe_int(getattr(row, "min_amount", None)),
-            "salary_max":   _safe_int(getattr(row, "max_amount", None)),
-            "date_posted":  _safe_str(getattr(row, "date_posted", None)),
-        }
+        job = _row_to_job(row)
         if not job["url"]:
             continue
-        rowid = upsert_job(job)
-        if rowid:
-            saved += 1
-    return saved
+        ok, reason = passes_filters(job, cfg)
+        job.pop("currency")
+        if ok:
+            job.update(location_reason=reason)
+        else:
+            job.update(status="filtered", status_reason=reason)
+        if upsert_job(job):
+            eligible += ok
+            filtered += not ok
+    return eligible, filtered
+
+
+def scrape_himalayas(cfg: dict, limit: int | None = None) -> pd.DataFrame:
+    """Himalayas search API, restricted server-side to jobs hiring in India."""
+    per_role = limit or cfg["search"].get("results_wanted", 30)
+    rows = []
+    for kw in cfg["search"]["target_roles"]:
+        try:
+            resp = requests.get(
+                "https://himalayas.app/jobs/api/search",
+                params={"q": kw, "country": "India", "sort": "recent", "limit": min(per_role, 20)},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; job-seeker)"},
+                timeout=20,
+            )
+            resp.raise_for_status()
+            jobs = resp.json().get("jobs", [])
+        except (requests.RequestException, ValueError) as exc:
+            print(f"[discover] Himalayas error for '{kw}': {exc}")
+            continue
+        for job in jobs:
+            regions = job.get("locationRestrictions") or ["Worldwide"]
+            rows.append({
+                "job_url":     job.get("applicationLink") or job.get("guid", ""),
+                "company":     job.get("companyName", "Unknown"),
+                "title":       job.get("title", "Unknown"),
+                "location":    "Remote, " + ", ".join(regions),
+                "site":        "himalayas",
+                "description": job.get("description", ""),
+                "min_amount":  job.get("minSalary"),
+                "max_amount":  job.get("maxSalary"),
+                "currency":    job.get("currency"),
+                "date_posted": str(job.get("pubDate", "")),
+            })
+        time.sleep(1)
+    df = pd.DataFrame(rows).drop_duplicates(subset=["job_url"]) if rows else pd.DataFrame()
+    print(f"[discover] Himalayas: {len(df)} jobs open to India")
+    return df
+
+
+def _scrape_ats(cfg: dict) -> pd.DataFrame:
+    from sources_ats import fetch_ats_jobs
+    return fetch_ats_jobs(cfg)
+
+
+SCRAPERS = {
+    "ats": lambda cfg, limit: _scrape_ats(cfg),
+    "himalayas": scrape_himalayas,
+    "remotive": scrape_remotive,
+    "remoteok": scrape_remoteok,
+}
 
 
 # ---------------------------------------------------------------------------
 # Main orchestration
 # ---------------------------------------------------------------------------
 
-def main(dry_run: bool = False, limit: int | None = None):
-    t0 = time.time()
-
-    cfg = load_config()
-    init_db()
-
-    # Scrape all sources
-    frames = []
-
-    jobspy_df = scrape_all_roles(cfg, limit=limit)
-    if not jobspy_df.empty:
-        frames.append(jobspy_df)
-
-    remoteok_df = scrape_remoteok(cfg, limit=limit)
-    if not remoteok_df.empty:
-        frames.append(remoteok_df)
-
-    remotive_df = scrape_remotive(cfg, limit=limit)
-    if not remotive_df.empty:
-        frames.append(remotive_df)
-
+def collect(cfg: dict, limit: int | None) -> pd.DataFrame:
+    """Run every enabled scraper. One source failing never stops the others."""
+    boards = cfg["search"].get("boards", ["indeed"])
+    frames = [scrape_all_roles(cfg, limit=limit)]
+    for name, scraper in SCRAPERS.items():
+        if name not in boards:
+            continue
+        try:
+            frames.append(scraper(cfg, limit))
+        except Exception as exc:  # a broken source must not kill discovery
+            print(f"[discover] WARNING: source '{name}' failed — {type(exc).__name__}: {exc}")
+    frames = [f for f in frames if f is not None and not f.empty]
     raw_df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-
-    # Normalise: ensure job_url column exists and drop blanks
     if not raw_df.empty and "job_url" in raw_df.columns:
         raw_df = raw_df.dropna(subset=["job_url"])
         raw_df = raw_df[raw_df["job_url"].astype(str).str.strip() != ""]
         raw_df = raw_df.drop_duplicates(subset=["job_url"])
+    return raw_df
 
+
+def main(dry_run: bool = False, limit: int | None = None):
+    t0 = time.time()
+    cfg = load_config()
+    init_db()
+
+    raw_df = collect(cfg, limit)
     raw_count = len(raw_df)
     print(f"[discover] Found {raw_count} raw jobs total")
-
     if raw_count == 0:
         print("[discover] Nothing scraped — done.")
         return
 
-    existing_urls = get_all_urls()
-    new_df = deduplicate(raw_df, existing_urls)
-    skip_count = raw_count - len(new_df)
-    print(f"[discover] {skip_count} already in DB, skipping")
+    new_df = deduplicate(raw_df, get_all_urls())
+    print(f"[discover] {raw_count - len(new_df)} already in DB, skipping")
 
     if dry_run:
-        print(f"[discover] --dry-run active: would save {len(new_df)} new jobs (not written)")
+        print(f"[discover] --dry-run active: would evaluate {len(new_df)} new jobs (not written)")
     else:
-        saved = save_to_db(new_df)
-        print(f"[discover] Saved {saved} new jobs")
+        eligible, filtered = save_to_db(new_df, cfg)
+        print(f"[discover] Saved {eligible} eligible jobs, {filtered} filtered out "
+              f"(location/seniority/salary/stale)")
 
-    elapsed = time.time() - t0
-    print(f"[discover] Done in {elapsed:.1f}s")
+    print(f"[discover] Done in {time.time() - t0:.1f}s")
 
 
 # ---------------------------------------------------------------------------

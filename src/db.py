@@ -13,10 +13,26 @@ def get_conn() -> sqlite3.Connection:
     return conn
 
 
+# Columns added after the original schema. init_db() adds any that are missing,
+# so existing databases upgrade in place.
+MIGRATION_COLUMNS = {
+    "apply_channel":    "TEXT",   # indeed | greenhouse | lever | ashby | email
+    "ats_meta":         "TEXT",   # JSON: board token, posting id, apply email
+    "location_reason":  "TEXT",   # why the location filter accepted the job
+    "response_status":  "TEXT",   # positive | rejection | ack (from employer email)
+    "response_subject": "TEXT",
+    "response_at":      "TEXT",
+}
+
+
 def init_db():
     DB_PATH.parent.mkdir(exist_ok=True)
     conn = get_conn()
     conn.executescript(SCHEMA_PATH.read_text())
+    existing = {r["name"] for r in conn.execute("PRAGMA table_info(jobs)")}
+    for col, col_type in MIGRATION_COLUMNS.items():
+        if col not in existing:
+            conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {col_type}")
     conn.commit()
     conn.close()
     DB_PATH.chmod(0o600)  # owner-only: contains cover letters + application history
@@ -28,12 +44,15 @@ def upsert_job(job: dict) -> int:
         """
         INSERT OR IGNORE INTO jobs
             (url, company, title, location, job_board,
-             description, salary_min, salary_max, date_posted)
+             description, salary_min, salary_max, date_posted,
+             apply_channel, ats_meta, location_reason, status, status_reason)
         VALUES
             (:url, :company, :title, :location, :job_board,
-             :description, :salary_min, :salary_max, :date_posted)
+             :description, :salary_min, :salary_max, :date_posted,
+             :apply_channel, :ats_meta, :location_reason, :status, :status_reason)
         """,
-        job,
+        {"apply_channel": None, "ats_meta": None, "location_reason": None,
+         "status": "discovered", "status_reason": None, **job},
     )
     conn.commit()
     rowid = cur.lastrowid
