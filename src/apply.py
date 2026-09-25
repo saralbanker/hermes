@@ -61,8 +61,10 @@ def build_queue(jobs: list[dict], cfg: dict, remaining: int, done: dict[str, int
     """
     search = cfg["search"]
     share = float(search.get("stretch_share", 0.3))
-    core = sorted((j for j in jobs if (j.get("tier") or S.CORE) == S.CORE), key=_rank_key, reverse=True)
+    core = sorted((j for j in jobs if (j.get("tier") or S.CORE) == S.CORE
+                   and (j.get("attempts") or 0) < S.MAX_ATTEMPTS), key=_rank_key, reverse=True)
     stretch = sorted((j for j in jobs if j.get("tier") == S.STRETCH
+                      and (j.get("attempts") or 0) < S.MAX_ATTEMPTS
                       and (j["score"] or 0) >= search.get("stretch_min_score", 7.5)),
                      key=_rank_key, reverse=True)
     done_total = sum(done.values())
@@ -90,7 +92,10 @@ def resolve_channel(job: dict) -> str:
         return job["apply_channel"]
     board = (job.get("job_board") or "").lower()
     if job.get("ats_meta"):
-        return json.loads(job["ats_meta"]).get("ats", S.CH_REDIRECT)
+        meta = json.loads(job["ats_meta"])
+        if "direct_apply_url" in meta:
+            return S.CH_DIRECT
+        return meta.get("ats", S.CH_REDIRECT)
     if board == "indeed":
         return S.CH_INDEED
     if board in REDIRECT_BOARDS:
@@ -98,20 +103,51 @@ def resolve_channel(job: dict) -> str:
     return ""
 
 
+def _apply_resolved_target(job: dict, target: dict, prefix: str) -> S.ApplyResult | None:
+    """Common tail for _follow_redirect (aggregator boards) and _follow_indeed_external
+    (Indeed's own 'Apply on company site' link): turn a redirect_resolver result into a
+    channel, or a terminal failure. Returns None when job['apply_channel'] was set (the
+    caller continues routing in the same call)."""
+    if target.get("ats_meta"):
+        meta = json.loads(target["ats_meta"])
+        job["ats_meta"], job["apply_channel"] = target["ats_meta"], meta["ats"]
+        update_job(job["url"], {"ats_meta": target["ats_meta"], "apply_channel": meta["ats"]})
+        return None
+    err = str(target.get("error") or "")
+    final_url = target.get("final_url")
+    if err.startswith("unsupported_destination") and final_url:
+        # A real employer form, just not one of the known ATS platforms — hand off to the
+        # generic direct-form engine instead of giving up. "account_required" (a board's
+        # own signup wall, e.g. himalayas.app/signup/talent) is excluded on purpose: Hermes
+        # never creates accounts, so there is nothing direct_form could do with it either.
+        job["apply_channel"], job["direct_apply_url"] = S.CH_DIRECT, final_url
+        # Persisted in ats_meta (reusing the existing JSON column, no schema change) so a
+        # retry after a later failure still knows the resolved employer URL, not the
+        # original listing/redirect.
+        job["ats_meta"] = json.dumps({"direct_apply_url": final_url})
+        update_job(job["url"], {"apply_channel": S.CH_DIRECT, "ats_meta": job["ats_meta"]})
+        return None
+    if not err:
+        err = "no employer apply target found"
+    state = S.UNSUPPORTED_CHANNEL if err.startswith(("unsupported", "account_required", "sponsored_link")) \
+        else S.NETWORK_ERROR
+    return S.ApplyResult(state, f"{prefix}: {err}")
+
+
 def _follow_redirect(job: dict) -> S.ApplyResult | None:
-    """Resolve a board listing to its ATS. Returns a terminal result, or None when resolved."""
+    """Resolve a board listing to its ATS, or to the employer's own form for the generic
+    direct_form engine. Returns a terminal result, or None when a channel was set."""
     from redirect_resolver import resolve_apply_target
-    target = resolve_apply_target(job["url"])
-    if target.get("error"):
-        err = str(target["error"])
-        state = S.UNSUPPORTED_CHANNEL if err.startswith("unsupported") else S.NETWORK_ERROR
-        return S.ApplyResult(state, f"redirect: {err}")
-    if not target.get("ats_meta"):
-        return S.ApplyResult(S.UNSUPPORTED_CHANNEL, f"employer form: {target.get('final_url', '')[:200]}")
-    meta = json.loads(target["ats_meta"])
-    job["ats_meta"], job["apply_channel"] = target["ats_meta"], meta["ats"]
-    update_job(job["url"], {"ats_meta": target["ats_meta"], "apply_channel": meta["ats"]})
-    return None
+    return _apply_resolved_target(job, resolve_apply_target(job["url"]), "redirect")
+
+
+def _follow_indeed_external(job: dict, url: str) -> S.ApplyResult | None:
+    """Indeed's own 'Apply on company site' link (applystart?jk=...): a browser hop, via
+    redirect_resolver's dedicated profile (the target is the employer's own site, not
+    Indeed, so the Indeed-authenticated session/profile is irrelevant here), to find the
+    real form. Same classification and channel handoff as an aggregator redirect."""
+    from redirect_resolver import resolve_indeed_external
+    return _apply_resolved_target(job, resolve_indeed_external(url), "indeed external apply")
 
 
 def route(job: dict, cover: str, resume: str, shot: str, dry_run: bool) -> S.ApplyResult:
@@ -125,10 +161,24 @@ def route(job: dict, cover: str, resume: str, shot: str, dry_run: bool) -> S.App
         channel = job["apply_channel"]
     if channel == S.CH_INDEED:
         from indeed_apply import run_indeed_apply
-        return run_indeed_apply(job, cover, resume, shot, dry_run=dry_run)
+        result = run_indeed_apply(job, cover, resume, shot, dry_run=dry_run)
+        external = (result.detail or "").removeprefix("external apply: ") \
+            if result.state == S.UNSUPPORTED_CHANNEL and (result.detail or "").startswith("external apply:") \
+            else None
+        if not external:
+            return result
+        blocked = _follow_indeed_external(job, external.strip())
+        if blocked:
+            return blocked
+        channel = job["apply_channel"]
     if channel in S.ATS_CHANNELS:
         from ats_apply import run_ats_apply
         return run_ats_apply(job, cover, resume, shot, dry_run=dry_run)
+    if channel == S.CH_DIRECT:
+        from direct_form import run_direct_apply
+        if not job.get("direct_apply_url") and job.get("ats_meta"):
+            job["direct_apply_url"] = json.loads(job["ats_meta"]).get("direct_apply_url")
+        return run_direct_apply(job, cover, resume, shot, dry_run=dry_run)
     return S.ApplyResult(S.UNSUPPORTED_CHANNEL, f"no applier for channel '{channel or job.get('job_board')}'")
 
 
@@ -199,16 +249,24 @@ def apply_one(job: dict, cfg: dict, dry_run: bool) -> S.ApplyResult | None:
 # ---------------------------------------------------------------------------
 
 def reset_stuck_applying(max_age_minutes: int = 0) -> int:
-    """Rows left in 'applying' by a crashed run go back to the queue.
+    """Rows left in 'applying' by a crashed run go back to the queue or are failed if attempts exhausted.
 
     Safe with age 0 because pipeline.py/run_hermes.sh hold the run lock, so no other
     applier can be mid-application. A standalone `apply.py` run uses 90 minutes.
     """
     conn = get_conn()
+    conn.execute(
+        "UPDATE jobs SET status = 'failed', status_reason = 'exceeded MAX_ATTEMPTS after crash' "
+        "WHERE status = 'applying' AND COALESCE(attempts, 0) >= ? AND (? = 0 OR last_attempt_at IS NULL OR "
+        "last_attempt_at < datetime('now', ?))",
+        (S.MAX_ATTEMPTS, max_age_minutes, f"-{max_age_minutes} minutes"),
+    )
     cur = conn.execute(
         "UPDATE jobs SET status = 'tailored', status_reason = 'reset_after_crash' "
-        "WHERE status = 'applying' AND (? = 0 OR last_attempt_at IS NULL OR "
-        "last_attempt_at < datetime('now', ?))", (max_age_minutes, f"-{max_age_minutes} minutes"))
+        "WHERE status = 'applying' AND COALESCE(attempts, 0) < ? AND (? = 0 OR last_attempt_at IS NULL OR "
+        "last_attempt_at < datetime('now', ?))",
+        (S.MAX_ATTEMPTS, max_age_minutes, f"-{max_age_minutes} minutes"),
+    )
     conn.commit()
     conn.close()
     return cur.rowcount
@@ -220,6 +278,7 @@ class ChannelBreaker:
     def __init__(self) -> None:
         self.blocked: dict[str, str] = {}
         self.interstitials: dict[str, int] = {}
+        self.antibot_hits: dict[str, int] = {}
 
     def observe(self, channel: str, result: S.ApplyResult) -> None:
         if result.state == S.LOGIN_REQUIRED:
@@ -230,6 +289,13 @@ class ChannelBreaker:
             self.interstitials[channel] = self.interstitials.get(channel, 0) + 1
             if self.interstitials[channel] >= 3:
                 self.blocked[channel] = "repeated_security_interstitial"
+        elif result.state == S.BLOCKED_ANTIBOT:
+            # A bot-risk rejection on one board is usually the ATS vendor's own shared
+            # anti-spam system, not that one employer — two hits are enough to stop
+            # burning the run's time budget on a channel that will keep rejecting us.
+            self.antibot_hits[channel] = self.antibot_hits.get(channel, 0) + 1
+            if self.antibot_hits[channel] >= 2:
+                self.blocked[channel] = "repeated_antibot_block"
         else:
             self.interstitials[channel] = 0
 

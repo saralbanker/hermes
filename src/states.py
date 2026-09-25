@@ -28,7 +28,11 @@ INVALID = "invalid"                            # URL/meta unusable
 CAP_REACHED = "cap_reached"                    # never stored: loop control only
 LOGIN_REQUIRED = "login_required"              # session expired → user must re-login
 SECURITY_INTERSTITIAL = "security_interstitial"  # Cloudflare / bot wall (retryable)
-CAPTCHA_REQUIRED = "captcha_required"          # human verification needed
+CAPTCHA_REQUIRED = "captcha_required"          # visible human-verification challenge blocks the form
+BLOCKED_ANTIBOT = "blocked_antibot"            # invisible bot-risk check rejected the submission server-side
+                                                # (e.g. reCAPTCHA Enterprise score, Ashby spam flag) — no
+                                                # challenge to solve, and solving one is out of scope anyway;
+                                                # not retried, since the same signal will recur.
 OTP_REQUIRED = "otp_required"                  # phone OTP or unresolved email OTP
 NETWORK_ERROR = "network_error"                # retryable
 FORM_CHANGED = "form_changed"                  # form we cannot fill (unanswerable/unknown control)
@@ -42,8 +46,8 @@ DRY_RUN_OK = "dry_run_ok"                      # form filled, submit deliberatel
 
 APPLIER_STATES = frozenset({
     SUBMITTED, EXPIRED, INVALID, LOGIN_REQUIRED, SECURITY_INTERSTITIAL, CAPTCHA_REQUIRED,
-    OTP_REQUIRED, NETWORK_ERROR, FORM_CHANGED, ALREADY_APPLIED, SUBMISSION_UNCONFIRMED,
-    UNSUPPORTED_CHANNEL, FAILED, DRY_RUN_OK,
+    BLOCKED_ANTIBOT, OTP_REQUIRED, NETWORK_ERROR, FORM_CHANGED, ALREADY_APPLIED,
+    SUBMISSION_UNCONFIRMED, UNSUPPORTED_CHANNEL, FAILED, DRY_RUN_OK,
 })
 
 # States that go back to TAILORED for another attempt on a later run.
@@ -57,6 +61,7 @@ CH_GREENHOUSE = "greenhouse"
 CH_LEVER = "lever"
 CH_ASHBY = "ashby"
 CH_REDIRECT = "redirect"       # board listing whose Apply button leads elsewhere
+CH_DIRECT = "direct"           # employer's own hand-rolled career-page form (direct_form.py)
 ATS_CHANNELS = frozenset({CH_GREENHOUSE, CH_LEVER, CH_ASHBY})
 
 # Tiers (jobs.tier)

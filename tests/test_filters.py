@@ -150,6 +150,45 @@ def test_manual_tester_excluded():
     assert "qa_only" in reason
 
 
+# Real leaks the owner reported: both slipped through before the "teaching" exclusion.
+def test_teachers_tutors_mentors_for_academy_excluded():
+    tier, years, reason = classify_tier(
+        "Online Teachers/Tutors/Mentors for Software Academy",
+        "Teach students how to code.", CFG)
+    assert tier is None
+    assert "teaching" in reason
+
+
+def test_ai_coding_trainer_excluded():
+    tier, years, reason = classify_tier("AI Coding Trainer", "Train students in AI concepts.", CFG)
+    assert tier is None
+    assert "teaching" in reason
+
+
+def test_instructor_and_teaching_assistant_excluded():
+    for title in ("Software Instructor", "Teaching Assistant - Web Development",
+                  "Python Tutor", "Bootcamp Mentor for Coding Academy",
+                  "Front End Developer with Generative AI Trainer",
+                  "Trainer – Physical AI & Robotics", "AI Trainer"):
+        tier, years, reason = classify_tier(title, "", CFG)
+        assert tier is None, title
+        assert "teaching" in reason, title
+
+
+def test_ml_model_trainer_not_excluded_as_teaching():
+    """'Trainer'/'mentor' alone must not catch ML roles that train MODELS, not people."""
+    tier, years, reason = classify_tier("ML Model Trainer", "Train and fine-tune ML models.", CFG)
+    assert tier is not None
+
+
+def test_mentoring_junior_engineers_duty_does_not_exclude_a_real_engineering_role():
+    """Title-only match: a normal engineering job that mentions mentoring as a duty in the
+    description must not be rejected — only the TITLE decides the teaching exclusion."""
+    tier, years, reason = classify_tier(
+        "Senior Backend Engineer", "You will mentor junior engineers and review code.", CFG)
+    assert tier is not None
+
+
 def test_forward_deployed_engineer_accepted():
     tier, years, reason = classify_tier(
         "Forward Deployed Engineer",

@@ -124,13 +124,14 @@ def collapse_duplicates() -> int:
     return cur.rowcount
 
 
-def claim_job(url: str) -> bool:
-    """Atomically move tailored → applying. False if another process claimed it."""
+def claim_job(url: str, max_attempts: int = 3) -> bool:
+    """Atomically move tailored → applying. False if another process claimed it or attempt cap reached."""
     conn = get_conn()
     cur = conn.execute(
         "UPDATE jobs SET status = 'applying', attempts = COALESCE(attempts, 0) + 1, "
-        "last_attempt_at = datetime('now') WHERE url = ? AND status = 'tailored'",
-        (url,),
+        "last_attempt_at = datetime('now') WHERE url = ? AND status = 'tailored' "
+        "AND COALESCE(attempts, 0) < ?",
+        (url, max_attempts),
     )
     conn.commit()
     conn.close()

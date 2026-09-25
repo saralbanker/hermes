@@ -178,6 +178,106 @@ def _success_evidence(hay: str, url: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Account/session verification and post-submit history check
+#
+# 2026-09 discrepancy: 40 rows marked 'submitted' (confirmation-page text captured) did
+# not appear in the owner's Indeed "My jobs -> Applied" history, though Gmail confirmed
+# "Indeed Application: <title>" emails arrived for the same jobs. Root cause: the
+# persistent Chrome profile's Indeed session is not verified before applying, so a
+# guest/logged-out smartapply flow (which still sends a confirmation email and a
+# confirmation page) is indistinguishable from a real, tracked application. These two
+# checks close that gap: refuse to apply with no session at all, and record — never
+# silently assume — whether a submission actually landed in the account's history.
+# ---------------------------------------------------------------------------
+
+MYJOBS_APPLIED_URL = "https://myjobs.indeed.com/applied"
+
+_session_checked = False
+_session_logged_in = True  # optimistic default; only a clear login wall flips this
+
+
+def _check_indeed_login(page) -> str | None:
+    """Visit the account's Applied list once per process (cached — one Indeed profile,
+    one account, for the whole run). Returns a detail string when the session is
+    unauthenticated (guest/anonymous), else None. An ambiguous result (network hiccup,
+    unrecognized page) is never treated as evidence of logged-out — only classify_page
+    naming it a 'login' wall counts, so this can never false-block every application."""
+    global _session_checked, _session_logged_in
+    if _session_checked:
+        return None if _session_logged_in else "Indeed session is not signed in (guest/anonymous)"
+    _session_checked = True
+    try:
+        page.get(MYJOBS_APPLIED_URL, timeout=NAV_TIMEOUT)
+        time.sleep(1.5)
+        url, title, text, html = _snapshot(page)
+        if classify_page(url, title, text, html) == "login":
+            _session_logged_in = False
+            return "Indeed session is not signed in (guest/anonymous) — run: python scripts/indeed_setup.py"
+    except Exception as exc:  # can't confirm either way — proceed rather than false-block
+        print(f"  [indeed] account/session check failed, proceeding: {exc}")
+    return None
+
+
+def _verify_in_applied_history(page, job: dict) -> str:
+    """Best-effort suffix for submission_evidence: did this company/title show up on the
+    account's own Applied list right after submitting? Never raises and never turns a
+    captured confirmation into a failure — a negative result here is exactly the signal
+    this module previously lacked, recorded for a human/DB re-check, not acted on live."""
+    try:
+        page.get(MYJOBS_APPLIED_URL, timeout=NAV_TIMEOUT)
+        time.sleep(2.0)
+        url, title, text, html = _snapshot(page)
+        if classify_page(url, title, text, html) == "login":
+            return "; NOT verified: Applied list shows logged-out session (guest apply)"
+        needle = re.sub(r"[^a-z0-9]+", " ", (job.get("company") or "").lower()).strip()
+        haystack = re.sub(r"[^a-z0-9]+", " ", text.lower())
+        if needle and len(needle) > 2 and needle in haystack:
+            return "; verified in Applied history"
+        return "; NOT found in Applied history at post-submit check"
+    except Exception as exc:  # diagnostic only
+        return f"; Applied-history check failed: {type(exc).__name__}"
+
+
+_TITLE_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _gmail_confirmation(title: str) -> str:
+    """Best-effort suffix for submission_evidence: a matching 'Indeed Application: <title>'
+    email from indeedapply@indeed.com is platform-side proof and outranks a page-text match
+    alone (2026-09-24 investigation, output/reports/indeed_reconciliation.md — 23 legacy
+    rows had no captured confirmation page but a matching email arriving within seconds of
+    applied_at, and were restored to `submitted` on that basis). Read-only IMAP; never
+    raises, never blocks — a miss just means IMAP is unconfigured or the email is delayed,
+    not that the submission failed."""
+    from otp_resolver import GMAIL_USER, _get_app_password
+    pw = _get_app_password()
+    if not pw:
+        return ""
+    want = _TITLE_RE.sub(" ", title.lower()).strip()
+    try:
+        import imaplib
+        from email import message_from_bytes
+        conn = imaplib.IMAP4_SSL("imap.gmail.com", 993)
+        conn.login(GMAIL_USER, pw)
+        conn.select("INBOX", readonly=True)
+        _, data = conn.search(None, '(FROM "indeedapply@indeed.com" SUBJECT "Indeed Application")')
+        uids = data[0].split() if data[0] else []
+        for uid in reversed(uids[-15:]):  # newest first — this run's own confirmation, if any
+            _, msgdata = conn.fetch(uid, "(BODY.PEEK[HEADER.FIELDS (SUBJECT DATE)])")
+            msg = message_from_bytes(msgdata[0][1])
+            subj = msg.get("Subject") or ""
+            m = re.match(r"Indeed Application:\s*(.+)", subj)
+            got = _TITLE_RE.sub(" ", m.group(1).lower()).strip() if m else ""
+            if got and (want == got or want.startswith(got) or got.startswith(want)):
+                conn.logout()
+                return f"; gmail: indeedapply@indeed.com {subj!r} {msg.get('Date')}"
+        conn.logout()
+    except Exception as exc:  # diagnostic only — IMAP is a bonus signal, not a gate
+        return f"; gmail confirmation check failed: {type(exc).__name__}"
+    return "; NOT found: no matching Gmail confirmation email"
+
+
+# ---------------------------------------------------------------------------
 # Browser lifecycle
 # ---------------------------------------------------------------------------
 
@@ -340,6 +440,20 @@ def _click_first(page, texts: list[str]) -> bool:
     return False
 
 
+COOKIE_ACCEPT_TEXTS = ["accept all cookies", "accept all", "allow all cookies", "allow all",
+                       "i agree", "i accept", "got it"]
+
+
+def _dismiss_cookie_banner(page) -> None:
+    """Some employer/company-site pages Indeed's external-apply flow lands on (and Indeed's
+    own pages in some regions) show a OneTrust-style cookie banner whose Accept/Reject
+    buttons are the only ones visible, hiding the real Continue/Submit control from
+    _pick_button. Clicking Accept (never Reject, which can disable functional cookies the
+    form needs) is ordinary consent handling, not an anti-bot bypass. Best-effort: absence
+    of a banner is the common case and must not be treated as an error."""
+    _click_first(page, COOKIE_ACCEPT_TEXTS)
+
+
 def _label_for(page, ele) -> str:
     for attr in ("aria-label", "placeholder"):
         try:
@@ -495,11 +609,41 @@ def _fill_radio_groups(page) -> str | None:
     return None
 
 
+def _fill_checkboxes(page) -> str | None:
+    """Standalone (non-grouped) checkboxes — typically 'I agree to the privacy notice/
+    terms'. Confirmed root cause of a real 6-minute-budget timeout (Mirantis, 2026-09-24):
+    Indeed's EEO step has a required 'Agree' checkbox that no filler ever touched (it is
+    neither a text input, a select, nor a radio group), so Continue kept failing the same
+    validation every loop iteration until the outer time budget was hit. A truthful 'Yes'
+    (the privacy/consent/terms rule in answers.py) checks the box; anything else only
+    blocks the application if the checkbox is required, exactly like every other filler."""
+    try:
+        boxes = page.eles('css:input[type="checkbox"]', timeout=1)
+    except Exception:
+        boxes = []
+    for box in boxes:
+        try:
+            if box.states.is_checked:
+                continue
+        except Exception:
+            pass
+        label = _label_for(page, box)
+        answer = answer_question(label, kind="boolean") if label else None
+        if answer == "Yes":
+            try:
+                box.click()
+            except Exception:
+                pass
+        elif _is_required(box):
+            return label or "unlabeled required checkbox"
+    return None
+
+
 def _fill_form_step(page, cover_letter: str, resume_path: str) -> str | None:
     """Fill everything visible on the current step. Returns a FORM_CHANGED
     detail string if a required question has no truthful answer, else None."""
     _fill_resume(page, resume_path)
-    for filler in (_fill_text_inputs, _fill_selects, _fill_radio_groups):
+    for filler in (_fill_text_inputs, _fill_selects, _fill_radio_groups, _fill_checkboxes):
         args = (page, cover_letter) if filler is _fill_text_inputs else (page,)
         detail = filler(*args)
         if detail:
@@ -570,6 +714,7 @@ def _pick_button(buttons: list) -> tuple[str | None, bool]:
 
 def _click_next_or_submit(page, dry_run: bool) -> tuple[bool, bool]:
     """Returns (advanced, was_final_submit). Never clicks the final submit in dry_run."""
+    _dismiss_cookie_banner(page)  # else its Accept/Reject buttons are all _BUTTONS_JS finds
     idx, is_final = None, False
     for _ in range(6):  # Indeed disables Continue/Submit for a few seconds while a step validates
         try:
@@ -578,6 +723,7 @@ def _click_next_or_submit(page, dry_run: bool) -> tuple[bool, bool]:
             print(f"  [indeed] button scan failed: {exc}")
         if idx is not None:
             break
+        _dismiss_cookie_banner(page)
         time.sleep(2)
     if idx is None:
         return False, False
@@ -594,13 +740,35 @@ def _click_next_or_submit(page, dry_run: bool) -> tuple[bool, bool]:
 
 def _drive_application(page, job: dict, cover_letter: str, resume_path: str,
                         screenshot_path: str, dry_run: bool, deadline: float) -> ApplyResult:
-    for _ in range(MAX_FORM_STEPS):
+    last_cls = "never classified"
+    last_signature = None
+    for step in range(MAX_FORM_STEPS):
         if time.monotonic() > deadline:
-            return ApplyResult(states.FAILED, detail="exceeded 6-minute apply budget",
+            # Precise, not generic: which step and which page state it was stuck on,
+            # so a real stall (vs. a merely long multi-step form) is diagnosable from the
+            # DB alone next time, instead of needing a live re-run to find out.
+            return ApplyResult(states.FAILED,
+                                detail=f"exceeded 6-minute apply budget at step {step + 1}/"
+                                       f"{MAX_FORM_STEPS}, last page state: {last_cls}",
                                 screenshot=_screenshot(page, screenshot_path))
 
         url, title, text, html = _snapshot(page)
-        cls = classify_page(url, title, text, html)
+        cls = last_cls = classify_page(url, title, text, html)
+
+        # Confirmed root cause of a real 6-minute-budget timeout (MyProFunnels, 2026-09-25):
+        # a required <select> whose "*" wasn't found by _is_required's DOM-walk was silently
+        # left unanswered, so Continue kept failing the same validation while every filler
+        # reported success — the exact same page (same URL, same visible text) reappeared
+        # every iteration until the deadline. Two identical "application" snapshots in a row
+        # is proof nothing advanced last iteration, whatever the specific unrecognized
+        # control turns out to be — fail fast and precisely instead of burning the budget.
+        signature = (url, len(text), text[:300])
+        if cls == "application" and signature == last_signature:
+            return ApplyResult(states.FORM_CHANGED,
+                                detail="form did not advance after the last Continue click — a "
+                                       "required field may have been silently skipped",
+                                screenshot=_screenshot(page, screenshot_path))
+        last_signature = signature if cls == "application" else None
 
         if cls == "security_interstitial":
             cls = _wait_out_interstitial(page, deadline)
@@ -618,6 +786,55 @@ def _drive_application(page, job: dict, cover_letter: str, resume_path: str,
     # a form we could not drive — never "unconfirmed submission".
     return ApplyResult(states.FORM_CHANGED, detail="ran out of form steps",
                         screenshot=_screenshot(page, screenshot_path))
+
+
+def _confirm_final_submit(page, job: dict, screenshot_path: str) -> ApplyResult:
+    """After a click that looked like the final Submit: re-snapshot and classify once
+    more. Only a 'success' page counts as SUBMITTED — a click or HTTP response is never
+    proof by itself (hard rule)."""
+    time.sleep(1.5)
+    url2, title2, text2, html2 = _snapshot(page)
+    if classify_page(url2, title2, text2, html2) == "success":
+        evidence = (_success_evidence(f"{title2}\n{text2}\n{html2}", url2)
+                    + _verify_in_applied_history(page, job)
+                    + _gmail_confirmation(job.get("title") or ""))
+        return ApplyResult(states.SUBMITTED, evidence=evidence)
+    return ApplyResult(states.SUBMISSION_UNCONFIRMED,
+                        detail="clicked submit but no success signal followed",
+                        screenshot=_screenshot(page, screenshot_path))
+
+
+def _form_changed_no_control(page, text: str, html: str, screenshot_path: str) -> ApplyResult:
+    """No Continue/Next/Submit could be found or clicked. Dumps every button (incl.
+    hidden/disabled) into the DB reason so a real layout change is diagnosable without a
+    live re-run, and optionally the raw page for HERMES_DEBUG_DUMP-driven local debugging."""
+    try:
+        seen = page.run_js(_ALL_BUTTONS_JS)
+    except Exception as exc:  # diagnostics only
+        seen = f"<scan failed: {exc}>"
+    if os.environ.get("HERMES_DEBUG_DUMP"):
+        Path(os.environ["HERMES_DEBUG_DUMP"]).write_text(text + "\n\n" + html)
+    return ApplyResult(states.FORM_CHANGED, detail=f"no Continue/Next/Submit control found; buttons={seen}",
+                        screenshot=_screenshot(page, screenshot_path))
+
+
+def _handle_application_step(page, job: dict, cover_letter: str, resume_path: str,
+                              screenshot_path: str, dry_run: bool,
+                              text: str, html: str) -> ApplyResult | None:
+    """The 'application' page class: fill whatever is visible on this step, then advance
+    or submit. Returns a terminal ApplyResult, or None to keep driving the loop."""
+    detail = _fill_form_step(page, cover_letter, resume_path)
+    if detail:
+        return ApplyResult(states.FORM_CHANGED, detail=detail,
+                            screenshot=_screenshot(page, screenshot_path))
+    advanced, was_final = _click_next_or_submit(page, dry_run)
+    if was_final and dry_run:
+        return ApplyResult(states.DRY_RUN_OK, detail="stopped before clicking final submit")
+    if was_final and advanced:
+        return _confirm_final_submit(page, job, screenshot_path)
+    if not advanced:
+        return _form_changed_no_control(page, text, html, screenshot_path)
+    return None
 
 
 def _handle_classified_page(page, cls: str, job: dict, cover_letter: str, resume_path: str,
@@ -639,7 +856,9 @@ def _handle_classified_page(page, cls: str, job: dict, cover_letter: str, resume
                                 screenshot=_screenshot(page, screenshot_path))
         return None  # code accepted — re-classify next loop iteration
     if cls == "success":
-        return ApplyResult(states.SUBMITTED, evidence=_success_evidence(hay, url))
+        evidence = (_success_evidence(hay, url) + _verify_in_applied_history(page, job)
+                    + _gmail_confirmation(job.get("title") or ""))
+        return ApplyResult(states.SUBMITTED, evidence=evidence)
     if cls == "already_applied":
         return ApplyResult(states.ALREADY_APPLIED, detail="Indeed reports this job was already applied to")
     if cls == "expired":
@@ -650,32 +869,8 @@ def _handle_classified_page(page, cls: str, job: dict, cover_letter: str, resume
             return ApplyResult(states.UNSUPPORTED_CHANNEL, detail=f"external apply: {external[:200]}")
         return None
     if cls == "application":
-        detail = _fill_form_step(page, cover_letter, resume_path)
-        if detail:
-            return ApplyResult(states.FORM_CHANGED, detail=detail,
-                                screenshot=_screenshot(page, screenshot_path))
-        advanced, was_final = _click_next_or_submit(page, dry_run)
-        if was_final and dry_run:
-            return ApplyResult(states.DRY_RUN_OK, detail="stopped before clicking final submit")
-        if was_final and advanced:
-            time.sleep(1.5)
-            url2, title2, text2, html2 = _snapshot(page)
-            cls2 = classify_page(url2, title2, text2, html2)
-            if cls2 == "success":
-                return ApplyResult(states.SUBMITTED, evidence=_success_evidence(f"{title2}\n{text2}\n{html2}", url2))
-            return ApplyResult(states.SUBMISSION_UNCONFIRMED,
-                                detail="clicked submit but no success signal followed",
-                                screenshot=_screenshot(page, screenshot_path))
-        if not advanced:
-            try:
-                seen = page.run_js(_ALL_BUTTONS_JS)
-            except Exception as exc:  # diagnostics only
-                seen = f"<scan failed: {exc}>"
-            if os.environ.get("HERMES_DEBUG_DUMP"):
-                Path(os.environ["HERMES_DEBUG_DUMP"]).write_text(text + "\n\n" + html)
-            return ApplyResult(states.FORM_CHANGED, detail=f"no Continue/Next/Submit control found; buttons={seen}",
-                                screenshot=_screenshot(page, screenshot_path))
-        return None
+        return _handle_application_step(page, job, cover_letter, resume_path, screenshot_path,
+                                        dry_run, text, html)
     return ApplyResult(states.FAILED, detail=f"unrecognized page state (url={url})",
                         screenshot=_screenshot(page, screenshot_path))
 
@@ -702,6 +897,11 @@ def run_indeed_apply(job: dict, cover_letter: str, resume_path: str,
             return ApplyResult(states.NETWORK_ERROR, detail=f"browser launch failed: {exc}"[:300])
 
         _seed_session_cookies(page)
+
+        login_detail = _check_indeed_login(page)
+        if login_detail:  # refuse to apply anonymously — see module docstring above
+            return ApplyResult(states.LOGIN_REQUIRED, detail=login_detail,
+                                screenshot=_screenshot(page, screenshot_path))
 
         try:
             page.get(job["url"], timeout=NAV_TIMEOUT)

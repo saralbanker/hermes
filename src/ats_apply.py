@@ -19,20 +19,22 @@ How it works:
      validation errors, into the matching states.ApplyResult.
 
 Internal error codes (mapped to ApplyResult states by _result_for_error):
-  captcha_blocked, posting_closed, form_missing_fields, unanswerable:<label>,
-  validation_error:<text>, form_not_submitted, unconfirmed, unsupported_ats,
-  network_error:<detail>, browser_error:<detail>.
+  captcha_blocked, blocked_antibot:<signal>, otp_required:<prompt>, posting_closed,
+  form_missing_fields, unanswerable:<label>, validation_error:<text>, form_not_submitted,
+  unconfirmed, unsupported_ats, network_error:<detail>, browser_error:<detail>.
 """
 from __future__ import annotations
 
 import json
 import re
 import tempfile
+import time
 from pathlib import Path
 
 import requests
 import yaml
 
+import otp_resolver
 import states
 from answers import answer_question
 from display import ensure_virtual_display
@@ -66,10 +68,34 @@ CLOSED_TEXT = re.compile(
 )
 VALIDATION_ERROR_TEXT = re.compile(
     r"is required\b|please (enter|select|complete|fill|provide|choose)|this field is required|"
-    r"required field|invalid (email|phone|url|format)|field is missing",
+    r"(?<!indicates a )(?<!indicates an )required field|invalid (email|phone|url|format)|"
+    r"field is missing",
+    re.IGNORECASE,
+)
+# A Greenhouse email-verification gate — observed live on Cloudflare's own board: after a
+# fully-valid submit, Greenhouse held the application and showed "A verification code was
+# sent to <email>... enter the ... code to confirm you're a human" with a 6-8 box code input.
+# This is not a visible CAPTCHA (_captcha_challenge_visible) and matches none of the other
+# text patterns, so without this it silently fell through 20s of polling to a misleading
+# "submission_unconfirmed" instead of the OTP-gated state it actually is.
+EMAIL_OTP_TEXT = re.compile(
+    r"verification code (was|has been) sent|enter the .{0,20}code to confirm|"
+    r"(security|verification) code.{0,60}(sent|confirm)|sent.{0,40}(security|verification) code|"
+    r"check your (email|inbox) for.{0,20}code|enter the code (we|that we) (sent|emailed)",
     re.IGNORECASE,
 )
 CAPTCHA_FRAME_RE = re.compile(r"hcaptcha.*(challenge|frame=challenge)|recaptcha/.*/bframe", re.IGNORECASE)
+# Signals that the ATS's own backend silently rejected the submission on a bot-risk score
+# (Greenhouse's invisible reCAPTCHA Enterprise, Ashby's spam flag) rather than a form or
+# network error. There is no challenge to solve here — the point is to name the block
+# precisely instead of recording a generic failure, never to defeat it.
+ANTIBOT_RESPONSE_RE = re.compile(
+    r"recaptcha|hcaptcha|h-captcha|turnstile|arkose|funcaptcha|marked as .{0,20}spam|"
+    r"flagged as .{0,20}spam|spam.?filter|bot.?(detect|check)|"
+    r"automated (traffic|request|submission)|suspicious activity|risk.?score|"
+    r"verification failed|security check failed|couldn.t submit your application",
+    re.IGNORECASE,
+)
 DECLINE_OPTION = re.compile(r"decline|prefer not|don.t wish|do not wish|not to (say|disclose)", re.I)
 EEO_LABEL = re.compile(r"\bgender|\brace\b|ethnic|veteran|disabilit|hispanic|sexual orientation|\bpronouns?\b", re.I)
 # Questions asking the candidate to certify a no-AI application. Hermes writes cover letters
@@ -171,7 +197,20 @@ def _classify(field: dict) -> str:
     if field["type"] == "file":
         if "cover" in label or "cover" in key:
             return "cover_file"
-        return "resume" if ("resume" in label or "cv" in label or "resume" in key) else "skip"
+        if "resume" in label or "cv" in label or "resume" in key:
+            return "resume"
+        if not label.strip():
+            # An UNLABELED file input — verified live on a real Workable form
+            # (apply.workable.com/runware): its required Resume field extracts with an
+            # empty label and an opaque id ("input_files_input_<random>"), so none of the
+            # checks above can match it. Classifying it "skip" let the whole attachment go
+            # silently unfilled — dry-run reported success, and the real submission then
+            # failed on the site's own "Please select a file" validation. A file input
+            # with NO label at all is, in practice, essentially always the resume — but a
+            # field with a real label the checks above didn't recognize (e.g. "Portfolio
+            # (optional)") must stay "skip": we do not guess what a named field is for.
+            return "resume"
+        return "skip"
     if re.search(r"cover letter|additional information|anything else|comments", label) \
             or key.strip() == "comments":
         return "cover_text" if field["tag"] == "TEXTAREA" else "generic"
@@ -182,7 +221,8 @@ def _classify(field: dict) -> str:
     if EDU_END_LABEL.search(label) or EDU_START_LABEL.search(label):
         return "edu_year"
     if key.strip() in ("location", "location-input location") or "candidate-location" in key \
-            or re.search(r"current location|which city|where are you (based|located)", label):
+            or re.search(r"current location|which city|where are you (based|located)|"
+                         r"^location\b", label):
         return "location"
     if re.search(r"current (company|employer|organi[sz]ation)", label) or key.strip() == "org":
         return "company"
@@ -231,14 +271,42 @@ def _sel(idx: int) -> str:
     return f'[data-hermes-idx="{idx}"]'
 
 
+LOCATION_OPTION_SEL = '[role="option"]:visible, .dropdown-results > div:visible, .pac-item:visible'
+
+
 def _fill_text(page, field: dict, value: str) -> None:
     loc = page.locator(_sel(field["idx"]))
-    loc.fill(value)
-    if field.get("combobox") or _classify(field) == "location":  # autocomplete / react-select: choose the first suggestion
-        page.wait_for_timeout(1200)
+    is_location = _classify(field) == "location"
+    try:
+        if is_location:
+            # Google Places (".pac-item") and similar city-autocomplete widgets listen for
+            # real per-keystroke events, not the single bulk value-set .fill() performs —
+            # observed live on Cloudflare's Greenhouse form: .fill("Ahmedabad") left no
+            # dropdown suggestion to click, and Greenhouse then cleared the "unselected"
+            # text on blur/submit, so the required field silently ended up empty again.
+            loc.click(timeout=5000)
+            loc.press_sequentially(value, delay=80)
+        else:
+            loc.fill(value)
+    except PWError as exc:
+        # A live-DOM checkbox/radio that our extraction pass mis-typed as fillable text
+        # (seen on Greenhouse's own consent control after a resume-parse re-render shifted
+        # the field list) — Playwright's own error names the real control type, so recover
+        # by acting on it as the checkbox it actually is rather than aborting the question.
+        if "cannot be filled" not in str(exc):
+            raise
+        if value.lower().startswith("yes"):
+            loc.check(force=True)
+        return
+    if field.get("combobox") or is_location:  # autocomplete / react-select: choose the first suggestion
+        page.wait_for_timeout(1500)
         # :visible matters — intl-tel-input keeps hundreds of hidden role=option nodes.
-        option = page.locator('[role="option"]:visible, .dropdown-results > div:visible, '
-                              '.pac-item:visible').first
+        option = page.locator(LOCATION_OPTION_SEL).first
+        if not option.count() and is_location:
+            # One retry: a slow places-API round trip on the first keystroke can miss the
+            # first wait entirely.
+            page.wait_for_timeout(1500)
+            option = page.locator(LOCATION_OPTION_SEL).first
         # Never press Enter here: in a <form> it submits the application.
         if option.count():
             option.click(timeout=5000)
@@ -252,6 +320,15 @@ def _fill_choice(page, field: dict, value: str) -> bool:
         return True
     if match and match.get("idx") is not None:
         page.locator(_sel(match["idx"])).click(force=True)
+        return True
+    if field["type"] == "checkbox" and match is not None:
+        # A single checkbox whose Yes/No labels came from _merge_greenhouse (idx=None —
+        # the schema names the two answers but there is only one DOM node, the checkbox
+        # itself, not a react-select). This is Greenhouse's own consent/compliance
+        # control (e.g. "Acknowledge/Confirm — Candidate Privacy Policy"); treating it as
+        # a combobox below would call .fill() on a checkbox and fail outright.
+        if not value.lower().startswith("no"):
+            page.locator(_sel(field["idx"])).check(force=True)
         return True
     if field.get("combobox"):  # react-select (Greenhouse): open, type, pick exact option
         box = page.locator(_sel(field["idx"]))
@@ -319,6 +396,24 @@ def _merge_greenhouse(fields: list[dict], schema: dict[str, dict]) -> None:
             f["choice"] = True
 
 
+def _settle(page) -> None:
+    """Blur the just-filled control (commits its value in React-style forms, and is what
+    triggers Ashby's own client-side validation) and give any resulting network activity a
+    moment to finish before moving on. Bounded: a page with persistent background polling
+    would otherwise make networkidle hang for the full timeout on every single field.
+    Added for the real Snowflake/Ashby race — its own "form needs corrections" banner
+    listed fields as missing that our fill had already visibly set, most likely because
+    submit was clicked before Ashby's debounced validation had caught up."""
+    try:
+        page.keyboard.press("Tab")
+    except Exception:
+        pass
+    try:
+        page.wait_for_load_state("networkidle", timeout=1500)
+    except Exception:  # a page that never truly idles must not block filling
+        pass
+
+
 def _fill_all(page, fields: list[dict], cover_letter: str, resume_path: str,
               cover_path: str) -> str | None:
     """Fill every field. Returns an error code, or None when all required fields are filled."""
@@ -335,6 +430,12 @@ def _fill_all(page, fields: list[dict], cover_letter: str, resume_path: str,
             continue
         try:
             ok = _fill_field(page, field, value or "", resume_path, cover_path)
+            # Not for location/combobox controls: real regression, live on Snowflake —
+            # Tab immediately after a dropdown selection interrupted the app's own debounced
+            # "commit" and made a visibly-filled, previously-working Location field come
+            # back as "missing" in Ashby's validation. Plain text/choice controls are fine.
+            if ok and not (field.get("combobox") or _classify(field) == "location"):
+                _settle(page)
         except Exception as exc:  # one widget failing must not hide which question it was
             ok = False
             print(f"  [ats] fill error on '{_clean_label(field['label'])[:60]}': {str(exc)[:120]}")
@@ -360,6 +461,41 @@ def _captcha_challenge_visible(page) -> bool:
     return False
 
 
+def _new_match(pattern: re.Pattern, body: str, baseline: str):
+    """The first regex match whose surrounding text is not already present in `baseline` —
+    static instructional copy the page always shows (Greenhouse's "* indicates a required
+    field", an Ashby helper string) must never be mistaken for a validation/OTP message the
+    submit itself caused. Comparing a window around each match, not just the matched phrase
+    alone, avoids the opposite mistake: suppressing a real new error that happens to reuse a
+    generic word ("please enter") also used, elsewhere, on the same page — so every match is
+    checked in turn, not just the first (which may be the old, benign one)."""
+    for m in pattern.finditer(body):
+        window = body[max(0, m.start() - 20):m.end() + 20]
+        if window not in baseline:
+            return m
+    return None
+
+
+def _watch_submit_responses(page) -> tuple[list[str], callable]:
+    """Record bot-risk signals from failed XHR/fetch responses while the submit request is
+    in flight. Returns (matches, stop) — stop() must be called once done watching."""
+    matches: list[str] = []
+
+    def _on_response(resp) -> None:
+        try:
+            if resp.request.resource_type not in ("xhr", "fetch"):
+                return
+            snippet = "" if resp.ok else (resp.text() or "")[:500]
+            hay = f"{resp.url} {resp.status} {snippet}"
+            if not resp.ok and (ANTIBOT_RESPONSE_RE.search(hay) or resp.status in (401, 403)):
+                matches.append(f"{resp.status} {resp.url[:150]}: {snippet[:200]}")
+        except Exception:  # a response we can't read must not break submission
+            pass
+
+    page.on("response", _on_response)
+    return matches, lambda: page.remove_listener("response", _on_response)
+
+
 def _submit(page) -> tuple[str | None, str | None]:
     """Click submit, wait, classify. Returns (error_code, evidence). error_code is
     None with evidence set on success."""
@@ -369,28 +505,65 @@ def _submit(page) -> tuple[str | None, str | None]:
     ).last
     if not button.count():
         return "form_not_submitted", None
+    _settle(page)  # commit the last-filled field's value before reading the pre-click baseline
     start_url = page.url
+    # Static instructional copy present BEFORE the click ("* indicates a required field" on
+    # Greenhouse, an Ashby "Please enter..." helper string) must never count as a validation
+    # error or OTP prompt CAUSED by the submit — only newly-appeared text can be. Observed
+    # live on both Greenhouse (Cloudflare) and Ashby (Snowflake): a fully-valid submission was
+    # misclassified as a validation error purely because boilerplate on the page happened to
+    # match the same generic phrase the form always shows.
+    try:
+        baseline_body = page.inner_text("body")
+    except Exception:
+        baseline_body = ""
+    antibot_hits, stop_watching = _watch_submit_responses(page)
     try:
         button.click()
     except PWTimeoutError as exc:
+        stop_watching()
         return f"network_error:{str(exc)[:150]}", None
-    for _ in range(20):  # up to ~20 s for confirmation
-        page.wait_for_timeout(1000)
-        try:
-            body = page.inner_text("body")[:5000]
-        except Exception:  # page mid-navigation — try again next tick
-            body = ""
-        match = SUCCESS_TEXT.search(body)
-        if match:
-            return None, match.group(0)
-        if page.url != start_url and re.search(r"confirmation|thank|success", page.url, re.I):
-            return None, page.url
-        if _captcha_challenge_visible(page):
-            return "captcha_blocked", None
-        err = VALIDATION_ERROR_TEXT.search(body)
-        if err:
-            return f"validation_error:{err.group(0)}", None
-    return "unconfirmed", None
+    try:
+        for _ in range(20):  # up to ~20 s for confirmation
+            page.wait_for_timeout(1000)
+            try:
+                # No slice here: a long job posting (Cloudflare's runs past 20,000 chars
+                # once the form itself is included) pushes an inline validation error, or
+                # even the confirmation message on some boards, past a 5,000-char window —
+                # observed live: a real "Please enter your location" error went undetected
+                # this way and the submission was recorded as merely unconfirmed instead of
+                # the form error it actually was.
+                body = page.inner_text("body")
+            except Exception:  # page mid-navigation — try again next tick
+                body = ""
+            match = SUCCESS_TEXT.search(body)
+            if match:
+                return None, match.group(0)
+            if page.url != start_url and re.search(r"confirmation|thank|success", page.url, re.I):
+                return None, page.url
+            if antibot_hits:
+                return f"blocked_antibot:{antibot_hits[0]}", None
+            page_antibot = _new_match(ANTIBOT_RESPONSE_RE, body, baseline_body)
+            if page_antibot:
+                # Real Ashby/Notion outcome: "Your application submission was flagged as
+                # possible spam" is a page banner, not a failed network response — Ashby's
+                # GraphQL mutation still answers 200 OK, so _watch_submit_responses (which
+                # only inspects non-2xx/401/403 responses) never sees it. Only the rendered
+                # page says so.
+                return f"blocked_antibot:{page_antibot.group(0)}", None
+            if _captcha_challenge_visible(page):
+                return "captcha_blocked", None
+            otp = _new_match(EMAIL_OTP_TEXT, body, baseline_body)
+            if otp:
+                return f"otp_required:{otp.group(0)}", None
+            err = _new_match(VALIDATION_ERROR_TEXT, body, baseline_body)
+            if err:
+                return f"validation_error:{err.group(0)}", None
+        if antibot_hits:  # a late/slow response can land after the last body check above
+            return f"blocked_antibot:{antibot_hits[0]}", None
+        return "unconfirmed", None
+    finally:
+        stop_watching()
 
 
 def _open_form(page, meta: dict) -> str | None:
@@ -421,6 +594,14 @@ def _result_for_error(code: str, screenshot: str | None) -> states.ApplyResult:
                                   screenshot=screenshot)
     if code == "captcha_blocked":
         return states.ApplyResult(state=states.CAPTCHA_REQUIRED, detail="captcha challenge visible",
+                                  screenshot=screenshot)
+    if code.startswith("blocked_antibot:"):
+        return states.ApplyResult(state=states.BLOCKED_ANTIBOT,
+                                  detail=f"bot-risk check rejected the submission: {code.split(':', 1)[1]}",
+                                  screenshot=screenshot)
+    if code.startswith("otp_required:"):
+        return states.ApplyResult(state=states.OTP_REQUIRED,
+                                  detail=f"email verification code required: {code.split(':', 1)[1]}",
                                   screenshot=screenshot)
     if code == "form_missing_fields":
         return states.ApplyResult(state=states.FORM_CHANGED,
@@ -483,6 +664,19 @@ def run_ats_apply(job: dict, cover_letter: str, resume_path: str, screenshot_pat
         cover_dir.rmdir()
 
 
+def _refill_missing_required(page, meta: dict, cover_letter: str, resume_path: str,
+                             cover_path: str) -> str | None:
+    """Re-extract and fill any required field a fresh read shows as not-yet-prefilled.
+    Called more than once: resume-parse autofill on some Ashby boards can silently clear a
+    field we already filled correctly — observed live on Snowflake, where "Email" and several
+    Yes/No questions we had answered came back missing at actual submit time even though a
+    check 1 second earlier saw them as filled. One re-check is not always enough."""
+    refreshed = [f for f in _extract_fields(page) if f["required"] and not f.get("prefilled")]
+    if meta["ats"] == "greenhouse":
+        _merge_greenhouse(refreshed, _greenhouse_schema(meta))
+    return _fill_all(page, refreshed, cover_letter, resume_path, cover_path)
+
+
 def _apply_in_browser(ctx, meta: dict, cover_letter: str, resume_path: str, cover_path: str,
                       screenshot_path: str, dry_run: bool) -> states.ApplyResult:
     page = ctx.new_page()
@@ -493,13 +687,11 @@ def _apply_in_browser(ctx, meta: dict, cover_letter: str, resume_path: str, cove
     if meta["ats"] == "greenhouse":
         _merge_greenhouse(fields, _greenhouse_schema(meta))
     error = _fill_all(page, fields, cover_letter, resume_path, cover_path)
-    if not error:
-        page.wait_for_timeout(1000)
-        # Resume parsing can add fields or clear values — re-check required ones once.
-        refreshed = [f for f in _extract_fields(page) if f["required"] and not f.get("prefilled")]
-        if meta["ats"] == "greenhouse":
-            _merge_greenhouse(refreshed, _greenhouse_schema(meta))
-        error = _fill_all(page, refreshed, cover_letter, resume_path, cover_path)
+    for _ in range(2):  # a slow resume-parse autofill can revert a field between checks
+        if error:
+            break
+        page.wait_for_timeout(1200)
+        error = _refill_missing_required(page, meta, cover_letter, resume_path, cover_path)
     if error:
         return _result_for_error(error, _screenshot(page, screenshot_path))
     if dry_run:
@@ -507,9 +699,32 @@ def _apply_in_browser(ctx, meta: dict, cover_letter: str, resume_path: str, cove
         return states.ApplyResult(state=states.DRY_RUN_OK,
                                   detail="all fields filled, submit deliberately skipped",
                                   screenshot=shot)
+    submit_ts = time.time()
     error, evidence = _submit(page)
+    if error and error.startswith("otp_required:") and meta["ats"] == "greenhouse":
+        error, evidence = _resolve_greenhouse_otp(page, submit_ts)
     if error:
         return _result_for_error(error, _screenshot(page, screenshot_path))
     return states.ApplyResult(state=states.SUBMITTED, detail="application submitted",
                               screenshot=_screenshot(page, screenshot_path),
                               evidence=evidence or page.url)
+
+
+def _resolve_greenhouse_otp(page, since_ts: float) -> tuple[str | None, str | None]:
+    """Poll Gmail for the security code Greenhouse just emailed, enter it into the
+    per-character boxes, and click Submit again. Never bypasses the check — just answers
+    it with the code the ATS itself sent to the owner's own inbox. Falls back to
+    otp_required (unchanged, retryable) if Gmail isn't configured or the code doesn't
+    arrive in time; a future run tries again."""
+    if not otp_resolver.is_configured():
+        return "otp_required:GMAIL_APP_PASSWORD not configured", None
+    code = otp_resolver.fetch_otp(timeout=180, platform="greenhouse", since_ts=since_ts - 15)
+    if not code:
+        return "otp_required:no verification code arrived within 180s", None
+    boxes = page.locator('input[id^="security-input-"]')
+    n = boxes.count()
+    if n == 0 or len(code) < n:
+        return f"otp_required:code box mismatch ({len(code)}-char code, {n} boxes)", None
+    for i in range(n):
+        boxes.nth(i).fill(code[i])
+    return _submit(page)

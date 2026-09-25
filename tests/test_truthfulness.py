@@ -33,6 +33,28 @@ def test_template_letters_pass_validator(variant):
     assert not validate_letter(template_letter(job, variant))
 
 
+def test_project_number_misattribution_is_rejected():
+    # A real letter the LLM produced for Snowflake: true numbers, wrong owner — Neuro-Zenith's
+    # "70,000 lines" pasted into a paragraph about Hermes, which has no stated line count.
+    letter = (
+        "This role aligns with my work on LLM-based automation, such as Hermes, which uses "
+        "local LLMs and Playwright to automate job searches.\n\n"
+        "I built Hermes — a Python-based pipeline that scrapes job listings and scores them "
+        "with a local LLM (Ollama). The system runs via systemd and includes CI checks, with "
+        "70,000 lines of code across multiple services, showing a foundation in scalable, "
+        "production-ready tooling."
+    )
+    problems = validate_letter(letter)
+    assert any("different project" in p for p in problems)
+
+
+def test_project_number_correctly_attributed_is_accepted():
+    letter = ("I've built local-first AI platforms with multi-provider LLM routing.\n\n"
+              "Neuro-Zenith features a React frontend, a FastAPI inference service, and RAG "
+              "with pgvector. The system has 70,000 lines of code across 400+ files.")
+    assert not validate_letter(letter)
+
+
 def test_experience_answers_are_honest():
     assert answer_question("Years of experience", kind="text") == "1"
     prose = answer_question("How many years of experience do you have?", kind="textarea")
@@ -73,6 +95,86 @@ def test_resume_variants_distinct_and_awis_below_neuro_zenith():
 ])
 def test_skill_specific_years_are_grounded(question, expected):
     assert answer_question(question, kind="text") == expected
+
+
+def test_llm_screening_answer_hallucinated_percentage_is_rejected(monkeypatch):
+    # Reproduces a real local-model failure: asked an open screening question, qwen3 answered
+    # with a fabricated "60% faster" claim instead of grounded facts. llm_answer must run the
+    # same validator tailor.py uses for cover letters, retry once, and give up rather than
+    # ever returning a hyped/fabricated number.
+    import answers
+    calls = {"n": 0}
+
+    def fake_chat(prompt, system="", temperature=0.0, max_tokens=0):
+        calls["n"] += 1
+        return "I reduced latency by 60% using a caching layer." if calls["n"] == 1 else "UNKNOWN"
+
+    monkeypatch.setattr(answers, "chat", fake_chat)
+    assert answers.llm_answer("What impact have you made?") is None
+    assert calls["n"] == 2
+
+
+def test_llm_screening_answer_grounded_in_facts_is_accepted(monkeypatch):
+    import answers
+    monkeypatch.setattr(answers, "chat", lambda *a, **k: "I built AWIS, an event-sourced "
+                        "workflow engine in Go with 773 test functions.")
+    out = answers.llm_answer("Tell me about a project you're proud of")
+    assert out and "773" in out
+
+
+def test_take_home_assignment_link_is_not_answered_with_the_profile_github():
+    # Real Cloudflare field: matches the generic "github" rule by substring, but asking
+    # for a repo isn't the same as asking for the candidate's profile — answering it with
+    # github.com/saralbanker would read as a claim the assignment was done.
+    from answers import rule_answer
+    assert rule_answer("Optional Assignment: Please share GitHub repo URL for the project here") is None
+    assert rule_answer("Take-home exercise submission link") is None
+    assert rule_answer("GitHub URL") == "https://github.com/saralbanker"  # unaffected: a real profile ask
+
+
+@pytest.mark.parametrize("orphaned_option_label", ["LinkedIn", "Glassdoor", "Notion Blog", "Notion Website"])
+def test_orphaned_checkbox_option_label_is_never_llm_guessed(orphaned_option_label, monkeypatch):
+    # Real bug, live on Ashby/Notion: a "how did you hear about us?" multi-select renders as
+    # independent checkboxes each named after ITS OWN option text (grouping-by-shared-`name`
+    # never fires), so each option reaches answer_question alone as e.g. label="LinkedIn",
+    # kind="boolean", with zero surrounding context. Before this fix, that went to the LLM,
+    # which checked "LinkedIn" as the discovery channel by word association alone — a
+    # fabricated claim nothing in facts.md supports. It must now be refused before the LLM
+    # is even called (monkeypatching chat to explode proves the LLM path is never entered).
+    import answers
+    monkeypatch.setattr(answers, "chat", lambda *a, **k: (_ for _ in ()).throw(AssertionError(
+        "LLM must not be asked to guess a bare option label")))
+    assert answers.answer_question(orphaned_option_label, kind="boolean") is None
+
+
+def test_real_boolean_question_still_reaches_the_llm_when_no_rule_answers_it(monkeypatch):
+    import answers
+    monkeypatch.setattr(answers, "chat", lambda *a, **k: "Yes")
+    assert answers.answer_question("Are you comfortable pairing with teammates daily?", kind="boolean") == "Yes"
+
+
+def test_us_person_export_control_question_answered_no():
+    # Absolute citizenship fact, independent of the job's own country (unlike sponsorship).
+    from answers import set_job_context
+    set_job_context("Snowflake", "Software Engineer", "", "Remote")
+    assert answer_question(
+        'A "U.S. person" is a citizen, legal permanent resident, or legal temporary resident '
+        "of the United States. Are you a U.S. person?", ["Yes", "No"]) == "No"
+    assert answer_question("Please confirm your export control / ITAR status", ["Yes", "No"]) == "No"
+    set_job_context("", "", "", "")
+
+
+@pytest.mark.parametrize("options", [
+    ["I Agree", "I Do Not Agree"],
+    ["I agree to the Candidate Privacy Policy", "I do not agree"],
+    ["Accept", "Decline"],
+])
+def test_consent_checkbox_picks_the_affirmative_option(options):
+    # Greenhouse/Ashby render "Acknowledge/Confirm the privacy policy" as a radio pair
+    # instead of a single checkbox; the rule answer ("Yes") must still map onto it —
+    # this was the reason real Cloudflare/OpenTable applications stalled at form-fill.
+    answer = answer_question("Acknowledge/Confirm — Candidate Privacy Policy", options)
+    assert answer == options[0]
 
 
 def test_sponsorship_and_authorization_depend_on_country():

@@ -389,3 +389,45 @@ zoho
 zomato
 zoomcar
 zulip
+
+# Added 2026-09-25 — remote-first / globally-distributed companies, for Lever supply
+# specifically (task: expand the Lever roster, which is otherwise almost entirely
+# India-onsite fintech and yields near-zero jobs that pass the owner's remote/Ahmedabad
+# geo filter).
+netflix
+spotify
+grammarly
+helpscout
+invision
+oyster
+multiplier
+instructure
+asana
+clickup
+mural
+typeform
+superhuman
+pipedrive
+basecamp
+twist
+doist
+okta
+auth0
+crowdstrike
+front
+framer
+loom
+segment
+gitlab
+elastic
+mozilla
+protonmail
+deel
+remote
+remoteyear
+distru
+zapier
+dockyard
+close
+automattic
+wpengine

@@ -52,6 +52,20 @@ EXCLUDE_ROLE_PATTERNS: dict[str, re.Pattern] = {
         r"product owner|scrum master|designer|consultant(?!.{0,20}(developer|engineer)))\b", re.I),
     "onboarding_only": re.compile(
         r"\b(implementation specialist|onboarding specialist|onboarding manager)\b", re.I),
+    # Owner: no teaching roles. Title-only (never matched against a description), so a
+    # real engineering posting that happens to say "mentor junior engineers" as a duty is
+    # unaffected — see EXCLUDE_DUTY_PATTERNS below for that distinction. "Trainer"/"mentor"
+    # alone are ambiguous ("ML model trainer" trains models, not people) so they only
+    # count paired with a teaching/academy/student context; "teacher"/"tutor"/"instructor"
+    # are unambiguous on their own (observed live: "Online Teachers/Tutors/Mentors for
+    # Software Academy" and "AI Coding Trainer" both slipped through before this).
+    "teaching": re.compile(
+        r"\b(teachers?|tutors?|instructors?|educators?|professors?|lecturers?|faculty|teaching assistants?)\b|"
+        r"\b(coding|software|programming|python|web development|tech|technical)\s+mentors?\b|"
+        r"\bmentors?\b.{0,40}\b(academy|students?|bootcamp|curriculum)\b|"
+        r"\bacademy\b.{0,40}\bmentors?\b|"
+        r"\b(?<!model\s)(?<!models\s)\btrainers?\b",
+        re.I),
 }
 
 # Description-level exclusions: only phrases that describe THE ROLE'S OWN duties.

@@ -120,10 +120,49 @@ def allowed_numbers() -> frozenset[str]:
     return frozenset(nums)
 
 
+# A number can be truthful (present in facts.md) yet still misattributed — e.g. Neuro-Zenith's
+# "70,000 lines" pasted into a sentence about Hermes. allowed_numbers() alone cannot catch this,
+# since it only checks that the digit sequence exists SOMEWHERE in the fact sheet. Bind each
+# project-specific number to its real owner and reject a sentence that states one project's
+# number while naming a different tracked project.
+PROJECT_NUMBERS: dict[str, frozenset[str]] = {
+    "AWIS": frozenset({"25000", "25", "773", "31000", "31", "168", "22", "12"}),
+    "Neuro-Zenith": frozenset({"70000", "70", "44", "400"}),
+    "Shade Ledger": frozenset({"60000", "60", "220", "40"}),
+    "Hermes": frozenset(),       # no numeric facts of its own in facts.md
+    "HeatMax": frozenset(),
+    "Carbon Compass": frozenset(),
+}
+PROJECT_NAME_RE = {name: re.compile(re.escape(name), re.I) for name in PROJECT_NUMBERS}
+
+
+def _misattributed_number(text: str) -> str | None:
+    """First 'this project's number, that project's name' mismatch found, or None.
+
+    Grouped by paragraph rather than sentence: a cover-letter paragraph names its
+    project once and then refers back to it as "the system"/"it" — checking each
+    sentence in isolation would miss exactly the case this exists to catch.
+    """
+    for para in text.split("\n\n"):
+        nums = {_norm_number(n) for n in NUMBER_RE.findall(para)}
+        if not nums:
+            continue
+        mentioned = [name for name, pat in PROJECT_NAME_RE.items() if pat.search(para)]
+        if not mentioned:
+            continue
+        for owner, owner_nums in PROJECT_NUMBERS.items():
+            if nums & owner_nums and owner not in mentioned:
+                return f"'{para.strip()[:100]}' uses a {owner} figure while naming {mentioned}"
+    return None
+
+
 def validate_letter(text: str) -> list[str]:
     """Return a list of problems; an empty list means the letter is safe to send."""
     problems = [f"number '{raw}' is not in the fact sheet"
                 for raw in NUMBER_RE.findall(text) if _norm_number(raw) not in allowed_numbers()]
+    misattributed = _misattributed_number(text)
+    if misattributed:
+        problems.append(f"number belongs to a different project: {misattributed}")
     claim = BANNED_CLAIM_RE.search(text)
     if claim:
         problems.append(f"claims a skill/domain the candidate lacks: '{claim.group(0)}'")

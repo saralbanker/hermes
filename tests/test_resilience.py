@@ -64,3 +64,17 @@ def test_answers_return_none_instead_of_guessing(monkeypatch):
     from answers import answer_question
     monkeypatch.setattr(requests, "post", _down)
     assert answer_question("Describe a time you scaled a Kafka cluster", kind="textarea") is None
+
+
+def test_cleanup_orphan_browsers_removes_stale_locks(tmp_path):
+    import display
+    prof = tmp_path / "output" / "chrome-indeed-profile"
+    prof.mkdir(parents=True)
+    lock = prof / "SingletonLock"
+    lock.symlink_to("nonexistent-host-999999")
+    assert lock.is_symlink()
+
+    cleaned = display.cleanup_orphan_browsers(root_dir=tmp_path)
+    assert cleaned["locks_removed"] == 1
+    assert not lock.exists()
+

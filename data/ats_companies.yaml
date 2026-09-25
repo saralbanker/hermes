@@ -13,9 +13,11 @@ ashby:
 - bubble
 - buffer
 - clerk
+- clickup
 - close
 - cohere
 - confluent
+- consensys
 - deepgram
 - drata
 - elevenlabs
@@ -23,7 +25,9 @@ ashby:
 - ghost
 - gitbook
 - gorgias
+- helpscout
 - hubstaff
+- instructure
 - kit
 - knock
 - langchain
@@ -32,6 +36,7 @@ ashby:
 - llamaindex
 - miro
 - modal
+- mural
 - mystenlabs
 - n8n
 - navi
@@ -39,6 +44,7 @@ ashby:
 - nerdwallet
 - notion
 - openai
+- oyster
 - perplexity
 - phantom
 - pinecone
@@ -51,6 +57,7 @@ ashby:
 - resend
 - sanity
 - sarvam
+- secureframe
 - sentry
 - snowflake
 - spotdraft
@@ -71,6 +78,7 @@ greenhouse:
 - amplitude
 - anthropic
 - aptoslabs
+- asana
 - assemblyai
 - attentive
 - bitgo
@@ -121,6 +129,7 @@ greenhouse:
 - netlify
 - newrelic
 - observeai
+- okta
 - okx
 - opentable
 - pagerduty
@@ -142,15 +151,18 @@ greenhouse:
 - togetherai
 - turing
 - twilio
+- typeform
 - vercel
 - webflow
 - wikimedia
 - zenoti
 lever:
 - anyscale
+- candidate
 - contentsquare
 - cred
 - deputy
+- distru
 - epifi
 - fampay
 - fi
@@ -162,7 +174,9 @@ lever:
 - neon
 - offchainlabs
 - paytm
+- pipedrive
 - secureframe
 - sonarsource
+- spotify
 - toptal
 - zeta

@@ -178,6 +178,25 @@ def test_collapse_duplicates_keeps_most_advanced(temp_db):
     assert {_row(temp_db, x["url"])["status"] for x in (a, c)} == {S.SKIPPED}
 
 
+def test_channel_breaker_pauses_after_repeated_antibot_blocks():
+    import apply
+    breaker = apply.ChannelBreaker()
+    hit = S.ApplyResult(S.BLOCKED_ANTIBOT, "bot-risk check rejected the submission: spam")
+    breaker.observe("ashby", hit)
+    assert "ashby" not in breaker.blocked          # one hit could be a fluke
+    breaker.observe("ashby", hit)
+    assert breaker.blocked["ashby"] == "repeated_antibot_block"
+
+
+def test_channel_breaker_antibot_counter_is_independent_per_channel():
+    import apply
+    breaker = apply.ChannelBreaker()
+    hit = S.ApplyResult(S.BLOCKED_ANTIBOT, "bot-risk check rejected the submission: spam")
+    breaker.observe("ashby", hit)
+    breaker.observe("greenhouse", hit)
+    assert not breaker.blocked
+
+
 def test_crash_leftover_applying_rows_are_requeued(temp_db):
     import apply
     j = job(40)
@@ -186,3 +205,32 @@ def test_crash_leftover_applying_rows_are_requeued(temp_db):
     assert apply.reset_stuck_applying(90) == 0    # standalone apply.py: a fresh claim is left alone
     assert apply.reset_stuck_applying(0) == 1     # under the run lock: nobody else can be applying
     assert _row(temp_db, j["url"])["status"] == S.TAILORED
+
+
+def test_crash_leftover_applying_rows_exceeding_max_attempts_are_failed(temp_db):
+    import apply
+    j = job(41)
+    _seed(temp_db, j)
+    # Set attempts to MAX_ATTEMPTS and simulate crash while in 'applying'
+    temp_db.update_job(j["url"], {"status": "applying", "attempts": S.MAX_ATTEMPTS})
+    assert apply.reset_stuck_applying(0) == 0  # not requeued to tailored
+    row = _row(temp_db, j["url"])
+    assert row["status"] == S.FAILED
+    assert "exceeded MAX_ATTEMPTS" in row["status_reason"]
+
+
+def test_claim_job_rejects_when_attempts_reach_max(temp_db):
+    j = job(42)
+    _seed(temp_db, j)
+    temp_db.update_job(j["url"], {"attempts": S.MAX_ATTEMPTS})
+    # Cannot claim a job that has already reached MAX_ATTEMPTS
+    assert not temp_db.claim_job(j["url"], max_attempts=S.MAX_ATTEMPTS)
+
+
+def test_build_queue_excludes_jobs_with_max_attempts():
+    import apply
+    jobs = [job(1, attempts=0), job(2, attempts=S.MAX_ATTEMPTS), job(3, attempts=S.MAX_ATTEMPTS + 1)]
+    q = apply.build_queue(jobs, CFG, remaining=10, done={})
+    assert len(q) == 1
+    assert q[0]["url"] == "https://x/1"
+

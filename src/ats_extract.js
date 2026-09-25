@@ -8,9 +8,28 @@
   const clean = (t) => (t || "").replace(/\s+/g, " ").trim();
   const visible = (el) => !!(el.offsetParent || el.getClientRects().length);
 
+  // Some ATS vendors (confirmed live: SmartRecruiters' "oneclick-ui" apply form) render
+  // every field inside a custom-element shadow root. Playwright's own locators pierce
+  // shadow DOM automatically, but plain document.querySelectorAll does not, so this
+  // extractor previously found 1 of 13 real fields on such a page (only the one control
+  // that happened to sit in the light DOM). deepQueryAll walks into every shadow root;
+  // getRootNode() makes id-based label lookup resolve within the SAME root as the input
+  // (a shadow-DOM component's own <label for=...> lives in its own shadow tree, not in
+  // the top-level document).
+  const deepQueryAll = (selector) => {
+    const out = [];
+    const walk = (root) => {
+      out.push(...root.querySelectorAll(selector));
+      root.querySelectorAll("*").forEach((el) => { if (el.shadowRoot) walk(el.shadowRoot); });
+    };
+    walk(document);
+    return out;
+  };
+
   const ownLabel = (el) => {
     if (el.id) {
-      const l = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+      const root = el.getRootNode ? el.getRootNode() : document;
+      const l = root.querySelector(`label[for="${CSS.escape(el.id)}"]`);
       if (l) return l;
     }
     return el.closest("label");
@@ -51,7 +70,7 @@
 
   const out = [];
   const groups = new Map();
-  const controls = document.querySelectorAll("input, textarea, select");
+  const controls = deepQueryAll("input, textarea, select");
   for (const el of controls) {
     const type = (el.type || "").toLowerCase();
     if (["hidden", "submit", "button", "search", "image", "reset"].includes(type)) continue;
