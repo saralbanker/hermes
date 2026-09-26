@@ -267,6 +267,7 @@ def _safe_int(value) -> int | None:
 CHANNEL_BY_SITE = {
     "indeed": "indeed", "greenhouse": "greenhouse", "lever": "lever", "ashby": "ashby",
     "himalayas": "redirect", "remotive": "redirect", "remoteok": "redirect", "linkedin": "none",
+    "wwr": "redirect", "arbeitnow": "redirect",
 }
 
 
@@ -379,8 +380,20 @@ def _scrape_ats(cfg: dict) -> pd.DataFrame:
     return fetch_ats_jobs(cfg)
 
 
+def _scrape_wwr(cfg: dict, limit: int | None) -> pd.DataFrame:
+    from sources_wwr import fetch_wwr_jobs
+    return fetch_wwr_jobs(cfg, limit)
+
+
+def _scrape_arbeitnow(cfg: dict, limit: int | None) -> pd.DataFrame:
+    from sources_arbeitnow import fetch_arbeitnow_jobs
+    return fetch_arbeitnow_jobs(cfg, limit)
+
+
 SCRAPERS = {
     "ats": lambda cfg, limit: _scrape_ats(cfg),
+    "wwr": _scrape_wwr,
+    "arbeitnow": _scrape_arbeitnow,
     "himalayas": scrape_himalayas,
     "remotive": scrape_remotive,
     "remoteok": scrape_remoteok,

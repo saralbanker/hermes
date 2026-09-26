@@ -37,6 +37,8 @@ search:
   boards:
   - indeed
   - ats            # Greenhouse / Lever / Ashby public job-board APIs (see data/ats_companies.yaml)
+  - wwr            # We Work Remotely category RSS feeds
+  - arbeitnow      # Arbeitnow public remote engineering API with fast ATS resolution
   - himalayas
   - remotive
   - remoteok

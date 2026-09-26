@@ -68,11 +68,10 @@ def make_slug(company: str, title: str) -> str:
 # ---------------------------------------------------------------------------
 
 CLOSING = (
-    "I build with AI coding agents such as Claude Code as a deliberate part of my workflow: "
-    "I write the specification and acceptance criteria, own the architecture, and review and "
-    "test every change myself. I'm based in Ahmedabad, available immediately, and comfortable "
-    "working remotely across time zones.\n\n"
-    "Saral Banker | saralbanker1@gmail.com | +91 9016990136 | github.com/saralbanker"
+    "I take ownership of systems from architecture and data modeling to implementation and testing. "
+    "Whether designing robust backend services, integrating AI capabilities, or delivering responsive "
+    "full-stack applications, I focus on clean code, automated verification, and reliable execution. "
+    "I look forward to contributing directly to your product and team."
 )
 
 # Proof paragraphs for the fallback template — every claim is taken from facts.md.

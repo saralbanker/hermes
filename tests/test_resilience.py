@@ -78,3 +78,21 @@ def test_cleanup_orphan_browsers_removes_stale_locks(tmp_path):
     assert cleaned["locks_removed"] == 1
     assert not lock.exists()
 
+
+def test_ensure_virtual_display_idempotent(monkeypatch):
+    import display
+    import psutil
+    # Verify that ensure_virtual_display is idempotent and does not kill active display
+    d1 = display.ensure_virtual_display()
+    try:
+        proc1 = display._proc
+        assert proc1 is not None and proc1.poll() is None
+        pid1 = proc1.pid
+        d2 = display.ensure_virtual_display()
+        assert d1 == d2
+        assert display._proc.pid == pid1
+        assert psutil.pid_exists(pid1)
+    finally:
+        display._stop()
+
+

@@ -46,7 +46,7 @@ GAZETTEER: dict[str, tuple[float, float]] = {
     "rajkot": (22.3039, 70.8022),
 }
 
-REMOTE_RE = re.compile(r"\b(remote|work from home|wfh|anywhere|distributed|telecommute)\b", re.I)
+REMOTE_RE = re.compile(r"\b(remote|work from home|wfh|anywhere|distributed|telecommute|home[- ]?based)\b", re.I)
 OPEN_TO_INDIA_RE = re.compile(
     r"\b(india|apac|asia|worldwide|world ?wide|anywhere|global(ly)?|any location|all countries|"
     r"ist\b|utc\s*\+\s*5)", re.I)
@@ -126,10 +126,21 @@ def is_location_eligible(location: str | None, title: str | None,
     local = _local_match(location, home, radius)
     if local is not None:
         return local
-    if not location.strip():
-        # Unknown location: accept only if the description itself says remote/Ahmedabad.
+
+    loc_clean = location.strip().lower()
+    is_broad_region = (
+        not loc_clean
+        or loc_clean in {"gj", "in", "gj, in", "gujarat", "india", "gujarat, india", "india, gj"}
+        or "gujarat" in loc_clean
+        or loc_clean.startswith("gj")
+    )
+    if is_broad_region:
+        local_in_desc = _local_match(description[:3000], home, radius)
+        if local_in_desc is not None:
+            return local_in_desc
         if REMOTE_RE.search(description[:3000]):
-            return _remote_verdict("", description)
-        local = _local_match(description[:3000], home, radius)
-        return local if local else (False, "location_unknown")
+            return _remote_verdict(location, description)
+        if not loc_clean:
+            return False, "location_unknown"
+
     return False, f"onsite:{location[:40]}"

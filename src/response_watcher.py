@@ -129,13 +129,18 @@ _POSITIVE_PATTERNS = [
 _ACK_PATTERNS = [
     r"thank you for applying",
     r"thanks for applying",
+    r"thank you for your application",
+    r"thanks for your application",
     r"we(?:'ve| have)? received your application",
     r"application (?:has been |was )?received",
+    r"application (?:has been |was )?submitted",
+    r"your application to .* was submitted",
+    r"your application has been sent",
     r"we will review your application",
-    r"if (?:your|you're) (?:profile|qualifications|background|experience) (?:matches|match)",
-    r"if selected",
-    r"this is an automated",
-    r"no-?reply",
+    r"confirming receipt of your application",
+    r"we have received your submission",
+    r"received your resume",
+    r"indeed application:",
 ]
 
 
@@ -151,7 +156,7 @@ def classify(subject: str, body: str, from_addr: str) -> str:
     text = f"{subject}\n{body}".lower()
     sender = from_addr.lower()
 
-    if _matches_any(_JOB_ALERT_SENDER_PATTERNS, sender) or _matches_any(_JOB_ALERT_TEXT_PATTERNS, text):
+    if _matches_any(_JOB_ALERT_SENDER_PATTERNS, sender):
         return "other"
     if _matches_any(_REJECTION_PATTERNS, text):
         return "rejection"
@@ -159,6 +164,8 @@ def classify(subject: str, body: str, from_addr: str) -> str:
         return "positive"
     if _matches_any(_ACK_PATTERNS, text):
         return "ack"
+    if _matches_any(_JOB_ALERT_TEXT_PATTERNS, text):
+        return "other"
     return "other"
 
 
@@ -212,6 +219,8 @@ def _update_job_response(conn: sqlite3.Connection, job_url: str, classification:
     current = row["response_status"]
     if current == "positive" and classification != "positive":
         return  # never downgrade a positive response
+    if current == "rejection" and classification == "ack":
+        return  # never downgrade a rejection to an ack
     conn.execute(
         "UPDATE jobs SET response_status = ?, response_subject = ?, response_at = ? WHERE url = ?",
         (classification, subject, received_at, job_url),
@@ -250,8 +259,8 @@ def process_message(
     if job_url and classification in ("positive", "rejection", "ack"):
         _update_job_response(conn, job_url, classification, subject, received_at)
 
-    if classification == "positive":
-        company = job["company"] if job else "an employer"
+    if classification == "positive" and job is not None:
+        company = job["company"]
         title_line = f"{subject}" if subject else "Check your email"
         if notify_fn(f"Hermes: positive response from {company}", title_line, urgent=True):
             conn.execute(

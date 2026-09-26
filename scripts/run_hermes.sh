@@ -17,6 +17,12 @@ export PYTHONUNBUFFERED=1
 # systemd --user services have no session bus variable; notify-send needs it.
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
 
+# Rotate log if it exceeds 10MB to bound disk usage
+if [[ -f "$LOG" && $(stat -c%s "$LOG" 2>/dev/null || echo 0) -gt 10485760 ]]; then
+    mv -f "$LOG.1" "$LOG.2" 2>/dev/null || true
+    mv -f "$LOG" "$LOG.1" 2>/dev/null || true
+fi
+
 log() { echo "[hermes $(date '+%F %T')] $*" | tee -a "$LOG"; }
 alert() { python3 "$ROOT/src/notify.py" "$1" "$2" >/dev/null 2>&1 || notify-send -u critical "$1" "$2" 2>/dev/null || true; }
 
@@ -42,7 +48,11 @@ case $rc in
     *) log "preflight hard failure (rc=$rc)"; alert "Hermes: preflight failed" "See $LOG"; exit 1 ;;
 esac
 
-timeout --signal=INT --kill-after=120 "${MAX_HOURS}h" python3 src/pipeline.py "$@" >>"$LOG" 2>&1
+if [[ "$*" == *"--continuous"* ]]; then
+    python3 src/pipeline.py "$@" >>"$LOG" 2>&1
+else
+    timeout --signal=INT --kill-after=120 "${MAX_HOURS}h" python3 src/pipeline.py "$@" >>"$LOG" 2>&1
+fi
 rc=$?
 if [[ $rc -eq 0 ]]; then
     log "run finished OK"

@@ -23,6 +23,8 @@ import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import requests
+
 from display import ensure_virtual_display
 
 ROOT = Path(__file__).parent.parent
@@ -30,6 +32,7 @@ PROFILE_DIR = ROOT / "output" / "chrome-redirect-profile"
 CDP_PORT = 9377          # distinct from indeed_apply's browser so both can coexist
 PAGE_LOAD_TIMEOUT = 30
 REDIRECT_SETTLE_SECONDS = 6
+UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"}
 
 GREENHOUSE_RE = re.compile(
     r"(?:boards|job-boards)(?:\.eu)?\.greenhouse\.io/(?:embed/job_app\?for=)?([\w-]+)"
@@ -86,7 +89,7 @@ def _ats_from_page(url: str, html: str) -> tuple[str, str] | None:
     return None
 
 
-SIGNUP_WALL_RE = re.compile(r"/sign-?up(/|\?|$)|/register(/|\?|$)|/create-account(/|\?|$)", re.I)
+SIGNUP_WALL_RE = re.compile(r"/sign-?up(/|\?|$)|/register(/|\?|$)|/create-account(/|\?|$)|/login(/|\?|$)|/job-seekers/account", re.I)
 
 
 def describe_host(url: str) -> str:
@@ -111,6 +114,7 @@ def _account_wall(listing_url: str, final_url: str) -> bool:
 
 def _open_browser():
     from DrissionPage import ChromiumOptions, ChromiumPage
+    from display import cleanup_orphan_browsers
 
     ensure_virtual_display()  # headful Chrome inside a private Xvfb display — see display.py
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
@@ -120,9 +124,13 @@ def _open_browser():
     co.set_argument("--disable-blink-features=AutomationControlled")
     co.set_user_data_path(str(PROFILE_DIR))
     co.set_local_port(CDP_PORT)
-    page = ChromiumPage(addr_or_opts=co)
-    page.set.timeouts(base=10, page_load=PAGE_LOAD_TIMEOUT, script=10)
-    return page
+    try:
+        page = ChromiumPage(addr_or_opts=co)
+        page.set.timeouts(base=10, page_load=PAGE_LOAD_TIMEOUT, script=10)
+        return page
+    except Exception:
+        cleanup_orphan_browsers()
+        raise
 
 
 # Himalayas job pages carry a site-wide sponsored banner ("aiapply.co?utm_source=...")
@@ -213,11 +221,71 @@ def _quit_browser(page) -> None:
         print(f"  [redirect] browser quit failed: {exc}")
 
 
+def resolve_fast_http(listing_url: str) -> dict | None:
+    """Attempt fast HTTP resolution before falling back to full browser navigation."""
+    if not listing_url:
+        return None
+    parsed = urlparse(listing_url)
+    netloc = parsed.netloc.lower()
+
+    # 1. Early reject known hard sign-up walls to avoid burning browser time
+    if "remoteok.com" in netloc and "/sign-up" in parsed.path:
+        return {"final_url": listing_url, "channel": None, "ats_meta": None,
+                "error": "account_required:remoteok.com requires creating an account to apply"}
+    if "himalayas.app" in netloc and "/signup" in parsed.path:
+        return {"final_url": listing_url, "channel": None, "ats_meta": None,
+                "error": "account_required:himalayas.app requires creating an account to apply"}
+    if "jobicy.com" in netloc:
+        return {"final_url": listing_url, "channel": None, "ats_meta": None,
+                "error": "account_required:jobicy.com requires creating an account to apply"}
+
+    # 2. Arbeitnow fast /apply 302 probe
+    if "arbeitnow.com" in netloc and "/jobs/companies/" in parsed.path:
+        apply_url = listing_url.rstrip("/") + "/apply"
+        try:
+            resp = requests.head(apply_url, headers=UA, allow_redirects=False, timeout=8)
+            loc = resp.headers.get("Location")
+            if loc:
+                direct = ats_from_url(loc)
+                if direct:
+                    return {"final_url": loc, "channel": direct[0], "ats_meta": direct[1], "error": None}
+                if SIGNUP_WALL_RE.search(urlparse(loc).path):
+                    return {"final_url": loc, "channel": None, "ats_meta": None,
+                            "error": f"account_required:{describe_host(loc)} requires creating an account to apply"}
+                return {"final_url": loc, "channel": "direct", "ats_meta": json.dumps({"direct_apply_url": loc}), "error": None}
+        except Exception:
+            pass
+
+    # 3. WWR fast HTML parse for job-cta-alt
+    if "weworkremotely.com" in netloc and "/remote-jobs/" in parsed.path:
+        try:
+            resp = requests.get(listing_url, headers=UA, timeout=10)
+            if resp.status_code == 200:
+                m = re.search(r'id="job-cta-alt"[^>]*href="([^"]+)"|href="([^"]+)"[^>]*id="job-cta-alt"', resp.text)
+                if m:
+                    target_url = m.group(1) or m.group(2)
+                    direct = ats_from_url(target_url)
+                    if direct:
+                        return {"final_url": target_url, "channel": direct[0], "ats_meta": direct[1], "error": None}
+                    if target_url.startswith("http") and "weworkremotely.com" not in target_url:
+                        if "ashbyhq.com" in target_url:
+                            return {"final_url": target_url, "channel": "ashby", "ats_meta": direct[1] if direct else None,
+                                    "error": "blocked_antibot:ashby anti-bot prevents automated submission"}
+                        return {"final_url": target_url, "channel": "direct", "ats_meta": json.dumps({"direct_apply_url": target_url}), "error": None}
+        except Exception:
+            pass
+
+    return None
+
+
 def resolve_apply_target(listing_url: str) -> dict:
     """Open the listing, click Apply, classify the destination. Never raises."""
     direct = ats_from_url(listing_url)
     if direct:  # Himalayas often stores the ATS link itself as the listing URL
         return {"final_url": listing_url, "channel": direct[0], "ats_meta": direct[1], "error": None}
+    fast = resolve_fast_http(listing_url)
+    if fast is not None:
+        return fast
     page = None
     try:
         page = _open_browser()

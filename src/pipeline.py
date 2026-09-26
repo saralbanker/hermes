@@ -30,7 +30,7 @@ import psutil
 
 sys.path.insert(0, str(Path(__file__).parent))
 from cap_enforcer import remaining_today
-from db import init_db, status_counts, tier_counts_today
+from db import get_jobs_by_status, init_db, status_counts, tier_counts_today
 
 ROOT = Path(__file__).parent.parent
 METRICS = ROOT / "output" / "metrics.jsonl"
@@ -130,6 +130,8 @@ def parse_args() -> argparse.Namespace:
         stage.add_argument(f"--{name}-only", action="store_true")
     parser.add_argument("--dry-run", action="store_true",
                         help="discover writes nothing; appliers fill forms but never submit")
+    parser.add_argument("--continuous", action="store_true",
+                        help="run continuously as a 24/7 worker queue")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--max-minutes", type=int, default=None, help="apply-stage time budget")
     return parser.parse_args()
@@ -150,6 +152,96 @@ def acquire_run_lock():
     return fh  # kept open for the life of the process; the kernel releases it on exit/crash
 
 
+def run_continuous(args: argparse.Namespace) -> None:
+    """Continuously feed and process the application queue:
+    refill queue (discover -> score -> tailor) -> apply batch -> response watcher tick -> repeat.
+    Enforces daily cap (100) and handles interruptions/crashes cleanly.
+    """
+    print("\n[pipeline-continuous] Starting continuous queue worker (cap: 100/day).", flush=True)
+    last_discover_time = 0.0
+    last_watch_time = 0.0
+    DISCOVER_INTERVAL = 3600 * 2  # 2 hours
+    WATCH_INTERVAL = 600          # 10 minutes
+
+    while True:
+        try:
+            now = time.time()
+
+            # 1. Check daily limit
+            rem = remaining_today()
+            slots_left = rem.get("total_remaining", 0)
+            if slots_left <= 0:
+                print(f"[pipeline-continuous] Daily cap reached ({rem.get('total_submitted', 0)}/100). Sleeping 60s...", flush=True)
+                time.sleep(60)
+                continue
+
+            # 2. Check current queue counts across pipeline stages
+            tailored_jobs = get_jobs_by_status("tailored")
+            scored_jobs = get_jobs_by_status("scored")
+            discovered_jobs = get_jobs_by_status("discovered")
+            total_reserve = len(discovered_jobs) + len(scored_jobs) + len(tailored_jobs)
+
+            # 3. Discovery check: maintain persistent 250-500 job reserve
+            RESERVE_TARGET = 300
+            if total_reserve < RESERVE_TARGET or (now - last_discover_time > DISCOVER_INTERVAL):
+                print(f"[pipeline-continuous] Maintaining 250-500 job reserve (current: {total_reserve}, "
+                      f"tailored={len(tailored_jobs)}, scored={len(scored_jobs)}, discovered={len(discovered_jobs)})...", flush=True)
+                with StageMeter("discover") as meter:
+                    run_stage("discover", args)
+                last_discover_time = time.time()
+                discovered_jobs = get_jobs_by_status("discovered")
+
+            # 4. Scoring check: score discovered jobs if needed
+            if len(discovered_jobs) > 0 and (len(scored_jobs) + len(tailored_jobs) < 200):
+                to_score = min(len(discovered_jobs), 50)
+                print(f"[pipeline-continuous] Scoring batch of {to_score} discovered jobs...", flush=True)
+                with StageMeter("score") as meter:
+                    run_stage("score", args)
+                scored_jobs = get_jobs_by_status("scored")
+
+            # 5. Tailoring check: maintain steady tailored pool (up to 30)
+            if len(scored_jobs) > 0 and len(tailored_jobs) < 25:
+                print(f"[pipeline-continuous] Tailoring scored jobs to replenish active apply queue...", flush=True)
+                with StageMeter("tailor") as meter:
+                    run_stage("tailor", args)
+                tailored_jobs = get_jobs_by_status("tailored")
+
+            # 6. Apply stage: process tailored jobs in steady batches
+            if len(tailored_jobs) > 0:
+                batch_limit = min(slots_left, args.limit or 5)
+                print(f"[pipeline-continuous] Applying to batch of up to {batch_limit} tailored jobs ({slots_left} slots left today)...", flush=True)
+                from display import ensure_virtual_display
+                ensure_virtual_display()
+                with StageMeter("apply") as meter:
+                    from apply import main as apply_main
+                    apply_main(limit=batch_limit, dry_run=args.dry_run, max_minutes=args.max_minutes or 20)
+                write_metrics([meter.result], now, args)
+
+            # 7. Response watcher tick every 10 minutes
+            if now - last_watch_time > WATCH_INTERVAL:
+                try:
+                    from response_watcher import poll_once
+                    poll_once()
+                    last_watch_time = time.time()
+                except Exception as exc:
+                    print(f"  [pipeline-continuous] response watcher tick error: {exc}")
+
+            # 8. Sleep small delay before next loop iteration
+            time.sleep(15)
+
+        except KeyboardInterrupt:
+            print("\n[pipeline-continuous] Interrupted. Progress is preserved in SQLite.")
+            break
+        except Exception as exc:
+            print(f"[pipeline-continuous] Error in worker cycle: {exc}. Cleaning browsers and retrying in 30s...", flush=True)
+            try:
+                from display import cleanup_orphan_browsers
+                cleanup_orphan_browsers()
+            except Exception:
+                pass
+            time.sleep(30)
+
+
 def main() -> int:
     args = parse_args()
     _lock = acquire_run_lock()
@@ -157,6 +249,11 @@ def main() -> int:
           f"{'  (DRY RUN)' if args.dry_run else ''}\n{'═' * 50}")
     init_db()
     started = time.time()
+
+    if args.continuous:
+        run_continuous(args)
+        return 0
+
     try:
         results = run_stages(args)
     except KeyboardInterrupt:

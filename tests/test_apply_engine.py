@@ -234,3 +234,22 @@ def test_build_queue_excludes_jobs_with_max_attempts():
     assert len(q) == 1
     assert q[0]["url"] == "https://x/1"
 
+
+def test_infrastructure_failure_does_not_consume_attempts(temp_db, monkeypatch):
+    import apply
+    j = job(50)
+    _seed(temp_db, j)
+    # Simulate an infrastructure failure (e.g. browser launch failure)
+    monkeypatch.setattr(
+        apply, "route",
+        lambda *a, **k: S.ApplyResult(S.NETWORK_ERROR, "browser launch failed: The browser connection fails. Address: 127.0.0.1:9222")
+    )
+    res = apply.apply_one(dict(_row(temp_db, j["url"])), CFG, dry_run=False)
+    assert res.state == S.NETWORK_ERROR
+    row = _row(temp_db, j["url"])
+    # Status should remain tailored and attempts must be 0 (unconsumed)
+    assert row["status"] == S.TAILORED
+    assert row["attempts"] == 0
+    assert "infra_failure" in row["status_reason"]
+
+

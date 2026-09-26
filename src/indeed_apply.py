@@ -283,6 +283,7 @@ def _gmail_confirmation(title: str) -> str:
 
 def _launch_browser():
     from DrissionPage import ChromiumOptions, ChromiumPage
+    from display import cleanup_orphan_browsers
 
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     co = ChromiumOptions()
@@ -293,9 +294,13 @@ def _launch_browser():
     co.set_pref("credentials_enable_service", False)
     co.set_pref("profile.password_manager_enabled", False)
 
-    page = ChromiumPage(addr_or_opts=co)
-    page.set.timeouts(base=ELE_TIMEOUT, page_load=NAV_TIMEOUT, script=15)
-    return page
+    try:
+        page = ChromiumPage(addr_or_opts=co)
+        page.set.timeouts(base=ELE_TIMEOUT, page_load=NAV_TIMEOUT, script=15)
+        return page
+    except Exception:
+        cleanup_orphan_browsers()
+        raise
 
 
 AUTH_COOKIES = {"SHOE", "PPID", "SOCK", "passport_auth_state"}  # present only when signed in

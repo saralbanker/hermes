@@ -172,6 +172,8 @@ def route(job: dict, cover: str, resume: str, shot: str, dry_run: bool) -> S.App
             return blocked
         channel = job["apply_channel"]
     if channel in S.ATS_CHANNELS:
+        if channel == S.CH_ASHBY:
+            return S.ApplyResult(S.BLOCKED_ANTIBOT, "ashby disabled: platform anti-bot blocks automated submissions")
         from ats_apply import run_ats_apply
         return run_ats_apply(job, cover, resume, shot, dry_run=dry_run)
     if channel == S.CH_DIRECT:
@@ -186,6 +188,26 @@ def route(job: dict, cover: str, resume: str, shot: str, dry_run: bool) -> S.App
 # State transitions
 # ---------------------------------------------------------------------------
 
+def is_infrastructure_failure(result: S.ApplyResult) -> bool:
+    """Return True if failure occurred due to local Hermes/browser infrastructure
+    before any external application work began (e.g. browser launch, Xvfb, local CDP)."""
+    if result.state not in (S.NETWORK_ERROR, S.FAILED):
+        return False
+    detail = (result.detail or "").lower()
+    infra_markers = (
+        "browser launch failed",
+        "browser connection fails",
+        "browserconnecterror",
+        "displayunavailable",
+        "xvfb exited",
+        "singletonlock",
+        "failed to connect to the bus",
+        "browser_error:browser.launch",
+        "browser_error:target page, context or browser has been closed",
+    )
+    return any(marker in detail for marker in infra_markers)
+
+
 def record_result(job: dict, result: S.ApplyResult) -> str:
     """Persist an applier result. Returns the stored status."""
     url = job["url"]
@@ -199,6 +221,16 @@ def record_result(job: dict, result: S.ApplyResult) -> str:
     if result.state == S.DRY_RUN_OK:
         update_job(url, {"status": S.TAILORED, "status_reason": "dry_run_ok",
                          "attempts": max(0, (job.get("attempts") or 1) - 1)})  # a rehearsal is not an attempt
+        return S.TAILORED
+    if is_infrastructure_failure(result):
+        # Infrastructure failed before external application work began.
+        # Do not consume a candidate application attempt.
+        attempts = max(0, (job.get("attempts") or 1) - 1)
+        job["attempts"] = attempts
+        reason = f"infra_failure: {result.detail}"[:500]
+        update_job(url, {"status": S.TAILORED, "status_reason": reason,
+                         "attempts": attempts,
+                         "screenshot_path": result.screenshot})
         return S.TAILORED
     attempts = job.get("attempts") or 0
     reason = f"{result.state}: {result.detail}"[:500]

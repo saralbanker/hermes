@@ -180,6 +180,46 @@ def test_positive_response_is_never_downgraded():
     assert row["response_status"] == "positive"
 
 
+def test_positive_unmatched_job_does_not_notify():
+    conn = make_conn()
+    notified = []
+
+    def fake_notify(title, body, urgent=False):
+        notified.append((title, body))
+        return True
+
+    res = rw.process_message(
+        conn, "<unmatched@random.com>", "recruiter@random.com",
+        "Interview Invitation", "Let's schedule a call for an interview.",
+        "2026-09-20T10:00:00", jobs=[], notify_fn=fake_notify,
+    )
+    assert res == "positive"
+    assert len(notified) == 0  # unmatched positive mail must not trigger notification
+
+
+def test_commercial_and_promo_footer_classification():
+    # Commercial mail with no-reply must be "other"
+    assert rw.classify(
+        "Lollapalooza India: Day-Wise LIVE NOW!",
+        "Get your tickets at BookMyShow. This is an automated message.",
+        "no-reply@info.bookmyshow.com"
+    ) == "other"
+
+    # Indeed application receipt with promotional footer must still be "ack"
+    assert rw.classify(
+        "Indeed Application: Software Engineer",
+        "Your application has been submitted to TechCorp.\n---\nRecommended jobs for you: 5 new jobs matching your profile.\nUnsubscribe from job alert.",
+        "indeedapply@indeed.com"
+    ) == "ack"
+
+    # Cloudflare recruiting ack
+    assert rw.classify(
+        "Cloudflare Recruiting | Application Received - Software Engineer",
+        "Thank you for applying to Cloudflare! We have received your application.",
+        "no-reply@cloudflare.com"
+    ) == "ack"
+
+
 # ---------------------------------------------------------------------------
 # Light integration: responses table self-creation against a real (temp) db
 # ---------------------------------------------------------------------------
@@ -195,3 +235,4 @@ def test_ensure_responses_table_creates_table(tmp_path, monkeypatch):
         assert "responses" in tables
     finally:
         conn.close()
+

@@ -128,18 +128,24 @@ EXTRACT_JS = (ROOT / "src" / "ats_extract.js").read_text()
 # ---------------------------------------------------------------------------
 
 def _launch(pw):
+    from display import cleanup_orphan_browsers
+
     ensure_virtual_display()  # headful Chrome inside a private Xvfb display — see display.py
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
-    return pw.chromium.launch_persistent_context(
-        str(PROFILE_DIR),
-        channel="chrome",
-        headless=False,
-        viewport={"width": 1366, "height": 900},
-        user_agent=USER_AGENT,
-        locale="en-IN",
-        timezone_id="Asia/Kolkata",
-        args=["--disable-blink-features=AutomationControlled"],
-    )
+    try:
+        return pw.chromium.launch_persistent_context(
+            str(PROFILE_DIR),
+            channel="chrome",
+            headless=False,
+            viewport={"width": 1366, "height": 900},
+            user_agent=USER_AGENT,
+            locale="en-IN",
+            timezone_id="Asia/Kolkata",
+            args=["--disable-blink-features=AutomationControlled"],
+        )
+    except Exception:
+        cleanup_orphan_browsers()
+        raise
 
 
 def _screenshot(page, path: str) -> str | None:

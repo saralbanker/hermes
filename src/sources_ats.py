@@ -168,8 +168,8 @@ def fetch_ashby(token: str) -> list[dict]:
         ))
     return rows
 
-
-FETCHERS = {"greenhouse": fetch_greenhouse, "lever": fetch_lever, "ashby": fetch_ashby}
+# Ashby is disabled due to platform-side anti-bot blocking (blocked_antibot)
+FETCHERS = {"greenhouse": fetch_greenhouse, "lever": fetch_lever}
 
 
 def _fetch_one(pair: tuple[str, str]) -> list[dict]:
