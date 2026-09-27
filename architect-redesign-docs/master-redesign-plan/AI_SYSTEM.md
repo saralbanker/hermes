@@ -68,7 +68,7 @@ The workflow persists the durable result.
 
 ---
 
-# 3. Role Architecture
+# 4. Role Architecture
 
 The frozen role set is:
 
@@ -90,7 +90,7 @@ The exact checkpoint is an implementation choice until benchmarked on the real h
 
 ---
 
-# 4. Role Separation
+# 5. Role Separation
 
 Each role optimizes for a different task.
 
@@ -106,7 +106,7 @@ A single model can sometimes perform several tasks, but the system must not depe
 
 ---
 
-# 5. Local Runtime
+# 6. Local Runtime
 
 Primary runtime:
 
@@ -123,7 +123,7 @@ Current legacy llm.py is the starting point for this abstraction.
 
 ---
 
-# 6. AI Gateway
+# 7. AI Gateway
 
 The target AI boundary should expose operations equivalent to:
 
@@ -139,7 +139,7 @@ The rest of Hermes should not duplicate raw Ollama HTTP calls.
 
 ---
 
-# 7. Current Legacy Reality
+# 8. Current Legacy Reality
 
 Current repository AI modules include:
 
@@ -156,7 +156,7 @@ That behavior is migration input, not the frozen target role structure.
 
 ---
 
-# 8. Target Evaluation Pipeline
+# 9. Target Evaluation Pipeline
 
 The target evaluation path is:
 
@@ -180,7 +180,7 @@ Ready opportunity
 
 ---
 
-# 9. Cost Order
+# 10. Cost Order
 
 Expensive AI work must follow cheap deterministic work.
 
@@ -196,7 +196,7 @@ Do not generate cover letters for jobs that are already ineligible.
 
 ---
 
-# 10. Hard Eligibility Boundary
+# 11. Hard Eligibility Boundary
 
 AI must not decide hard policy gates.
 
@@ -215,7 +215,7 @@ When enough evidence exists, these checks occur before expensive semantic infere
 
 ---
 
-# 11. Embedding Role
+# 12. Embedding Role
 
 Embedding creates a semantic representation of the candidate and job.
 
@@ -229,7 +229,7 @@ Should Hermes submit this application?
 
 ---
 
-# 12. Candidate Representation
+# 13. Candidate Representation
 
 Candidate embedding input must derive from profile/facts.md.
 
@@ -246,7 +246,7 @@ The candidate representation should remain stable enough for reuse but versioned
 
 ---
 
-# 13. Job Representation
+# 14. Job Representation
 
 Job embedding input should prioritize:
 
@@ -264,7 +264,7 @@ Normalize first.
 
 ---
 
-# 14. Representation Versioning
+# 15. Representation Versioning
 
 Semantic inputs require a representation version.
 
@@ -279,7 +279,7 @@ This prevents incompatible vectors or scores from being mixed.
 
 ---
 
-# 15. Embedding Cache
+# 16. Embedding Cache
 
 Cache keys should include enough information to distinguish:
 
@@ -295,7 +295,7 @@ A cache hit is an optimization, not canonical truth.
 
 ---
 
-# 16. Similarity Floor
+# 17. Similarity Floor
 
 The current configuration has a calibrated minimum similarity threshold.
 
@@ -312,7 +312,7 @@ Reevaluation remains possible after:
 
 ---
 
-# 17. Similarity Is Not Eligibility
+# 18. Similarity Is Not Eligibility
 
 A highly similar opportunity can still be ineligible.
 
@@ -328,7 +328,7 @@ A semantic similarity number must never override these deterministic facts.
 
 ---
 
-# 18. Reranker Role
+# 19. Reranker Role
 
 The reranker receives a smaller candidate set than the embedding stage.
 
@@ -346,7 +346,7 @@ The reranker does not decide eligibility or submission.
 
 ---
 
-# 19. BGE-Class Reranker
+# 20. BGE-Class Reranker
 
 The architecture uses a BGE-class reranking role.
 
@@ -364,7 +364,7 @@ on the real host.
 
 ---
 
-# 20. Reranking Scope
+# 21. Reranking Scope
 
 Do not rerank the whole discovery database.
 
@@ -378,7 +378,7 @@ K is a measured performance parameter.
 
 ---
 
-# 21. Scoring Role
+# 22. Scoring Role
 
 The scoring specialist provides structured fit judgment.
 
@@ -398,7 +398,7 @@ Output is a bounded judgment.
 
 ---
 
-# 22. Score Output
+# 23. Score Output
 
 Recommended logical fields:
 
@@ -413,7 +413,7 @@ Deterministic code maps the output into workflow semantics.
 
 ---
 
-# 23. Score Meaning
+# 24. Score Meaning
 
 A score is an internal ranking signal.
 
@@ -429,7 +429,7 @@ Score interpretation depends on the model and prompt/calibration version.
 
 ---
 
-# 24. Score Versioning
+# 25. Score Versioning
 
 Evaluation history should retain:
 
@@ -445,7 +445,7 @@ Changing a model must not erase historical evaluation evidence.
 
 ---
 
-# 25. Score Threshold
+# 26. Score Threshold
 
 The current configuration uses a minimum fit score.
 
@@ -457,7 +457,7 @@ It may return to evaluation when its inputs or evaluation method materially chan
 
 ---
 
-# 26. Core and Stretch
+# 27. Core and Stretch
 
 Core/stretch classification remains deterministic policy.
 
@@ -469,7 +469,7 @@ Truthfulness and hard eligibility always outrank the 70/30 preference.
 
 ---
 
-# 27. Generation Role
+# 28. Generation Role
 
 Primary generation baseline:
 
@@ -493,7 +493,7 @@ Generation is not used for:
 
 ---
 
-# 28. Generation Timing
+# 29. Generation Timing
 
 Generation should occur after a job becomes genuinely actionable.
 
@@ -509,7 +509,7 @@ Do not maintain a giant pre-generated cover-letter backlog.
 
 ---
 
-# 29. Generation Input
+# 30. Generation Input
 
 A generation request should contain only necessary grounded context:
 
@@ -524,7 +524,7 @@ Avoid unrelated logs and private information.
 
 ---
 
-# 30. Candidate Fact Boundary
+# 31. Candidate Fact Boundary
 
 profile/facts.md is the candidate truth boundary.
 
@@ -545,7 +545,7 @@ It may not invent:
 
 ---
 
-# 31. Employer Text Boundary
+# 32. Employer Text Boundary
 
 Job descriptions may explain:
 
@@ -560,7 +560,7 @@ A requirement such as 5 years of experience must never become a claim that the c
 
 ---
 
-# 32. Experience Truth
+# 33. Experience Truth
 
 The two verified experience concepts remain distinct:
 
@@ -578,7 +578,7 @@ This distinction applies to:
 
 ---
 
-# 33. Degree Truth
+# 34. Degree Truth
 
 Verified education:
 
@@ -590,7 +590,7 @@ AI must not imply otherwise.
 
 ---
 
-# 34. Skill Truth
+# 35. Skill Truth
 
 Only skills in the verified fact sheet may be claimed.
 
@@ -610,7 +610,7 @@ A job requirement is not evidence of candidate experience.
 
 ---
 
-# 35. Domain Truth
+# 36. Domain Truth
 
 Do not fabricate domain experience such as:
 
@@ -623,7 +623,7 @@ The model may discuss these as employer requirements, not as candidate history.
 
 ---
 
-# 36. Number Safety
+# 37. Number Safety
 
 Numbers are high-risk generation content.
 
@@ -642,7 +642,7 @@ A number existing somewhere in the facts file is not automatically valid in ever
 
 ---
 
-# 37. Project Number Attribution
+# 38. Project Number Attribution
 
 Project-specific metrics must remain attached to the correct project.
 
@@ -661,7 +661,7 @@ A model must not transfer one project's number to another project.
 
 ---
 
-# 38. Generation Validation
+# 39. Generation Validation
 
 Required pattern:
 
@@ -674,7 +674,7 @@ Unvalidated generation output must never be submitted.
 
 ---
 
-# 39. Existing Tailor Validation
+# 40. Existing Tailor Validation
 
 Legacy tailor.py already validates important properties including:
 
@@ -689,7 +689,7 @@ The target AI system must preserve these semantic guarantees during migration.
 
 ---
 
-# 40. Generation Retry
+# 41. Generation Retry
 
 Generation retries are bounded.
 
@@ -706,7 +706,7 @@ Repeated invalid output is a model/prompt quality signal.
 
 ---
 
-# 41. Deterministic Generation Fallback
+# 42. Deterministic Generation Fallback
 
 Facts-only templates may be used when the model fails.
 
@@ -720,7 +720,7 @@ A deterministic fallback is preferable to fabricated content.
 
 ---
 
-# 42. Screening Architecture
+# 43. Screening Architecture
 
 Screening uses:
 
@@ -742,7 +742,7 @@ Deterministic candidates include:
 
 ---
 
-# 43. Screening Question Interpretation
+# 44. Screening Question Interpretation
 
 Before invoking AI, identify:
 
@@ -758,7 +758,7 @@ This prevents model confabulation from poor page parsing.
 
 ---
 
-# 44. Unknown Is Valid
+# 45. Unknown Is Valid
 
 The model must be permitted to return:
 
@@ -776,7 +776,7 @@ guess
 
 ---
 
-# 45. Multiple-Choice Screening
+# 46. Multiple-Choice Screening
 
 Preferred:
 
@@ -789,7 +789,7 @@ Never invent an option.
 
 ---
 
-# 46. Boolean Screening
+# 47. Boolean Screening
 
 A yes/no model answer should be used only when the input is a real question.
 
@@ -799,7 +799,7 @@ This guard prevents accidental source claims.
 
 ---
 
-# 47. Assignment Questions
+# 48. Assignment Questions
 
 Never fabricate:
 
@@ -813,7 +813,7 @@ When an assignment artifact does not exist, return UNKNOWN or an unsupported res
 
 ---
 
-# 48. Free-Text Screening
+# 49. Free-Text Screening
 
 Free-text screening may use:
 
@@ -827,7 +827,7 @@ The result must pass the same deterministic truthfulness checks used for cover l
 
 ---
 
-# 49. Screening Validation
+# 50. Screening Validation
 
 Validate at minimum:
 
@@ -844,7 +844,7 @@ Screening answers are external application material and carry the same truthfuln
 
 ---
 
-# 50. Browser Decision Support
+# 51. Browser Decision Support
 
 AI may optionally assist with complex structured browser state.
 
@@ -859,7 +859,7 @@ The model does not execute that action.
 
 ---
 
-# 51. Browser AI Input
+# 52. Browser AI Input
 
 Prefer compact state:
 
@@ -875,7 +875,7 @@ Do not send full raw HTML by default.
 
 ---
 
-# 52. Browser AI Output
+# 53. Browser AI Output
 
 A valid conceptual output is:
 
@@ -889,7 +889,7 @@ The deterministic BrowserGateway validator decides whether it can execute.
 
 ---
 
-# 53. No Laya
+# 54. No Laya
 
 Laya is not a required model, tool, or subsystem.
 
@@ -905,7 +905,7 @@ No additional browser-specialist resident model is required.
 
 ---
 
-# 54. AI Tool Authority
+# 55. AI Tool Authority
 
 AI cannot:
 
@@ -924,7 +924,7 @@ AI output is input to deterministic subsystems.
 
 ---
 
-# 55. Prompt Architecture
+# 56. Prompt Architecture
 
 Use task-specific prompts:
 
@@ -939,7 +939,7 @@ Task separation improves consistency and reduces unnecessary context.
 
 ---
 
-# 56. Prompt Versioning
+# 57. Prompt Versioning
 
 Record prompt/schema version with structured outputs.
 
@@ -949,7 +949,7 @@ Evaluation history must preserve that distinction.
 
 ---
 
-# 57. Structured Output
+# 58. Structured Output
 
 Prefer structured output for:
 
@@ -969,7 +969,7 @@ All structured output is schema-validated.
 
 ---
 
-# 58. Output Parsing
+# 59. Output Parsing
 
 Parsing must enforce:
 
@@ -985,7 +985,7 @@ Minor formatting defects may use bounded deterministic parsing where safe.
 
 ---
 
-# 59. Temperature
+# 60. Temperature
 
 Lower randomness is preferred for:
 
@@ -1000,7 +1000,7 @@ Temperature never replaces validation.
 
 ---
 
-# 60. Context Size
+# 61. Context Size
 
 Use the smallest useful context.
 
@@ -1024,7 +1024,7 @@ Do not maximize context length merely because the model allows it.
 
 ---
 
-# 61. Fact Prompt Reuse
+# 62. Fact Prompt Reuse
 
 The current Ollama implementation puts the fact sheet early in the prompt so cached-prefix behavior can reduce repeated processing.
 
@@ -1036,7 +1036,7 @@ Cache reuse never overrides fact freshness.
 
 ---
 
-# 62. Model Keep-Alive
+# 63. Model Keep-Alive
 
 Keep-alive is a resource optimization.
 
@@ -1052,7 +1052,7 @@ Exact values are runtime-tuned.
 
 ---
 
-# 63. Serial Model Scheduling
+# 64. Serial Model Scheduling
 
 On the constrained host, prefer:
 
@@ -1067,7 +1067,7 @@ The AI scheduler may batch compatible tasks, but active application work takes p
 
 ---
 
-# 64. Embedding Batching
+# 65. Embedding Batching
 
 Embedding requests should be batched.
 
@@ -1082,7 +1082,7 @@ Do not use a huge batch merely to maximize theoretical throughput if it stalls f
 
 ---
 
-# 65. Reranking Budget
+# 66. Reranking Budget
 
 Only a shortlist should reach the reranker.
 
@@ -1097,7 +1097,7 @@ Choose K by observed value, not by a fixed prestige number.
 
 ---
 
-# 66. Scoring Budget
+# 67. Scoring Budget
 
 Current configuration includes max_llm_per_run.
 
@@ -1109,7 +1109,7 @@ Unprocessed work waits for later cycles.
 
 ---
 
-# 67. Tailoring Budget
+# 68. Tailoring Budget
 
 Current configuration includes max_tailor_per_run.
 
@@ -1125,7 +1125,7 @@ Avoid generating material for:
 
 ---
 
-# 68. AI Backpressure
+# 69. AI Backpressure
 
 When AI is slower than discovery:
 
@@ -1138,7 +1138,7 @@ AI backlog is not a reason to break scheduler freshness or daily application saf
 
 ---
 
-# 69. Resource Budget
+# 70. Resource Budget
 
 The host has:
 
@@ -1158,7 +1158,7 @@ The AI subsystem must share resources with:
 
 ---
 
-# 70. Runtime Memory
+# 71. Runtime Memory
 
 Model package size is not runtime memory.
 
@@ -1177,7 +1177,7 @@ Actual process RSS is the operational metric.
 
 ---
 
-# 71. AI Concurrency Baseline
+# 72. AI Concurrency Baseline
 
 Default:
 
@@ -1189,7 +1189,7 @@ Do not run multiple large generation requests concurrently by default.
 
 ---
 
-# 72. Model Switching Cost
+# 73. Model Switching Cost
 
 Switching models can cause:
 
@@ -1202,7 +1202,7 @@ The scheduler should batch compatible tasks where practical without allowing sta
 
 ---
 
-# 73. Active Browser Priority
+# 74. Active Browser Priority
 
 If an active browser attempt needs AI:
 
@@ -1214,7 +1214,7 @@ Application safety and completion take priority over speculative bulk scoring.
 
 ---
 
-# 74. Freshness Priority
+# 75. Freshness Priority
 
 AI scheduling cannot violate the frozen job scheduler.
 
@@ -1224,7 +1224,7 @@ AI backlog is subordinate to age-priority workflow.
 
 ---
 
-# 75. AI Failure Classes
+# 76. AI Failure Classes
 
 Classify failures such as:
 
@@ -1241,7 +1241,7 @@ The response depends on the class.
 
 ---
 
-# 76. Runtime Unavailable
+# 77. Runtime Unavailable
 
 If local inference is unavailable:
 
@@ -1254,7 +1254,7 @@ Do not crash the whole continuous pipeline.
 
 ---
 
-# 77. Missing Model
+# 78. Missing Model
 
 A missing model is an AI health failure.
 
@@ -1264,7 +1264,7 @@ The legacy llm.py centralized this concept as LLMUnavailable and that semantic b
 
 ---
 
-# 78. Timeout
+# 79. Timeout
 
 Model timeout:
 
@@ -1275,7 +1275,7 @@ Never let one generation call consume the entire application budget.
 
 ---
 
-# 79. Malformed Output
+# 80. Malformed Output
 
 Malformed structured output:
 
@@ -1287,7 +1287,7 @@ Do not silently coerce dangerous text into accepted output.
 
 ---
 
-# 80. Validation Failure
+# 81. Validation Failure
 
 Unsafe generation:
 
@@ -1300,7 +1300,7 @@ Never retry until the model happens to produce an acceptable answer.
 
 ---
 
-# 81. Resource Exhaustion
+# 82. Resource Exhaustion
 
 When memory or CPU pressure becomes unsafe:
 
@@ -1313,7 +1313,7 @@ Lightweight deterministic work can continue where safe.
 
 ---
 
-# 82. AI Failure Before Application
+# 83. AI Failure Before Application
 
 If AI fails before browser interaction:
 
@@ -1325,7 +1325,7 @@ Workflow owns exact attempt semantics.
 
 ---
 
-# 83. AI Failure During Browser Work
+# 84. AI Failure During Browser Work
 
 If browser decision support fails:
 
@@ -1337,7 +1337,7 @@ Do not broaden AI authority because the normal model path is unavailable.
 
 ---
 
-# 84. Fallback Ranking
+# 85. Fallback Ranking
 
 Legacy keyword scoring can remain a degraded fallback.
 
@@ -1352,7 +1352,7 @@ Fallback provenance should include:
 
 ---
 
-# 85. Evaluation History
+# 86. Evaluation History
 
 AI results belong in evaluation history with:
 
@@ -1369,7 +1369,7 @@ This allows reevaluation without destroying history.
 
 ---
 
-# 86. Re-Evaluation Triggers
+# 87. Re-Evaluation Triggers
 
 Material changes may trigger reevaluation:
 
@@ -1385,7 +1385,7 @@ Do not recompute everything merely because time passed.
 
 ---
 
-# 87. Semantic Staleness
+# 88. Semantic Staleness
 
 AI output becomes stale when its inputs become stale.
 
@@ -1400,7 +1400,7 @@ Stale semantic output must not override current deterministic policy.
 
 ---
 
-# 88. Cache Invalidation
+# 89. Cache Invalidation
 
 Relevant cache keys may include:
 
@@ -1414,7 +1414,7 @@ Incompatible cached data is not valid.
 
 ---
 
-# 89. No Cache as Canonical Truth
+# 90. No Cache as Canonical Truth
 
 A cached score, embedding, or letter is an optimization artifact.
 
@@ -1424,7 +1424,7 @@ Historical evaluation remains historical.
 
 ---
 
-# 90. Candidate Fact Change
+# 91. Candidate Fact Change
 
 When profile/facts.md changes:
 
@@ -1437,7 +1437,7 @@ Do not silently submit content generated from obsolete facts.
 
 ---
 
-# 91. Job Change
+# 92. Job Change
 
 When a source reports a changed job description:
 
@@ -1450,7 +1450,7 @@ The prior evaluation remains history.
 
 ---
 
-# 92. Prompt Injection Defense
+# 93. Prompt Injection Defense
 
 Job descriptions are untrusted.
 
@@ -1467,7 +1467,7 @@ System instructions and candidate-fact boundaries remain higher priority.
 
 ---
 
-# 93. Browser Prompt Injection Defense
+# 94. Browser Prompt Injection Defense
 
 Visible page text is also untrusted.
 
@@ -1483,7 +1483,7 @@ BrowserGateway and deterministic validation prevent these instructions from beco
 
 ---
 
-# 94. Candidate Data Minimization
+# 95. Candidate Data Minimization
 
 Only necessary candidate facts should enter a given prompt.
 
@@ -1499,7 +1499,7 @@ unless explicitly required by a separately authorized subsystem, which browser A
 
 ---
 
-# 95. Generated URLs
+# 96. Generated URLs
 
 AI must not fabricate:
 
@@ -1515,7 +1515,7 @@ Artifact existence should be checked deterministically.
 
 ---
 
-# 96. Generated Numbers
+# 97. Generated Numbers
 
 Numbers require both:
 
@@ -1527,7 +1527,7 @@ A valid number in the facts file can still be invalid if attached to the wrong p
 
 ---
 
-# 97. Generated Skills
+# 98. Generated Skills
 
 A generated sentence may mention an employer requirement.
 
@@ -1545,7 +1545,7 @@ when the fact sheet does not support it.
 
 ---
 
-# 98. Generated Experience
+# 99. Generated Experience
 
 Never allow job requirements to become candidate years.
 
@@ -1559,7 +1559,7 @@ before generation is accepted.
 
 ---
 
-# 99. Browser Confidence
+# 100. Browser Confidence
 
 When browser AI is used, low confidence should produce:
 
@@ -1577,7 +1577,7 @@ The validator remains authoritative.
 
 ---
 
-# 100. AI Health
+# 101. AI Health
 
 Per-role health should expose:
 
@@ -1593,7 +1593,7 @@ Health informs degradation and recovery.
 
 ---
 
-# 101. Health Recovery
+# 102. Health Recovery
 
 After local-model failure:
 
@@ -1606,7 +1606,7 @@ Do not restart the complete Hermes worker for one model outage.
 
 ---
 
-# 102. AI Observability
+# 103. AI Observability
 
 Useful metrics:
 
@@ -1626,7 +1626,7 @@ Do not create a separate analytics platform just for this.
 
 ---
 
-# 103. Embedding Metrics
+# 104. Embedding Metrics
 
 Track:
 
@@ -1641,7 +1641,7 @@ These measurements support calibration of the similarity floor and batching.
 
 ---
 
-# 104. Reranker Metrics
+# 105. Reranker Metrics
 
 Track:
 
@@ -1655,7 +1655,7 @@ A reranker that costs significant CPU while adding little ranking value should b
 
 ---
 
-# 105. Scoring Metrics
+# 106. Scoring Metrics
 
 Track:
 
@@ -1669,7 +1669,7 @@ Large score drift after model/prompt changes requires benchmark review.
 
 ---
 
-# 106. Generation Metrics
+# 107. Generation Metrics
 
 Track:
 
@@ -1683,7 +1683,7 @@ A high rejection rate is a model/prompt problem, not a reason for unlimited retr
 
 ---
 
-# 107. Regression Fixtures
+# 108. Regression Fixtures
 
 Maintain representative local fixtures for:
 
@@ -1705,7 +1705,7 @@ Use them to detect regressions.
 
 ---
 
-# 108. Golden Constraints
+# 109. Golden Constraints
 
 For structured outputs, tests should validate properties rather than exact wording.
 
@@ -1721,7 +1721,7 @@ For prose, validate safety properties rather than requiring one exact sentence.
 
 ---
 
-# 109. Model Benchmarking
+# 110. Model Benchmarking
 
 Before selecting exact checkpoints, benchmark candidate models on the real host.
 
@@ -1738,7 +1738,7 @@ The benchmark chooses the checkpoint inside an already-frozen role.
 
 ---
 
-# 110. Benchmark Conditions
+# 111. Benchmark Conditions
 
 Measure at least:
 
@@ -1753,7 +1753,7 @@ Where possible, benchmark with browser/runtime activity present because producti
 
 ---
 
-# 111. Benchmark Dataset
+# 112. Benchmark Dataset
 
 Use a fixed local corpus containing:
 
@@ -1767,7 +1767,7 @@ Do not unnecessarily expose sensitive live employer data.
 
 ---
 
-# 112. Model Replacement
+# 113. Model Replacement
 
 Replacing a checkpoint inside the same role is normally an implementation change when:
 
@@ -1779,7 +1779,7 @@ It still requires regression/benchmark evidence.
 
 ---
 
-# 113. Role Replacement
+# 114. Role Replacement
 
 Changing the role architecture requires explicit review.
 
@@ -1794,7 +1794,7 @@ These are not casual model swaps.
 
 ---
 
-# 114. No Permanent Multi-Agent Fleet
+# 115. No Permanent Multi-Agent Fleet
 
 Hermes is not designed around many simultaneously resident autonomous agents.
 
@@ -1809,7 +1809,7 @@ A cloud-style multi-agent fleet is inappropriate for the constrained laptop unle
 
 ---
 
-# 115. Agent vs Model
+# 116. Agent vs Model
 
 Application modules can orchestrate models without turning every task into an autonomous agent.
 
@@ -1824,7 +1824,7 @@ Long-running self-directed conversations are unnecessary by default.
 
 ---
 
-# 116. Model Memory Is Not Database State
+# 117. Model Memory Is Not Database State
 
 Model context or runtime cache is not durable system state.
 
@@ -1838,7 +1838,7 @@ Models can be unloaded and restarted without losing canonical workflow truth.
 
 ---
 
-# 117. AI Task Identity
+# 118. AI Task Identity
 
 A semantic task should have a stable logical identity based on concepts such as:
 
@@ -1852,7 +1852,7 @@ Repeated execution must not create duplicate external application attempts.
 
 ---
 
-# 118. AI Result Persistence
+# 119. AI Result Persistence
 
 Persist a model result only after its output passes the relevant validation.
 
@@ -1862,7 +1862,7 @@ Where possible, persist provenance with the result.
 
 ---
 
-# 119. AI + SQLite
+# 120. AI + SQLite
 
 Never hold a SQLite write transaction while waiting for inference.
 
@@ -1878,7 +1878,7 @@ AI latency must never hold database write locks.
 
 ---
 
-# 120. AI + Browser
+# 121. AI + Browser
 
 For active browser work:
 
@@ -1891,7 +1891,7 @@ Avoid launching a huge background inference batch that starves an active applica
 
 ---
 
-# 121. Continuous Operation
+# 122. Continuous Operation
 
 AI subsystem behavior during failures:
 
@@ -1905,7 +1905,7 @@ Continuous operation means safe degradation, not pretending every AI task must s
 
 ---
 
-# 122. Daily Target Interaction
+# 123. Daily Target Interaction
 
 AI must never spend unbounded resources merely to approach the 100/day target.
 
@@ -1915,7 +1915,7 @@ Correctness, candidate truth, duplicate safety, and evidence remain higher prior
 
 ---
 
-# 123. Definition of Done
+# 124. Definition of Done
 
 The AI system is ready when:
 
@@ -1948,7 +1948,7 @@ Evaluation:
 
 ---
 
-# 124. Final AI Reference
+# 125. Final AI Reference
 
 Candidate facts
 → deterministic hard filters
@@ -1972,7 +1972,7 @@ Browser executes only validated actions.
 
 ---
 
-# 125. Implementer Directive
+# 126. Implementer Directive
 
 When implementing Hermes AI:
 
