@@ -744,3 +744,629 @@ project/coursework experience
 
 A professional-years question must not silently receive a larger overall-development number.
 
+ receive a larger overall-development number.
+
+# 31. Numeric Fields
+
+For numeric screening:
+
+```text
+use a truthful numeric value only when field meaning is known
+```
+
+Do not insert an attractive value merely to pass a form.
+
+Unknown required numeric semantics require a safe stop.
+
+# 32. Resume Selection
+
+The browser receives an already-approved resume path.
+
+It must:
+
+```text
+exist
+be readable
+be an approved candidate document
+match the selected role variant
+remain within allowed filesystem scope
+```
+
+The browser must not discover arbitrary local files.
+
+# 33. Resume Variants
+
+Conceptual mapping:
+
+```text
+AI role
+→ AI resume
+
+backend role
+→ backend resume
+
+full-stack/software role
+→ full-stack resume
+
+otherwise
+→ default resume
+```
+
+Final selection remains owned by workflow/configuration.
+
+# 34. File Upload
+
+Upload flow:
+
+```text
+identify input
+→ validate field semantics
+→ validate approved local path
+→ upload
+→ inspect result
+→ confirm file state where visible
+```
+
+Successful upload is not submission confirmation.
+
+# 35. Cover Letters
+
+The browser receives a prevalidated cover-letter artifact.
+
+Before insertion:
+
+```text
+artifact exists
+→ opportunity association verified
+→ candidate facts validated
+→ generated claims validated
+→ field format acceptable
+→ insert
+```
+
+Browser code does not improvise application prose.
+
+# 36. Cookie Banners
+
+Normal cookie/consent interaction may be handled when required.
+
+Rules:
+
+```text
+narrow
+label-aware
+best-effort
+channel-safe
+```
+
+Do not globally click the first button containing "Accept".
+
+Cookie handling is not a security bypass.
+
+# 37. Navigation and Route Resolution
+
+Conceptual path:
+
+```text
+listing
+→ application target resolution
+→ destination
+→ application form
+→ confirmation/reconciliation
+```
+
+A redirect is not proof of a valid application route.
+
+Destination must be classified before submission.
+
+# 38. HTTP-First Resolution
+
+Legitimate public HTTP/API work may be used for:
+
+```text
+public discovery
+public metadata
+safe redirect resolution
+known ATS destination discovery
+```
+
+It must not become:
+
+```text
+anti-bot bypass
+private endpoint replay
+generic form-post automation
+challenge-token extraction
+```
+
+Generic HTTP replay of browser submission is forbidden.
+
+# 39. Destination Classification
+
+A destination should be classified as:
+
+```text
+known ATS
+direct employer form
+board account wall
+security block
+sponsored/tracking destination
+unsupported
+```
+
+Use multiple signals:
+
+```text
+URL
+host
+path
+form structure
+known ATS signatures
+page text
+```
+
+# 40. Sponsored-Link Protection
+
+Tracking parameters do not automatically mean sponsored content.
+
+A sponsored detector should require stronger context such as:
+
+```text
+tracking URL
++
+thin/unrelated destination path
++
+known promotional pattern
+```
+
+Legitimate employer job URLs can contain tracking parameters.
+
+# 41. Account Walls
+
+Board-owned signup/login walls are:
+
+```text
+ACCOUNT_REQUIRED
+```
+
+Hermes may use a known legitimate employer/ATS route when already resolved.
+
+Hermes must not create fake accounts or fabricate identity.
+
+# 42. Channel Driver Contract
+
+A channel driver should provide focused behavior equivalent to:
+
+```text
+identify_page()
+verify_session()
+prepare_application()
+fill_known_fields()
+answer_screening()
+submit()
+classify_outcome()
+collect_evidence()
+```
+
+Drivers call BrowserGateway.
+
+They do not own global scheduling or daily limits.
+
+# 43. Indeed
+
+Indeed is an authenticated, stateful route.
+
+Current repository behavior worth preserving includes:
+
+```text
+pure page classification
+login detection
+security-interstitial detection
+OTP detection
+confirmation detection
+already-applied detection
+expired-page detection
+persistent profile
+Applied-history verification
+Gmail confirmation
+screenshots
+bounded form steps
+```
+
+These are migration inputs, not permission to preserve the old DrissionPage architecture.
+
+# 44. Indeed Session Verification
+
+Indeed driver should distinguish:
+
+```text
+authenticated
+unauthenticated
+ambiguous
+```
+
+Only clear authentication loss should block.
+
+A transient session-check failure is not proof of logout.
+
+# 45. Indeed OTP
+
+Supported flow:
+
+```text
+OTP page
+→ identify email OTP
+→ request fresh code
+→ verify sender and freshness
+→ enter code
+→ re-snapshot
+```
+
+Phone-only OTP is unsupported unless a legitimate configured retrieval route exists.
+
+# 46. Indeed Evidence
+
+Useful evidence:
+
+```text
+confirmation page
+confirmation URL
+Applied history
+platform confirmation email
+screenshot
+```
+
+One missing secondary signal does not automatically negate stronger evidence.
+
+Ambiguous state still requires reconciliation.
+
+# 47. ATS Routes
+
+Frozen architecture covers known ATS destinations such as:
+
+```text
+Greenhouse
+Lever
+Ashby
+```
+
+Greenhouse has strong historical runtime evidence.
+
+Lever requires explicit runtime verification before being treated as equally proven.
+
+Ashby remains blocked where anti-bot controls prevent automated submission.
+
+# 48. Greenhouse
+
+Typical route:
+
+```text
+navigate
+→ inspect form
+→ fill approved fields
+→ upload resume
+→ screening
+→ supported verification if needed
+→ submit
+→ confirm
+→ store evidence
+```
+
+Existing Greenhouse verification-code support should be retained during migration.
+
+# 49. Lever
+
+Use the same browser safety boundary.
+
+Enable broad unattended use only after runtime verification.
+
+If live behavior differs from assumptions:
+
+```text
+capture evidence
+→ classify
+→ update driver
+```
+
+Do not blindly broaden selectors.
+
+# 50. Ashby
+
+Where anti-bot controls prevent automated submission:
+
+```text
+stop
+→ return channel-blocked outcome
+→ update channel health
+→ preserve opportunity for another legitimate route when possible
+```
+
+No stealth, challenge solving, identity rotation, or token bypass.
+
+# 51. Direct Employer Forms
+
+Direct forms are supported only when:
+
+```text
+destination is confidently a legitimate employer application
+form is structurally supported
+required controls can be operated safely
+```
+
+Unknown pages, unsupported widgets, or security barriers produce typed failure.
+
+# 52. Form Classification
+
+Use structural evidence:
+
+```text
+input
+select
+textarea
+label
+autocomplete
+name
+type
+required
+role
+accessible name
+nearby context
+button role/name
+form metadata
+URL/title
+```
+
+A field name alone is not enough to define semantics.
+
+# 53. Field Mapping
+
+Preferred order:
+
+```text
+known platform mapping
+→ autocomplete/name
+→ associated label
+→ accessible name
+→ nearby context
+→ bounded semantic interpretation
+```
+
+If semantics remain ambiguous:
+
+```text
+do not guess
+```
+
+# 54. Required Fields
+
+Required field handling:
+
+```text
+truthful value known
+→ fill
+
+optional by policy
+→ leave blank
+
+required but unknown/untruthful
+→ typed failure
+```
+
+Do not insert placeholders just to unlock submission.
+
+# 55. Page Classification
+
+Common phases:
+
+```text
+job_page
+application
+login
+otp
+captcha
+security_interstitial
+form
+confirmation
+already_applied
+expired
+unsupported
+unknown
+```
+
+Classification uses multiple signals.
+
+# 56. Security Interstitial Detection
+
+Prefer high-signal indicators:
+
+```text
+challenge-specific title
+challenge-specific URL
+challenge iframe
+challenge-specific visible wording
+very low content + challenge marker
+```
+
+Weak indicators such as a generic "Sign in" link or passive challenge scripts are insufficient.
+
+# 57. CAPTCHA / Turnstile
+
+A visible CAPTCHA or Turnstile is a security block.
+
+Flow:
+
+```text
+detect
+→ stop
+→ capture useful evidence
+→ update channel health
+→ do not continue around challenge
+```
+
+# 58. Browser Action Loop
+
+Normal interaction:
+
+```text
+snapshot
+→ classify
+→ choose bounded action
+→ deterministic validation
+→ execute
+→ snapshot
+→ repeat
+```
+
+Avoid giant opaque form scripts.
+
+# 59. One Meaningful Mutation
+
+Default:
+
+```text
+one meaningful browser mutation
+→ observe resulting state
+```
+
+Short deterministic field batches are permitted when the form is known to be stable.
+
+Navigation remains observable.
+
+# 60. Submit Preconditions
+
+Before final Submit:
+
+```text
+correct application phase
+supported required fields complete
+no blocking validation errors
+approved resume present when required
+candidate identity correct
+generated content approved
+submit control exists
+submit control enabled
+```
+
+Capture pre-submit evidence where practical.
+
+# 61. Submit Observation
+
+After final Submit:
+
+```text
+do not retry immediately
+→ wait for bounded state change
+→ snapshot
+→ classify
+→ collect evidence
+```
+
+Possible outcomes:
+
+```text
+confirmed
+already_applied
+ambiguous
+blocked
+expired
+network failure
+unknown
+```
+
+Unknown after Submit is not success.
+
+# 62. Evidence Hierarchy
+
+Strong:
+
+```text
+explicit platform confirmation
+trusted ATS confirmation
+verified application-history presence
+```
+
+Supporting:
+
+```text
+confirmation URL
+confirmation email
+final-page text
+screenshot
+browser state transition
+```
+
+Weak:
+
+```text
+button-click success
+network activity
+local function returned normally
+```
+
+Weak evidence alone cannot confirm an application.
+
+# 63. Evidence Record
+
+Conceptually:
+
+```text
+attempt_id
+channel
+timestamp
+final_url
+page_phase
+confirmation_signal
+confirmation_excerpt
+screenshot_path
+email_reference
+```
+
+Keep evidence compact and durable. Do not store full HTML by default.
+
+# 64. Screenshot Policy
+
+Capture at useful points:
+
+```text
+final confirmation
+ambiguous submit
+security block
+form-schema failure
+OTP failure
+critical browser failure
+optional sampled success
+```
+
+Do not capture every action by default.
+
+# 65. Screenshot Naming
+
+Use attempt-centric names:
+
+```text
+<attempt_id>_<stage>.png
+```
+
+Examples:
+
+```text
+A123_confirmation.png
+A123_form_changed.png
+A123_antibot.png
+```
+
+# 66. Sensitive Browser State
+
+Treat as sensitive:
+
+```text
+cookies
+local/session storage
+authorization state
+browser profiles
+screenshots
+downloaded documents
+```
+
+Never commit or log secrets.
+
