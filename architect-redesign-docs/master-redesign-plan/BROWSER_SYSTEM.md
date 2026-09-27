@@ -1370,3 +1370,707 @@ downloaded documents
 
 Never commit or log secrets.
 
+therefore prefer:
+
+```text
+one active application
+minimal tabs
+minimal contexts
+browser reuse
+limited screenshots
+bounded page lifetime
+measured restart rules
+```
+
+# 83. Memory Management
+
+Measure:
+
+```text
+browser RSS
+renderer RSS when available
+process count
+context count
+page count
+sustained growth
+```
+
+Do not impose an arbitrary architecture rule such as an 800 MB browser ceiling.
+
+Use measured host behavior.
+
+# 84. Resource Loading
+
+Do not blindly disable CSS or JavaScript.
+
+Forms may require:
+
+```text
+JavaScript
+XHR/fetch
+dynamic validation
+framework state
+```
+
+Potentially reducible resources:
+
+```text
+large images
+video/media
+analytics
+tracking
+non-essential fonts
+```
+
+Only reduce resources after route-specific testing proves safe.
+
+# 85. Page and Context Lifetime
+
+Temporary pages/contexts should be closed after use.
+
+Persistent authenticated profiles remain according to channel requirements.
+
+Do not allow tabs or contexts to grow without bound.
+
+# 86. Restart Procedure
+
+Controlled restart:
+
+```text
+stop new browser work
+→ preserve evidence where possible
+→ close temporary pages/contexts
+→ close browser
+→ verify process exit
+→ launch browser
+→ restore profile
+→ verify session
+→ resume workflow
+```
+
+Restart does not authorize replay.
+
+# 87. Recovery After Reboot
+
+Laptop reboot destroys in-memory browser state, not the SQLite ledger.
+
+Recovery:
+
+```text
+workflow recovery
+→ inspect leases
+→ reconcile ambiguous attempts
+→ rebuild browser session
+→ resume safe work
+```
+
+# 88. Recovery After Network Loss
+
+Stage-aware behavior:
+
+```text
+before Submit
+→ retry may be safe
+
+during Submit
+→ ambiguous until reconciled
+
+after confirmation
+→ persist evidence and finish
+```
+
+Network loss is not automatic proof of failure.
+
+# 89. Systemd Compatibility
+
+Browser runtime should tolerate:
+
+```text
+process supervision
+restart policy
+environment injection
+journal logging
+resource controls
+```
+
+Systemd/cgroup policy remains deployment infrastructure.
+
+# 90. Cgroup Interaction
+
+Cgroups are containment, not browser semantics.
+
+Purpose:
+
+```text
+protect host
+contain runaway processes
+```
+
+If the browser is killed by resource controls:
+
+```text
+workflow sees browser failure
+→ durable lease remains
+→ recovery/reconciliation applies
+```
+
+# 91. Browser Logging
+
+Useful events:
+
+```text
+browser_launch
+browser_ready
+session_verified
+navigation
+page_classified
+action_attempt
+action_result
+otp_requested
+otp_received
+submit_clicked
+confirmation_detected
+security_blocked
+browser_restart
+browser_crash
+```
+
+Include:
+
+```text
+timestamp
+attempt_id when applicable
+channel
+stage
+duration
+result/error class
+```
+
+# 92. Log Redaction
+
+Never log:
+
+```text
+password
+OTP value
+session cookie
+authorization token
+full mailbox message
+unnecessary sensitive candidate data
+```
+
+It is acceptable to log that an OTP was requested or received without logging the value.
+
+# 93. Disk Policy
+
+Browser artifacts can consume disk through:
+
+```text
+profiles
+screenshots
+logs
+temporary downloads
+```
+
+Use dedicated directories, monitor free space, limit screenshots, clean temporary files, and retain persistent profiles only where needed.
+
+# 94. Download Policy
+
+Only expected application-related downloads are allowed.
+
+Downloads must have:
+
+```text
+known purpose
+controlled destination
+bounded retention
+```
+
+Do not execute downloaded files.
+
+# 95. Clipboard
+
+Clipboard is not a default browser primitive.
+
+If a channel genuinely requires it:
+
+```text
+explicit content
+→ explicit paste
+→ clear where practical
+```
+
+Do not retain secrets in the clipboard unnecessarily.
+
+# 96. JavaScript Boundary
+
+Adapter-internal DOM evaluation may be used for ordinary inspection.
+
+Channel drivers and AI do not receive unrestricted script execution.
+
+Page-side evaluation must not bypass:
+
+```text
+authentication
+CAPTCHA
+security challenges
+rate limits
+anti-bot protections
+```
+
+# 97. AI Interaction
+
+AI may receive compact structured state:
+
+```text
+current URL
+page phase
+interactive controls
+visible instructions
+validation messages
+relevant context
+```
+
+Prefer structured state over full raw HTML or full-page screenshots.
+
+# 98. AI Browser Decisions
+
+Allowed model output shape is bounded, for example:
+
+```text
+CLICK element_17
+```
+
+or:
+
+```text
+TYPE_TEXT element_8 using approved_answer_3
+```
+
+The deterministic validator decides whether the proposal may execute.
+
+# 99. Model Residency
+
+Browser work does not require a separate dedicated browser model.
+
+Approved local roles remain:
+
+```text
+Nomic embedding model
+BGE-class reranker
+Phi-4-mini scoring/classification specialist
+Qwen3.5-4B generation specialist
+```
+
+Exact checkpoints remain benchmark-selected.
+
+Do not add Laya.
+
+Do not keep multiple heavyweight generative models resident solely for browser control.
+
+# 100. Browser + SQLite
+
+Never hold SQLite write transactions during browser interaction.
+
+Correct:
+
+```text
+BEGIN IMMEDIATE
+→ claim attempt
+→ COMMIT
+→ browser work
+→ BEGIN IMMEDIATE
+→ record result
+→ COMMIT
+```
+
+Incorrect:
+
+```text
+BEGIN IMMEDIATE
+→ browser
+→ waits
+→ submit
+→ COMMIT
+```
+
+# 101. Browser + Attempt Lease
+
+Before browser work:
+
+```text
+attempt created
+→ lease established
+→ browser begins
+```
+
+Evidence carries the attempt id.
+
+Browser crash does not erase the lease.
+
+# 102. Browser + Scheduler
+
+Browser never chooses another opportunity for convenience.
+
+Scheduler chooses:
+
+```text
+opportunity
+channel
+attempt
+```
+
+Browser executes that route.
+
+# 103. Channel Health Feedback
+
+Examples:
+
+```text
+login_required
+→ AUTH_EXPIRED
+
+repeated form schema failures
+→ FORM_SCHEMA_CHANGED
+
+rate limit
+→ RATE_LIMITED
+
+security block
+→ ANTIBOT_BLOCKED
+
+network outage
+→ NETWORK_UNAVAILABLE
+```
+
+Opportunity truth remains separate.
+
+# 104. Channel Cooldown
+
+Channel cooldown is separate from opportunity age.
+
+Example:
+
+```text
+Indeed rate-limited
+```
+
+means:
+
+```text
+pause affected route
+```
+
+not:
+
+```text
+expire all Indeed opportunities
+```
+
+# 105. Duplicate Safety
+
+Duplicate prevention is layered:
+
+```text
+canonical application history
+→ channel history
+→ browser already-applied signal
+→ workflow claim/dedupe
+```
+
+Browser state supports duplicate prevention but does not replace the durable ledger.
+
+# 106. Route Provenance
+
+Every application route should be reconstructable from:
+
+```text
+source observation
+destination URL
+channel
+resolution method
+resolved timestamp
+```
+
+This explains why Hermes used a particular browser destination.
+
+# 107. Redirect Cache
+
+Resolved destinations may be cached when appropriate.
+
+Conceptual cache:
+
+```text
+source observation
+destination
+channel
+resolved_at
+confidence/validity
+```
+
+Re-resolve when the route is stale, destination changes, channel behavior changes, or prior resolution fails unexpectedly.
+
+# 108. Browser Fallbacks
+
+Legitimate fallback:
+
+```text
+aggregator
+→ employer/ATS destination
+```
+
+Potentially legitimate:
+
+```text
+known ATS
+→ direct employer form
+```
+
+Forbidden:
+
+```text
+CAPTCHA
+→ solver
+
+blocked ATS
+→ stealth browser
+
+account wall
+→ fake account
+
+rate limit
+→ identity rotation
+```
+
+# 109. No Stealth Layer
+
+Not part of Hermes:
+
+```text
+fingerprint spoofing
+navigator tampering
+canvas spoofing
+WebGL spoofing
+font spoofing
+TLS impersonation
+stealth Chromium patches
+anti-detection frameworks
+```
+
+A platform rejection is a channel health fact.
+
+# 110. No Camoufox Core Dependency
+
+Camoufox is not required.
+
+Target abstraction remains:
+
+```text
+Playwright Adapter
+CDP Adapter
+```
+
+Alternative browser technology requires concrete production evidence and architecture review.
+
+# 111. No Generic HTTP Submission
+
+HTTP-first is allowed for:
+
+```text
+public discovery
+public metadata
+safe route resolution
+```
+
+It is not a universal replacement for browser submission.
+
+# 112. Security Boundary
+
+Explicitly forbidden:
+
+```text
+CAPTCHA solving
+Turnstile token acquisition
+challenge replay
+anti-bot identity rotation
+fingerprint evasion
+security-interstitial bypass
+```
+
+Security blocks are valid outcomes.
+
+# 113. Browser Test Strategy
+
+Pure logic must be testable without a browser:
+
+```text
+page classification
+locator ranking
+field semantics
+action validation
+destination classification
+progress detection
+evidence parsing
+error mapping
+```
+
+# 114. Fake BrowserGateway
+
+Tests should use a deterministic fake gateway that can replay:
+
+```text
+login
+form
+form with validation error
+otp
+confirmation
+security block
+already applied
+expired
+unknown
+popup
+frame
+```
+
+This keeps CI fast and predictable.
+
+# 115. Integration Tests
+
+Integration coverage should include:
+
+```text
+browser launch
+context creation
+navigation
+frame discovery
+field fill
+upload
+popup handling
+screenshots
+restart
+```
+
+Use local fixtures where possible.
+
+Do not use real production submissions as routine CI tests.
+
+# 116. Live Channel Verification
+
+A channel becomes production-proven through runtime evidence.
+
+Evidence should include where safely testable:
+
+```text
+real successful flow
+durable confirmation
+correct attempt record
+correct daily-count behavior
+recovery behavior
+```
+
+"Code exists" is not proof of production capability.
+
+# 117. Dry Run
+
+Dry run should exercise:
+
+```text
+routing
+browser startup
+session check
+page classification
+form discovery
+field mapping
+resume selection
+action validation
+```
+
+without the final external submission.
+
+Dry run must not increment confirmed daily counts.
+
+# 118. Legacy Browser Components
+
+Current branch contains legacy browser/application modules:
+
+```text
+src/apply.py
+src/indeed_apply.py
+src/ats_apply.py
+src/direct_form.py
+src/redirect_resolver.py
+src/otp_resolver.py
+```
+
+They contain verified behavior worth preserving.
+
+They are not the target architecture.
+
+# 119. Legacy Indeed Migration
+
+Current Indeed logic includes useful proven behaviors:
+
+```text
+page classifiers
+login detection
+security interstitial handling
+OTP
+Applied-history checks
+Gmail confirmation
+screenshots
+bounded form steps
+```
+
+Target mapping:
+
+```text
+DrissionPage lifecycle
+→ browser adapter
+
+page snapshot
+→ BrowserGateway state
+
+selector helpers
+→ structured locator layer
+
+OTP
+→ OTP subsystem
+
+history/email checks
+→ evidence/reconciliation
+
+result
+→ workflow outcome
+```
+
+# 120. Legacy Xvfb Migration
+
+Current code references Xvfb.
+
+Target:
+
+```text
+native Arch Linux browser runtime
++
+channel-specific display requirement only if actually proven necessary
+```
+
+Do not make display infrastructure part of application logic.
+
+# 121. Redirect Migration
+
+Current redirect behavior includes:
+
+```text
+ATS URL detection
+account-wall detection
+sponsored-link filtering
+direct-form fallback
+fast HTTP resolution
+browser fallback
+```
+
+Preserve these semantics.
+
+Move browser mechanics behind BrowserGateway.
+
