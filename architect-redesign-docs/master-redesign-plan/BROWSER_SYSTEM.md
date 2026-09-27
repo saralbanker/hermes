@@ -3207,3 +3207,146 @@ navigation
 → opportunity remains durable
 ```
 
+ed
+→ opportunity remains durable
+```
+
+# 135. Unknown-Answer Contract Example
+
+```text
+required question
+→ candidate truth source has no valid answer
+→ browser stops
+→ typed form/schema outcome
+→ no submission
+```
+
+# 136. Account-Wall Contract Example
+
+```text
+Apply
+→ board signup
+→ ACCOUNT_REQUIRED
+→ alternate known legitimate route if already resolved
+→ otherwise unsupported
+```
+
+# 137. Acceptance Gates
+
+Browser system is ready for broad implementation when:
+
+### Gateway
+
+```text
+BrowserGateway exists
+Playwright/CDP adapters exist
+channel code uses gateway
+```
+
+### Correctness
+
+```text
+structured state is primary
+actions are validated
+evidence is durable
+ambiguity is preserved
+```
+
+### Security
+
+```text
+no bypass
+no stealth dependency
+no fake accounts
+no arbitrary AI browser control
+```
+
+### Reliability
+
+```text
+crash/restart recovery works
+session expiry is typed
+form changes are bounded
+loops are bounded
+```
+
+### Resource behavior
+
+```text
+single-worker baseline is stable
+browser reuse works
+memory is measurable
+restart is adaptive
+```
+
+### Verification
+
+```text
+at least one channel is production-proven
+legacy browser ownership can be retired incrementally
+```
+
+# 138. Final Browser Reference
+
+```text
+workflow claims opportunity
+        ↓
+attempt + lease persisted
+        ↓
+BrowserGateway
+        ↓
+channel driver
+        ↓
+structured page state
+        ↓
+bounded action proposal
+        ↓
+deterministic validator
+        ↓
+Playwright/CDP execution
+        ↓
+new page state
+        ↓
+submit
+        ↓
+verification
+        ↓
+evidence
+        ↓
+typed outcome
+        ↓
+workflow persistence
+```
+
+The browser subsystem is a controlled execution boundary.
+
+It is not:
+
+```text
+a scheduler
+a second data model
+an unrestricted AI agent
+a stealth framework
+a security-bypass mechanism
+a generic HTTP submission engine
+```
+
+# 139. Directive to Implementers
+
+When implementing Hermes browser automation:
+
+```text
+Use BrowserGateway.
+Use structured state.
+Use bounded actions.
+Validate before mutation.
+Preserve evidence.
+Treat ambiguity as ambiguity.
+Respect security controls.
+Reuse browsers where practical.
+Measure resources on the actual laptop.
+Preserve proven production behavior while migrating internals.
+Do not add architecture because a browser library makes it convenient.
+```
+
+The target is a small, auditable, recoverable browser subsystem that continuously executes legitimate applications without corrupting candidate truth, application history, or durable workflow state.
