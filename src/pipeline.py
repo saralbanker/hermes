@@ -1,169 +1,267 @@
 """
-pipeline.py — Master orchestrator for the Hermes job automation pipeline.
+pipeline.py — Hermes orchestrator.
 
-Stages (in order):
-  discover → score → tailor → apply
+    discover → score → tailor → apply        (then response_watcher runs on its own timer)
+
+Every stage is idempotent and DB-driven, so a crash at any point resumes on the
+next run. Each stage's wall time, CPU time and peak RSS are measured and written
+to output/metrics.jsonl for the status script.
 
 Usage:
-  python src/pipeline.py                         # full pipeline
-  python src/pipeline.py --dry-run               # full pipeline, no submissions
-  python src/pipeline.py --discover-only         # only scrape new jobs
-  python src/pipeline.py --score-only            # only score discovered jobs
-  python src/pipeline.py --tailor-only           # only tailor scored jobs
-  python src/pipeline.py --apply-only            # only submit tailored jobs
-  python src/pipeline.py --limit 10              # cap each stage at 10 items
-  python src/pipeline.py --discover-only --limit 5
+  python src/pipeline.py                     full run
+  python src/pipeline.py --dry-run           everything, but appliers never click submit
+  python src/pipeline.py --apply-only        only submit already-tailored jobs
+  python src/pipeline.py --discover-only | --score-only | --tailor-only
+  python src/pipeline.py --limit 10          cap each stage
 """
+from __future__ import annotations
 
-import sys
 import argparse
+import fcntl
+import json
+import os
+import sys
+import threading
 import time
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import psutil
 
 sys.path.insert(0, str(Path(__file__).parent))
-
-from db import init_db
 from cap_enforcer import remaining_today
+from db import get_jobs_by_status, init_db, status_counts, tier_counts_today
+
+ROOT = Path(__file__).parent.parent
+METRICS = ROOT / "output" / "metrics.jsonl"
 
 
-def print_header():
-    print("\n" + "═" * 50)
-    print("  HERMES — Job Application Pipeline")
-    print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("═" * 50)
+class StageMeter:
+    """Wall/CPU/peak-RSS of a stage, including child processes (Chrome, Xvfb)."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.proc = psutil.Process()
+
+    def _cpu(self) -> float:
+        t = self.proc.cpu_times()
+        return t.user + t.system + t.children_user + t.children_system
+
+    def _rss_mb(self) -> float:
+        procs = [self.proc] + self.proc.children(recursive=True)
+        total = 0
+        for p in procs:
+            try:
+                total += p.memory_info().rss
+            except psutil.Error:
+                continue  # child exited between listing and sampling
+        return total / 1e6
+
+    def __enter__(self) -> "StageMeter":
+        print(f"\n{'─' * 50}\n  STAGE: {self.name}\n{'─' * 50}", flush=True)
+        self.t0, self.c0, self.peak = time.time(), self._cpu(), self._rss_mb()
+        self._stop = threading.Event()
+        threading.Thread(target=self._sampler, daemon=True).start()
+        return self
+
+    def _sampler(self) -> None:
+        while not self._stop.wait(2):
+            self.sample()
+
+    def sample(self) -> None:
+        self.peak = max(self.peak, self._rss_mb())
+
+    def __exit__(self, *exc) -> None:
+        self._stop.set()
+        self.sample()
+        self.result = {"stage": self.name, "wall_s": round(time.time() - self.t0, 1),
+                       "cpu_s": round(self._cpu() - self.c0, 1), "peak_rss_mb": round(self.peak)}
+        print(f"  [{self.name}] {self.result}", flush=True)
 
 
-def print_stage(name: str):
-    print(f"\n{'─' * 50}")
-    print(f"  STAGE: {name}")
-    print("─" * 50)
+def run_stages(args: argparse.Namespace) -> list[dict]:
+    only = [s for s in ("discover", "score", "tailor", "apply") if getattr(args, f"{s}_only")]
+    stages = only or ["discover", "score", "tailor", "apply"]
+    results = []
+    for name in stages:
+        with StageMeter(name) as meter:
+            out = run_stage(name, args)
+        results.append({**meter.result, **({"outcome": out} if isinstance(out, dict) else {})})
+    return results
 
 
-def print_summary():
-    rem = remaining_today()
-    print(f"\n{'═' * 50}")
-    print("  PIPELINE COMPLETE")
-    print(f"  LinkedIn remaining today: {rem['linkedin_remaining']}/{rem['limits']['linkedin_per_day']}")
-    print(f"  Other remaining today:    {rem['other_remaining']}/{rem['limits']['other_per_day']}")
-    print(f"  Total remaining today:    {rem['total_remaining']}/{rem['limits']['total_per_day']}")
-    print("═" * 50)
-    print("\nNext steps:")
-    print("  python src/tracker.py stats          — view full stats")
-    print("  python src/tracker.py list --today   — see today's applications")
-
-
-def run_discover(limit: int | None, dry_run: bool):
-    print_stage("DISCOVER — scraping job boards")
-    from discover import main as discover_main
-    discover_main(dry_run=dry_run, limit=limit)
-
-
-def run_score(limit: int | None):
-    print_stage("SCORE — rating jobs against your resume")
-    from score import main as score_main
-    score_main(limit=limit)
-
-
-def run_tailor(limit: int | None, dry_run: bool):
-    print_stage("TAILOR — writing cover letters")
-    from tailor import main as tailor_main
-    tailor_main(limit=limit, dry_run=dry_run)
-
-
-def run_apply(limit: int | None, dry_run: bool):
-    print_stage("APPLY — submitting applications via DrissionPage (CDP stealth)")
-    if dry_run:
-        print("  [pipeline] --dry-run active: applications will NOT be submitted")
+def run_stage(name: str, args: argparse.Namespace):
+    if name != "discover":
+        from db import collapse_duplicates
+        collapsed = collapse_duplicates()  # never spend LLM or browser time twice on one role
+        if collapsed:
+            print(f"  [pipeline] collapsed {collapsed} duplicate listing(s)")
+    if name == "discover":
+        from discover import main as discover_main
+        return discover_main(dry_run=args.dry_run, limit=args.limit)
+    if name == "score":
+        from score import main as score_main
+        return score_main(limit=args.limit)
+    if name == "tailor":
+        from tailor import main as tailor_main
+        return tailor_main(limit=args.limit, dry_run=False)
+    from display import ensure_virtual_display
+    print(f"  [pipeline] browsers render on virtual display {ensure_virtual_display()}")
     from apply import main as apply_main
-    apply_main(limit=limit, dry_run=dry_run)
+    return apply_main(limit=args.limit, dry_run=args.dry_run, max_minutes=args.max_minutes)
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Hermes Job Automation Pipeline",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python src/pipeline.py                    Full pipeline (discover→score→tailor→apply)
-  python src/pipeline.py --dry-run          Full pipeline but don't submit
-  python src/pipeline.py --discover-only    Only scrape new jobs
-  python src/pipeline.py --apply-only --limit 5   Submit up to 5 tailored jobs
-  python src/pipeline.py --score-only --limit 20  Score up to 20 discovered jobs
-        """,
-    )
+def write_metrics(results: list[dict], started: float, args: argparse.Namespace) -> None:
+    record = {"at": datetime.now().isoformat(timespec="seconds"), "dry_run": args.dry_run,
+              "total_s": round(time.time() - started, 1), "stages": results,
+              "status_counts": status_counts(), "submitted_today_by_tier": tier_counts_today()}
+    METRICS.parent.mkdir(exist_ok=True)
+    with METRICS.open("a") as fh:
+        fh.write(json.dumps(record) + "\n")
+    print(f"\n[pipeline] total {record['total_s']}s · status {record['status_counts']}")
+    print(f"[pipeline] submitted today by tier: {record['submitted_today_by_tier']} · "
+          f"slots left: {remaining_today()['total_remaining']}")
 
-    # Stage selectors (mutually exclusive with each other and full pipeline)
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Hermes job pipeline")
     stage = parser.add_mutually_exclusive_group()
-    stage.add_argument("--discover-only", action="store_true",
-                       help="Only run the discover stage")
-    stage.add_argument("--score-only", action="store_true",
-                       help="Only run the score stage")
-    stage.add_argument("--tailor-only", action="store_true",
-                       help="Only run the tailor stage")
-    stage.add_argument("--apply-only", action="store_true",
-                       help="Only run the apply stage")
-
+    for name in ("discover", "score", "tailor", "apply"):
+        stage.add_argument(f"--{name}-only", action="store_true")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Run pipeline without writing jobs to DB (discover) "
-                             "or submitting applications (apply)")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Cap items processed per stage (useful for testing)")
-    parser.add_argument("--skip-discover", action="store_true",
-                        help="Skip discover stage in full pipeline run")
-    parser.add_argument("--skip-score", action="store_true",
-                        help="Skip score stage in full pipeline run")
+                        help="discover writes nothing; appliers fill forms but never submit")
+    parser.add_argument("--continuous", action="store_true",
+                        help="run continuously as a 24/7 worker queue")
+    parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--max-minutes", type=int, default=None, help="apply-stage time budget")
+    return parser.parse_args()
 
-    args = parser.parse_args()
 
-    print_header()
+def acquire_run_lock():
+    """Same lock file as run_hermes.sh, so a manual run never overlaps a scheduled one.
+    run_hermes.sh already holds it for its child and sets HERMES_LOCK_HELD=1."""
+    if os.environ.get("HERMES_LOCK_HELD") == "1":
+        return None
+    fh = open(ROOT / "output" / "hermes.lock", "w")
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("[pipeline] Another Hermes run is in progress (output/hermes.lock). Exiting.")
+        sys.exit(0)
+    os.environ["HERMES_LOCK_HELD"] = "1"  # tells apply.py no other applier can be running
+    return fh  # kept open for the life of the process; the kernel releases it on exit/crash
+
+
+def run_continuous(args: argparse.Namespace) -> None:
+    """Continuously feed and process the application queue:
+    refill queue (discover -> score -> tailor) -> apply batch -> response watcher tick -> repeat.
+    Enforces daily cap (100) and handles interruptions/crashes cleanly.
+    """
+    print("\n[pipeline-continuous] Starting continuous queue worker (cap: 100/day).", flush=True)
+    last_discover_time = 0.0
+    last_watch_time = 0.0
+    DISCOVER_INTERVAL = 3600 * 2  # 2 hours
+    WATCH_INTERVAL = 600          # 10 minutes
+
+    while True:
+        try:
+            now = time.time()
+
+            # 1. Check daily limit
+            rem = remaining_today()
+            slots_left = rem.get("total_remaining", 0)
+            if slots_left <= 0:
+                print(f"[pipeline-continuous] Daily cap reached ({rem.get('total_submitted', 0)}/100). Sleeping 60s...", flush=True)
+                time.sleep(60)
+                continue
+
+            # 2. Check current queue counts across pipeline stages
+            tailored_jobs = get_jobs_by_status("tailored")
+            scored_jobs = get_jobs_by_status("scored")
+            discovered_jobs = get_jobs_by_status("discovered")
+            total_reserve = len(discovered_jobs) + len(scored_jobs) + len(tailored_jobs)
+
+            # 3. Discovery check: maintain persistent 250-500 job reserve
+            RESERVE_TARGET = 300
+            if total_reserve < RESERVE_TARGET or (now - last_discover_time > DISCOVER_INTERVAL):
+                print(f"[pipeline-continuous] Maintaining 250-500 job reserve (current: {total_reserve}, "
+                      f"tailored={len(tailored_jobs)}, scored={len(scored_jobs)}, discovered={len(discovered_jobs)})...", flush=True)
+                with StageMeter("discover") as meter:
+                    run_stage("discover", args)
+                last_discover_time = time.time()
+                discovered_jobs = get_jobs_by_status("discovered")
+
+            # 4. Scoring check: score discovered jobs if needed
+            if len(discovered_jobs) > 0 and (len(scored_jobs) + len(tailored_jobs) < 200):
+                to_score = min(len(discovered_jobs), 50)
+                print(f"[pipeline-continuous] Scoring batch of {to_score} discovered jobs...", flush=True)
+                with StageMeter("score") as meter:
+                    run_stage("score", args)
+                scored_jobs = get_jobs_by_status("scored")
+
+            # 5. Tailoring check: maintain steady tailored pool (up to 30)
+            if len(scored_jobs) > 0 and len(tailored_jobs) < 25:
+                print(f"[pipeline-continuous] Tailoring scored jobs to replenish active apply queue...", flush=True)
+                with StageMeter("tailor") as meter:
+                    run_stage("tailor", args)
+                tailored_jobs = get_jobs_by_status("tailored")
+
+            # 6. Apply stage: process tailored jobs in steady batches
+            if len(tailored_jobs) > 0:
+                batch_limit = min(slots_left, args.limit or 5)
+                print(f"[pipeline-continuous] Applying to batch of up to {batch_limit} tailored jobs ({slots_left} slots left today)...", flush=True)
+                from display import ensure_virtual_display
+                ensure_virtual_display()
+                with StageMeter("apply") as meter:
+                    from apply import main as apply_main
+                    apply_main(limit=batch_limit, dry_run=args.dry_run, max_minutes=args.max_minutes or 20)
+                write_metrics([meter.result], now, args)
+
+            # 7. Response watcher tick every 10 minutes
+            if now - last_watch_time > WATCH_INTERVAL:
+                try:
+                    from response_watcher import poll_once
+                    poll_once()
+                    last_watch_time = time.time()
+                except Exception as exc:
+                    print(f"  [pipeline-continuous] response watcher tick error: {exc}")
+
+            # 8. Sleep small delay before next loop iteration
+            time.sleep(15)
+
+        except KeyboardInterrupt:
+            print("\n[pipeline-continuous] Interrupted. Progress is preserved in SQLite.")
+            break
+        except Exception as exc:
+            print(f"[pipeline-continuous] Error in worker cycle: {exc}. Cleaning browsers and retrying in 30s...", flush=True)
+            try:
+                from display import cleanup_orphan_browsers
+                cleanup_orphan_browsers()
+            except Exception:
+                pass
+            time.sleep(30)
+
+
+def main() -> int:
+    args = parse_args()
+    _lock = acquire_run_lock()
+    print(f"\n{'═' * 50}\n  HERMES — {datetime.now():%Y-%m-%d %H:%M:%S}"
+          f"{'  (DRY RUN)' if args.dry_run else ''}\n{'═' * 50}")
     init_db()
+    started = time.time()
 
-    # Show daily cap status upfront
-    rem = remaining_today()
-    print(f"\n  Daily slots — LinkedIn: {rem['linkedin_remaining']} left  "
-          f"| Other: {rem['other_remaining']} left  "
-          f"| Total: {rem['total_remaining']} left")
-
-    if rem["total_remaining"] == 0 and not (
-        args.discover_only or args.score_only or args.tailor_only
-    ):
-        print("\n  [pipeline] Daily application cap already reached.")
-        print("  [pipeline] You can still run --discover-only or --score-only.")
-        print("  [pipeline] Applications will resume tomorrow.")
-        return
-
-    t_start = time.time()
+    if args.continuous:
+        run_continuous(args)
+        return 0
 
     try:
-        if args.discover_only:
-            run_discover(args.limit, args.dry_run)
-
-        elif args.score_only:
-            run_score(args.limit)
-
-        elif args.tailor_only:
-            run_tailor(args.limit, args.dry_run)
-
-        elif args.apply_only:
-            run_apply(args.limit, args.dry_run)
-
-        else:
-            # Full pipeline
-            if not args.skip_discover:
-                run_discover(args.limit, args.dry_run)
-            if not args.skip_score:
-                run_score(args.limit)
-            run_tailor(args.limit, args.dry_run)
-            run_apply(args.limit, args.dry_run)
-
+        results = run_stages(args)
     except KeyboardInterrupt:
-        print("\n\n[pipeline] Interrupted by user. Progress saved to DB.")
-
-    elapsed = time.time() - t_start
-    print(f"\n[pipeline] Total runtime: {elapsed:.0f}s ({elapsed/60:.1f} min)")
-    print_summary()
+        print("\n[pipeline] Interrupted. Progress is in the DB; the next run resumes.")
+        return 130
+    write_metrics(results, started, args)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

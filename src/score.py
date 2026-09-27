@@ -1,15 +1,17 @@
 """
-score.py — Score status='discovered' jobs against Saral's resume.
+score.py — Score status='discovered' jobs against the candidate's verified facts.
 
 Pipeline:
-  1. Load all 'discovered' jobs from DB.
-  2. Pre-filter with TF-IDF cosine similarity (keyword_overlap_score).
-     Jobs below min_overlap are marked error='below_overlap_threshold'.
-  3. Remaining jobs are scored by Qwen 2.5 Instruct.
-  4. DB is updated with score, score_reason, status='scored'.
+  1. Load 'discovered' jobs (already location/seniority/salary filtered by discover.py).
+  2. Embedding pre-rank (nomic-embed-text): cosine(job, fact sheet). Jobs below
+     min_similarity are marked filtered; the rest are LLM-scored best-first, capped
+     at max_llm_per_run so a backlog never blocks the apply stage.
+  3. LLM score 1–10 with the fact sheet as a fixed prompt prefix — Ollama reuses the
+     cached prefix, so each job costs only its own tokens (~10 s on CPU vs ~33 s).
+  4. If the LLM is unavailable, keyword scoring keeps the pipeline moving.
 
 CLI:
-  python src/score.py [--limit N] [--min-overlap 0.20]
+  python src/score.py [--limit N]
 """
 from __future__ import annotations
 
@@ -19,184 +21,67 @@ import re
 import sys
 from pathlib import Path
 
-import requests
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
 from db import init_db, get_jobs_by_status, update_job
+from filters import role_priority
+from llm import LLMUnavailable, chat, cosine, embed, facts, is_ready
 
-sys.path.insert(0, str(Path(__file__).parent))
-from keywords import keyword_overlap_score
+SCORE_SYSTEM = (
+    "You are a strict technical recruiter. Rate how likely this candidate gets an interview "
+    "for the job, 1-10, using ONLY the fact sheet. 9-10: stack and seniority match closely. "
+    "6-8: most required skills match, experience requirement is 0-3 years. "
+    "1-5: needs skills, degree, or years the candidate lacks. "
+    'Output JSON only: {"score": <int 1-10>, "reason": "<max 15 words>"}'
+)
 
-# ---------------------------------------------------------------------------
-# Saral's master resume text (used verbatim in Qwen scoring prompts)
-# ---------------------------------------------------------------------------
-
-RESUME_TEXT = """
-CANDIDATE: Saral Banker — Full Stack Engineer · AI Application Developer · Founding Engineer
-
-SKILLS:
-Languages: TypeScript, JavaScript, Python, SQL, Java, Kotlin
-Frontend: React 18, Next.js, Vite, Tailwind CSS, shadcn/ui, Framer Motion, TanStack Query, Zustand
-Backend: Node.js, Express 4, FastAPI, REST API Design, Socket.IO 4, SSE
-AI & LLMs: RAG Pipelines, pgvector HNSW, BGE-base-576M embeddings, OpenRouter API, Gemini API,
-           local Qwen 2.5 Instruct, prompt engineering, structured output parsing, multi-provider LLM routing,
-           AI model evaluation (GPT-4, Claude, Gemini, DeepSeek, Qwen, Kimi, Gemma, MiniMax)
-Databases: PostgreSQL (raw pg driver, 44 migrations), Supabase, Redis 7, MySQL, SQLite, pgvector
-Infrastructure: Docker, Docker Compose, GitHub Actions CI/CD (4 pipelines), GHCR, Terraform, Supabase CLI
-Architecture: Modular Monolith + Microservice, BullMQ async jobs, event-driven Redis pub/sub,
-              Multi-tenant RBAC, JWT auth, rate limiting, audit logging, PRD writing
-Observability: Sentry, Prometheus, Pino structured logging
-Mobile: Kotlin, XML, SQLite (Android)
-
-EXPERIENCE:
-- Contract Full Stack Engineer (Jan 2025–Mar 2026, 15 months):
-  Built financial operations platform for 220-unit rental business from scratch.
-  Automated billing, PDF invoices via WhatsApp Business API, late-fee penalty logic.
-  Saved 40+ hours/month. Rs.60,000 paid contract. Stack: React, Next.js, TypeScript, Node.js, PostgreSQL, Supabase.
-
-PROJECTS:
-- Neuro-Zenith (2025–2026): 70k+ LOC, 400+ files, 44 DB migrations. Modular AI platform.
-  Full RAG pipeline (ingestion → BGE embeddings → pgvector HNSW → semantic search).
-  Socket.IO real-time collaboration (2 namespaces, Redis pub/sub).
-  BullMQ/Redis async job processing + DB polling queue.
-  Multi-provider LLM routing (OpenRouter, Gemini, local Qwen 2.5).
-  3-layer RBAC (auth + workspace + project middleware).
-  Prometheus + Sentry observability. 4-pipeline GitHub Actions CI/CD.
-  Docker Compose. 30 backend test files (Jest 29 + Supertest). 6 frontend test files.
-  Stack: React 18, Vite, TypeScript, Node.js 20, Express 4, FastAPI, Python 3.14,
-         PostgreSQL, Supabase, Redis 7, BullMQ 5, pgvector, Socket.IO 4,
-         OpenRouter, Gemini API, Qwen 2.5, BGE-base-576M, Docker, GitHub Actions, Terraform.
-
-EDUCATION: Diploma in Computer Engineering, LJ Polytechnic (May 2026), CGPA 8.36/10, Top 10% of class.
-CERTS: IBM Python for Data Science · Google Cybersecurity · Agile Project Management
-""".strip()
-
-
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
 
 def load_config() -> dict:
     cfg_path = Path(__file__).parent.parent / "config.yaml"
     return yaml.safe_load(open(cfg_path))
 
 
-# ---------------------------------------------------------------------------
-# Qwen interface
-# ---------------------------------------------------------------------------
-
-def call_qwen(prompt: str, system: str = "", cfg: dict = None) -> str:
-    """Call local Ollama model via /api/chat. Raises RuntimeError if Ollama is not reachable."""
-    ollama_cfg = (cfg or {}).get("ollama", (cfg or {}).get("qwen", {})) or {
-        "base_url": "http://localhost:11434",
-        "model": "qwen3:4b",
-        "timeout": 200,
-    }
-    messages = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
-
-    try:
-        resp = requests.post(
-            f"{ollama_cfg['base_url']}/api/chat",
-            json={
-                "model": ollama_cfg["model"],
-                "messages": messages,
-                "stream": False,
-                "options": {"temperature": 0.3},
-                "keep_alive": ollama_cfg.get("keep_alive", "15m"),
-            },
-            timeout=ollama_cfg.get("timeout", 300),
-        )
-        resp.raise_for_status()
-        # /api/chat separates thinking from content — content is the actual response
-        return resp.json()["message"]["content"].strip()
-    except requests.exceptions.ConnectionError:
-        raise RuntimeError("Ollama not reachable at localhost:11434. Run: ollama serve")
-    except requests.exceptions.Timeout:
-        raise RuntimeError("Ollama timed out. Is ollama serve running with model loaded?")
-
-
-def check_qwen(cfg: dict) -> None:
-    """Verify Ollama is reachable. Raises RuntimeError if not."""
-    _ = call_qwen("Say 1", system="You are a test.", cfg=cfg)
-
-
-# ---------------------------------------------------------------------------
-# Scoring
-# ---------------------------------------------------------------------------
-
 def _parse_score_response(response: str) -> tuple[float, str]:
-    """
-    Parse Qwen's JSON response into (score, reason).
-    Falls back to regex extraction if full JSON parse fails.
-    """
-    # Strip markdown code fences if present
+    """Parse the model's JSON; regex fallback for slightly malformed output."""
     cleaned = re.sub(r"```(?:json)?", "", response).strip().rstrip("`").strip()
-
-    # Attempt full parse first
     try:
         data = json.loads(cleaned)
-        return float(data["score"]), str(data["reason"])
-    except (json.JSONDecodeError, KeyError, TypeError):
+        return float(data["score"]), str(data.get("reason", ""))
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         pass
-
-    # Regex fallback: grab the first {...} block
-    match = re.search(r"\{[^}]+\}", response, re.DOTALL)
-    if match:
-        try:
-            data = json.loads(match.group())
-            return float(data["score"]), str(data.get("reason", ""))
-        except (json.JSONDecodeError, KeyError, TypeError):
-            pass
-
-    # Last resort: extract score number only
     score_match = re.search(r'"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)', response)
-    reason_match = re.search(r'"reason"\s*:\s*"([^"]+)"', response)
     if score_match:
-        score = float(score_match.group(1))
-        reason = reason_match.group(1) if reason_match else "parsed via regex fallback"
-        return score, reason
-
-    raise ValueError(f"Could not parse Qwen scoring response: {response[:200]}")
+        reason_match = re.search(r'"reason"\s*:\s*"([^"]+)"', response)
+        return float(score_match.group(1)), reason_match.group(1) if reason_match else "regex fallback"
+    raise ValueError(f"Could not parse scoring response: {response[:200]}")
 
 
-def score_job(job: dict, cfg: dict) -> tuple[float, str]:
-    """
-    Score a single job using Qwen 2.5.
-    Returns (score: float 1.0–10.0, reason: str).
-    """
-    company = job["company"] or ""
-    title = job["title"] or ""
-    description = (job["description"] or "")[:1500]
-
-    system = (
-        "You are a technical recruiter scoring candidate-job fit.\n"
-        'Respond ONLY with valid JSON: {"score": 8.5, "reason": "one sentence max 20 words"}\n'
-        "No markdown, no explanation, JSON only."
+def score_job(job: dict) -> tuple[float, str]:
+    """LLM score 1–10. Fact sheet first so the prompt prefix is cache-reused."""
+    prompt = (
+        f"FACT SHEET:\n{facts()}\n\n"
+        f"JOB:\nCompany: {job['company']}\nTitle: {job['title']}\n"
+        f"Location: {job['location']}\nDescription: {(job['description'] or '')[:1800]}"
     )
+    response = chat(prompt, system=SCORE_SYSTEM, temperature=0.1, json_mode=True, max_tokens=60)
+    score, reason = _parse_score_response(response)
+    return max(1.0, min(10.0, score)), reason
 
-    prompt = f"""CANDIDATE RESUME:
-{RESUME_TEXT}
 
-JOB:
-Company: {company}
-Title: {title}
-Description (first 1500 chars): {description}
+def job_text(job: dict) -> str:
+    return f"{job['title']}. {(job['description'] or '')[:2000]}"
 
-Score fit 1.0-10.0. Weight these factors:
-- TypeScript/Node.js/React/PostgreSQL match: highest weight
-- Python/FastAPI/AI/RAG match: high weight
-- Founding/startup/ownership fit: high weight
-- Seniority: Saral has 2 years + Diploma. Penalise hard if role needs 5+ YOE or BSc required
-- Remote-friendliness
 
-JSON only."""
-
-    response = call_qwen(prompt, system=system, cfg=cfg)
-    return _parse_score_response(response)
+def rank_by_similarity(jobs: list, batch: int = 16) -> list[tuple[float, dict]]:
+    """Cosine similarity of each job to the fact sheet, highest first."""
+    profile_vec = embed(["search_query: " + facts()[:6000]])[0]
+    ranked = []
+    for i in range(0, len(jobs), batch):
+        chunk = jobs[i:i + batch]
+        vecs = embed(["search_document: " + job_text(j) for j in chunk])
+        ranked += [(cosine(profile_vec, v), j) for v, j in zip(vecs, chunk)]
+    return sorted(ranked, key=lambda x: x[0], reverse=True)
 
 
 # ---------------------------------------------------------------------------
@@ -236,85 +121,76 @@ def keyword_score_fallback(job: dict) -> tuple[float, str]:
     return score, reason
 
 
-def main(limit: int | None = None, min_overlap: float = 0.05) -> None:
+def _score_one(job: dict, use_llm: bool) -> tuple[float, str, bool]:
+    """Returns (score, reason, llm_still_available)."""
+    if use_llm:
+        try:
+            score, reason = score_job(job)
+            return score, reason, True
+        except LLMUnavailable as e:
+            print(f"[score] LLM dropped mid-run ({e}) — switching to keyword fallback.")
+    score, reason = keyword_score_fallback(job)
+    return score, reason, False
+
+
+def _prerank(jobs: list, cfg: dict, use_llm: bool) -> list:
+    """Drop low-similarity jobs; return the rest ordered (role_priority, similarity)
+    best-first, capped per run — AI/LLM and backend roles get scored before the LLM
+    budget runs out on lower-priority ones."""
+    scfg = cfg.get("scoring", {})
+    if not use_llm:
+        return jobs[: scfg.get("max_llm_per_run", 250)]
+    ranked = rank_by_similarity(jobs)
+    floor = scfg.get("min_similarity", 0.0)
+    keep = []
+    for sim, job in ranked:
+        if sim < floor:
+            update_job(job["url"], {"status": "filtered", "status_reason": f"low_similarity:{sim:.2f}"})
+        else:
+            keep.append((sim, job))
+    print(f"[score] Embedding pre-rank: {len(keep)} above similarity {floor}, "
+          f"{len(ranked) - len(keep)} filtered")
+    keep.sort(key=lambda sj: (role_priority(sj[1].get("title") or "",
+                                            sj[1].get("description") or ""), sj[0]),
+              reverse=True)
+    return [job for _sim, job in keep][: scfg.get("max_llm_per_run", 250)]
+
+
+def main(limit: int | None = None) -> None:
     init_db()
     cfg = load_config()
+    use_llm = is_ready()
+    print(f"[score] LLM {'ready — AI scoring' if use_llm else 'unavailable — keyword fallback'}.")
 
-    # Check Qwen — fall back to keyword scoring if unavailable
-    qwen_available = False
-    print("[score] Checking Qwen connectivity...")
-    try:
-        check_qwen(cfg)
-        print("[score] Qwen reachable — using AI scoring.")
-        qwen_available = True
-    except RuntimeError as e:
-        print(f"[score] Qwen unavailable ({e})")
-        print("[score] Falling back to keyword-match scoring (no LLM needed).")
-
-    jobs = get_jobs_by_status("discovered")
+    jobs = [dict(j) for j in get_jobs_by_status("discovered")]
     if limit:
         jobs = jobs[:limit]
-
-    total = len(jobs)
-    print(f"[score] {total} jobs to score.")
-
-    if total == 0:
+    if not jobs:
         print("[score] Nothing to score. Run discover.py first.")
         return
+    print(f"[score] {len(jobs)} jobs to score.")
 
-    # Pre-filter: skip only jobs with very low overlap; no-description jobs score on title only
-    qualifying = []
-    skipped = 0
-    for job in jobs:
-        jd_text = job["description"] or ""
-        title_text = job["title"] or ""
-        if not jd_text.strip():
-            # No description — can still keyword-score on title alone
-            qualifying.append(job)
-            continue
-        overlap = keyword_overlap_score(RESUME_TEXT, jd_text)
-        if overlap < min_overlap and not any(kw in title_text.lower() for kw in
-                ["engineer", "developer", "typescript", "react", "node", "python", "ai", "full stack", "backend", "frontend"]):
-            update_job(job["url"], {"status": "error", "status_reason": "below_overlap_threshold"})
-            skipped += 1
-        else:
-            qualifying.append(job)
+    try:
+        queue = _prerank(jobs, cfg, use_llm)
+    except LLMUnavailable as e:
+        print(f"[score] Embedding pre-rank failed ({e}) — scoring in DB order.")
+        queue = jobs[: cfg.get("scoring", {}).get("max_llm_per_run", 250)]
 
-    print(f"[score] {skipped} skipped (very low overlap, irrelevant title). {len(qualifying)} qualifying.")
-
-    scored_count = 0
-    error_count = 0
-    score_sum = 0.0
-
-    for i, job in enumerate(qualifying, 1):
-        url = job["url"]
-        title = job["title"]
-        company = job["company"]
+    scored, total = [], len(queue)
+    for i, job in enumerate(queue, 1):
         try:
-            if qwen_available:
-                score, reason = score_job(job, cfg)
-            else:
-                score, reason = keyword_score_fallback(job)
-            update_job(url, {"score": score, "score_reason": reason, "status": "scored"})
-            score_sum += score
-            scored_count += 1
-            print(f"[score] ({i}/{len(qualifying)}) {company} — {title} → {score:.1f} | {reason[:60]}")
-        except RuntimeError as e:
-            # Qwen went down mid-run — fall back for remaining jobs
-            print(f"[score] Qwen dropped mid-run ({e}), switching to keyword fallback.")
-            qwen_available = False
-            score, reason = keyword_score_fallback(job)
-            update_job(url, {"score": score, "score_reason": reason, "status": "scored"})
-            score_sum += score
-            scored_count += 1
-        except Exception as exc:
-            update_job(url, {"status": "error", "status_reason": f"scoring_error: {exc}"})
-            error_count += 1
-            print(f"[score] ({i}/{len(qualifying)}) ERROR '{title}': {exc}")
+            score, reason, use_llm = _score_one(job, use_llm)
+        except ValueError as exc:  # unparseable model output — record, don't crash
+            update_job(job["url"], {"status": "error", "status_reason": f"scoring_error: {exc}"})
+            print(f"[score] ({i}/{total}) ERROR '{job['title']}': {exc}")
+            continue
+        update_job(job["url"], {"score": score, "score_reason": reason, "status": "scored"})
+        scored.append(score)
+        print(f"[score] ({i}/{total}) {job['company']} — {job['title']} → {score:.1f} | {reason[:60]}")
 
-    avg = round(score_sum / scored_count, 2) if scored_count else 0.0
-    cfg_min = cfg.get("search", {}).get("min_score", 7.5)
-    print(f"\n[score] Done — scored: {scored_count}, errors: {error_count}, avg: {avg} (threshold ≥{cfg_min})")
+    avg = round(sum(scored) / len(scored), 2) if scored else 0.0
+    print(f"\n[score] Done — scored: {len(scored)}, avg: {avg} "
+          f"(apply threshold ≥{cfg['search']['min_score']})")
 
 
 # ---------------------------------------------------------------------------
@@ -322,14 +198,7 @@ def main(limit: int | None = None, min_overlap: float = 0.05) -> None:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Score discovered jobs with Qwen 2.5")
+    parser = argparse.ArgumentParser(description="Score discovered jobs with the local LLM")
     parser.add_argument("--limit", type=int, default=None, help="Max jobs to process")
-    parser.add_argument(
-        "--min-overlap",
-        type=float,
-        default=0.20,
-        dest="min_overlap",
-        help="TF-IDF cosine similarity threshold (default 0.20)",
-    )
     args = parser.parse_args()
-    main(limit=args.limit, min_overlap=args.min_overlap)
+    main(limit=args.limit)

@@ -1,0 +1,16 @@
+[Unit]
+Description=Hermes continuous 24/7 job worker (discover → score → tailor → apply)
+Wants=network-online.target
+After=network-online.target ollama.service
+
+[Service]
+Type=simple
+WorkingDirectory=/mnt/data/rj/hermes
+ExecStart=/mnt/data/rj/hermes/scripts/run_hermes.sh --continuous
+Restart=always
+RestartSec=30
+Nice=5
+KillMode=control-group
+
+[Install]
+WantedBy=default.target

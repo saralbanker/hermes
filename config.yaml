@@ -1,7 +1,5 @@
-# OTP auto-resolution (email verification codes from Indeed):
-#   export GMAIL_APP_PASSWORD="xxxx xxxx xxxx xxxx"
-#   Get one: myaccount.google.com → Security → 2-Step Verification → App passwords
-#   Never put the actual password here — use the env var only.
+# Hermes config. Candidate facts live in profile/facts.md (the only source LLMs may use).
+# Secrets never go here: Gmail App Password lives in output/hermes.env (chmod 600).
 
 profile:
   name: Saral Banker
@@ -10,13 +8,40 @@ profile:
   location: Ahmedabad, Gujarat, India
   github: github.com/saralbanker
   portfolio: orvion-co.vercel.app
-  years_experience: 2
+  linkedin: https://www.linkedin.com/in/saralbanker
+  years_experience: 1
   education: Diploma in Computer Engineering, LJ Polytechnic (May 2026), CGPA 8.36/10,
     Top 10%
   work_authorization: India — authorized, no sponsorship needed
   willing_to_relocate: false
   available: Immediately
+
+# Where the candidate can work: fully remote (hiring from India) OR on-site/hybrid
+# within radius_km of home.
+geo:
+  home_name: Shahibaug, Ahmedabad
+  home_lat: 23.0555
+  home_lon: 72.5936
+  radius_km: 20              # normal on-site/hybrid
+  night_radius_km: 10        # night-shift on-site/hybrid
+
+# Salary floors (owner, 2026-09-23). Jobs that publish pay below the floor are skipped;
+# jobs without published pay are kept (most don't publish). Published pay raises rank.
+salary:
+  min_inr_per_month_india: 25000     # India / India-remote roles
+  min_inr_per_month_global: 30000    # global remote roles (converted at usd_to_inr)
+  target_inr_per_month: 100000       # long-term goal — used only for ranking
+  usd_to_inr: 88
+
 search:
+  boards:
+  - indeed
+  - ats            # Greenhouse / Lever / Ashby public job-board APIs (see data/ats_companies.yaml)
+  - wwr            # We Work Remotely category RSS feeds
+  - arbeitnow      # Arbeitnow public remote engineering API with fast ATS resolution
+  - himalayas
+  - remotive
+  - remoteok
   target_roles:
   - full stack engineer
   - software engineer
@@ -25,75 +50,69 @@ search:
   - founding engineer
   - AI application developer
   - TypeScript engineer
+  - python developer
+  - node.js developer
+  - LLM engineer
   location: Remote
+  local_location: Ahmedabad, Gujarat
   country_indeed: India
-  results_wanted: 30
+  results_wanted: 40
   hours_old: 72
-  min_score: 7.5
+  max_job_age_days: 21       # older postings are marked expired, never applied to
+  min_score: 6.5
+  # Tiering (owner, 2026-09-23): ~70% core (≤4 years asked, non-senior title),
+  # ~30% stretch (Senior/Lead/founding/more years). Senior is NOT filtered out.
+  core_max_years: 4
+  stretch_max_years: 8       # beyond this the gap is too large to be worth a slot
+  stretch_share: 0.30
+  stretch_min_score: 7.5     # stretch applications need a stronger fit
+
+scoring:
+  min_similarity: 0.55       # embedding cosine floor (calibrated: relevant roles 0.60-0.70)
+  max_llm_per_run: 250       # ~10 s each on CPU; the rest wait for the next run
+  max_tailor_per_run: 60     # ~30 s per letter; tailor only what the apply stage can use
+
 limits:
-  linkedin_per_day: 15
-  other_per_day: 30
-  total_per_day: 40
-  min_delay_seconds: 15
-  max_delay_seconds: 30
+  linkedin_per_day: 0        # LinkedIn automation risks a permanent account ban
+  other_per_day: 100
+  total_per_day: 100
+  min_delay_seconds: 20
+  max_delay_seconds: 45
+  max_apply_minutes: 150     # per scheduled run; the three runs share the daily cap
+
 resumes:
   fullstack: resumes/resume-fullstack.pdf
   backend: resumes/resume-backend.pdf
   ai: resumes/resume-ai.pdf
   default: resumes/resume-fullstack.pdf
-inference:
-  mode: local
-  local:
-    base_url: http://localhost:11434
-    keep_alive: 15m
-    timeout: 300
-    score_model: qwen3:4b
-    tailor_model: qwen3:4b
-    apply_model: qwen2.5:3b
-  cloud:
-    apply_model: claude-haiku-4-5-20251001
-ollama:
+
+llm:
   base_url: http://localhost:11434
-  model: qwen3:4b
-  apply_model: qwen2.5:3b
-  timeout: 300
-  keep_alive: 15m
-qwen:
-  base_url: http://localhost:11434
-  model: qwen3:4b
-  timeout: 300
+  model: qwen3:4b-instruct-2507-q4_K_M
+  embed_model: nomic-embed-text
+  timeout: 180
+  keep_alive: 30m
+
+notify:
+  desktop: true              # notify-send on the laptop
+  check_every_minutes: 10
+
 screening_answers:
-  years_experience_total: '2'
-  years_experience_typescript: '2'
-  years_experience_react: '2'
-  years_experience_node: '2'
-  years_experience_python: '2'
+  years_experience_total: 1            # paid professional (freelance) years — numeric fields
+  years_experience_text: About 1 year of paid freelance, client-facing work, and about 4 years of hands-on software development overall (projects and coursework).
   degree: Diploma in Computer Engineering
   currently_employed: 'No'
+  current_ctc: Not currently employed (freelance)
   notice_period: Immediately available
-  salary_expectation_inr: Open to competitive offers
-  salary_expectation_usd: Open to competitive offers
+  salary_expectation: Open to a competitive offer in line with the role's published range
   work_authorization: Yes, authorized to work in India
+  work_authorization_short: 'Yes'
   requires_visa_sponsorship: 'No'
   willing_to_relocate: Open to fully remote positions
-  why_interested_template: 'I''m drawn to high-ownership engineering roles where I
-    can architect and ship complete systems end-to-end. I independently designed and
-    built Neuro-Zenith — a 70k+ LOC production AI platform spanning RAG pipelines,
-    real-time collaboration, async job processing, and multi-provider LLM routing.
-    I''ve also delivered a production financial system as a paid contract engagement.
-    I thrive with autonomy and hard problems.
-
-    '
-  biggest_achievement: 'Independently architected and shipped Neuro-Zenith: a 70,000+
-    LOC modular AI productivity platform across 400+ source files, 44 database migrations,
-    a full RAG pipeline, Socket.IO real-time collaboration, BullMQ async processing,
-    multi-provider LLM routing, and a 4-pipeline GitHub Actions CI/CD system — from
-    first principles, with no team.
-
-    '
-  describe_yourself: 'Full Stack and AI Application Engineer who ships complete production-grade
-    systems independently. Strong in TypeScript/Node.js/React/PostgreSQL with deep
-    AI/LLM integration experience. I prefer founding-stage environments, full ownership,
-    and hard problems.
-
-    '
+  ai_usage_statement: 'I build software with AI coding agents such as Claude Code. I write
+    the specification and acceptance criteria, own the architecture, review every change,
+    and verify it with tests and CI.'
+  why_interested_template: 'I''m looking for a role with real ownership, where I can design
+    and ship complete systems. I have built and shipped a paid billing system for an industrial
+    estate of 220+ units, a 70k-line AI productivity platform with RAG, and AWIS, an event-sourced
+    workflow engine in Go with 773 test functions. I''m available immediately and work well remotely.'

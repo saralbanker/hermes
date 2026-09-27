@@ -1,0 +1,10 @@
+[Unit]
+Description=Hermes runs at 08:00, 13:00 and 19:00
+
+[Timer]
+OnCalendar=*-*-* 08,13,19:00:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

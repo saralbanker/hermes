@@ -1,0 +1,10 @@
+[Unit]
+Description=Hermes Gmail reply watcher (one poll)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/mnt/data/rj/hermes
+ExecStart=/usr/bin/python3 /mnt/data/rj/hermes/src/response_watcher.py
+TimeoutStartSec=5min
