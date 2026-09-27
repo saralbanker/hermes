@@ -2778,3 +2778,432 @@ Preserve these semantics.
 
 Move browser mechanics behind BrowserGateway.
 
+ntity rotation
+```
+
+# 109. No Stealth Layer
+
+Not part of Hermes:
+
+```text
+fingerprint spoofing
+navigator tampering
+canvas spoofing
+WebGL spoofing
+font spoofing
+TLS impersonation
+stealth Chromium patches
+anti-detection frameworks
+```
+
+A platform rejection is a channel health fact.
+
+# 110. No Camoufox Core Dependency
+
+Camoufox is not required.
+
+Target abstraction remains:
+
+```text
+Playwright Adapter
+CDP Adapter
+```
+
+Alternative browser technology requires concrete production evidence and architecture review.
+
+# 111. No Generic HTTP Submission
+
+HTTP-first is allowed for:
+
+```text
+public discovery
+public metadata
+safe route resolution
+```
+
+It is not a universal replacement for browser submission.
+
+# 112. Security Boundary
+
+Explicitly forbidden:
+
+```text
+CAPTCHA solving
+Turnstile token acquisition
+challenge replay
+anti-bot identity rotation
+fingerprint evasion
+security-interstitial bypass
+```
+
+Security blocks are valid outcomes.
+
+# 113. Browser Test Strategy
+
+Pure logic must be testable without a browser:
+
+```text
+page classification
+locator ranking
+field semantics
+action validation
+destination classification
+progress detection
+evidence parsing
+error mapping
+```
+
+# 114. Fake BrowserGateway
+
+Tests should use a deterministic fake gateway that can replay:
+
+```text
+login
+form
+form with validation error
+otp
+confirmation
+security block
+already applied
+expired
+unknown
+popup
+frame
+```
+
+This keeps CI fast and predictable.
+
+# 115. Integration Tests
+
+Integration coverage should include:
+
+```text
+browser launch
+context creation
+navigation
+frame discovery
+field fill
+upload
+popup handling
+screenshots
+restart
+```
+
+Use local fixtures where possible.
+
+Do not use real production submissions as routine CI tests.
+
+# 116. Live Channel Verification
+
+A channel becomes production-proven through runtime evidence.
+
+Evidence should include where safely testable:
+
+```text
+real successful flow
+durable confirmation
+correct attempt record
+correct daily-count behavior
+recovery behavior
+```
+
+"Code exists" is not proof of production capability.
+
+# 117. Dry Run
+
+Dry run should exercise:
+
+```text
+routing
+browser startup
+session check
+page classification
+form discovery
+field mapping
+resume selection
+action validation
+```
+
+without the final external submission.
+
+Dry run must not increment confirmed daily counts.
+
+# 118. Legacy Browser Components
+
+Current branch contains legacy browser/application modules:
+
+```text
+src/apply.py
+src/indeed_apply.py
+src/ats_apply.py
+src/direct_form.py
+src/redirect_resolver.py
+src/otp_resolver.py
+```
+
+They contain verified behavior worth preserving.
+
+They are not the target architecture.
+
+# 119. Legacy Indeed Migration
+
+Current Indeed logic includes useful proven behaviors:
+
+```text
+page classifiers
+login detection
+security interstitial handling
+OTP
+Applied-history checks
+Gmail confirmation
+screenshots
+bounded form steps
+```
+
+Target mapping:
+
+```text
+DrissionPage lifecycle
+→ browser adapter
+
+page snapshot
+→ BrowserGateway state
+
+selector helpers
+→ structured locator layer
+
+OTP
+→ OTP subsystem
+
+history/email checks
+→ evidence/reconciliation
+
+result
+→ workflow outcome
+```
+
+# 120. Legacy Xvfb Migration
+
+Current code references Xvfb.
+
+Target:
+
+```text
+native Arch Linux browser runtime
++
+channel-specific display requirement only if actually proven necessary
+```
+
+Do not make display infrastructure part of application logic.
+
+# 121. Redirect Migration
+
+Current redirect behavior includes:
+
+```text
+ATS URL detection
+account-wall detection
+sponsored-link filtering
+direct-form fallback
+fast HTTP resolution
+browser fallback
+```
+
+Preserve these semantics.
+
+Move browser mechanics behind BrowserGateway.
+
+# 122. Gateway Implementation Order
+
+Recommended sequence:
+
+```text
+A. BrowserState + BrowserAction + BrowserGateway + BrowserHealth
+B. Playwright adapter
+C. migrate one strongest verified route
+D. unify evidence
+E. move OTP behind channel boundary
+F. migrate remaining ATS routes
+G. migrate redirect/direct routes
+H. retire direct legacy browser ownership
+```
+
+# 123. Migration Safety
+
+A migration step is complete only when:
+
+```text
+old behavior understood
+new behavior tested
+new behavior runtime-verified
+database semantics preserved
+legacy path can be removed safely
+```
+
+Do not delete a proven path because a replacement merely appears equivalent.
+
+# 124. What Must Not Move Into BrowserGateway
+
+Do not move these into the gateway:
+
+```text
+candidate scoring
+salary policy
+age eligibility
+core/stretch allocation
+daily cap
+canonical opportunity identity
+response classification
+business ranking
+```
+
+# 125. What Must Move Out of Legacy Browser Modules
+
+Legacy modules should not remain global owners of:
+
+```text
+browser launch
+browser shutdown
+generic snapshots
+generic selectors
+generic screenshots
+global resource policy
+cross-channel lifecycle
+```
+
+# 126. Gateway Size
+
+For every proposed gateway method ask:
+
+```text
+Do multiple channel drivers need this generic primitive?
+```
+
+If not, keep it inside the adapter or channel.
+
+The gateway must remain small and auditable.
+
+# 127. No Premature Browser Framework
+
+Do not build:
+
+```text
+browser recorder
+visual workflow designer
+universal browser agent
+multi-browser orchestration platform
+selector marketplace
+```
+
+Hermes needs reliable application execution, not a browser automation product.
+
+# 128. Resource Backpressure
+
+Examples:
+
+```text
+too many pages
+→ cleanup
+
+high RSS
+→ stop new browser work temporarily
+
+repeated renderer crashes
+→ restart
+
+queue empty
+→ do not open speculative job pages
+```
+
+Browser work is downstream of actionable inventory.
+
+# 129. Browser + AI Resource Control
+
+Prefer sending:
+
+```text
+relevant controls
+visible instructions
+field metadata
+current phase
+```
+
+instead of:
+
+```text
+full HTML
+full screenshot
+entire page source
+```
+
+unless a specific diagnostic requires them.
+
+# 130. Browser + Daily Target
+
+Browser does not own the 100/day target.
+
+Only workflow persistence increments the confirmed count after the submission evidence contract is satisfied.
+
+Therefore:
+
+```text
+browser success return
+!=
+confirmed daily application
+```
+
+# 131. Completion Contract
+
+Every attempt must terminate with a typed result equivalent to:
+
+```text
+SUBMITTED
+ALREADY_APPLIED
+SUBMISSION_UNCONFIRMED
+RETRYABLE_FAILURE
+CHANNEL_BLOCKED
+UNSUPPORTED_CHANNEL
+TERMINAL_FAILURE
+```
+
+No attempt may remain forever in an applying state.
+
+# 132. Success Contract Example
+
+```text
+workflow claims attempt
+→ gateway opens route
+→ driver snapshots form
+→ validator approves actions
+→ form completed
+→ validator approves Submit
+→ page changes
+→ confirmation detected
+→ evidence captured
+→ driver returns SUBMITTED
+→ workflow records result
+```
+
+# 133. Ambiguous Contract Example
+
+```text
+Submit clicked
+→ browser disconnects
+→ no confirmation evidence
+→ SUBMISSION_UNCONFIRMED
+→ attempt evidence persisted
+→ later reconciliation
+```
+
+There is no automatic replay.
+
+# 134. Security-Block Contract Example
+
+```text
+navigation
+→ Turnstile detected
+→ CHANNEL_BLOCKED
+→ channel health updated
+→ opportunity remains durable
+```
+
