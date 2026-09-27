@@ -1370,7 +1370,275 @@ downloaded documents
 
 Never commit or log secrets.
 
-therefore prefer:
+# 67. OTP Security
+
+OTP access must be:
+
+```text
+platform-specific
+time-bounded
+sender-validated
+freshness-aware
+```
+
+Do not search the mailbox indiscriminately.
+
+Do not log the code.
+
+Do not reuse stale codes.
+
+# 68. Error Taxonomy
+
+Recommended browser-level categories:
+
+```text
+BROWSER_LAUNCH_FAILED
+BROWSER_CONNECTION_FAILED
+BROWSER_CRASH
+PAGE_CLOSED
+NAVIGATION_TIMEOUT
+ELEMENT_NOT_FOUND
+ELEMENT_STALE
+FORM_SCHEMA_CHANGED
+AUTH_EXPIRED
+OTP_REQUIRED
+OTP_UNAVAILABLE
+CAPTCHA_BLOCKED
+ANTIBOT_BLOCKED
+RATE_LIMITED
+ACCOUNT_REQUIRED
+UNSUPPORTED_DESTINATION
+SUBMISSION_UNCONFIRMED
+CONFIRMATION_NOT_FOUND
+ALREADY_APPLIED
+NETWORK_ERROR
+```
+
+Workflow maps these into canonical application outcomes.
+
+# 69. Infrastructure Failure
+
+Infrastructure examples:
+
+```text
+browser launch failed
+CDP disconnected
+renderer crashed
+display failure
+browser process died
+protocol failure
+```
+
+If external application work did not begin, workflow must be able to avoid consuming an application attempt merely because the browser was invoked.
+
+# 70. External Application Progress
+
+The driver should report whether meaningful external work began.
+
+Useful progress marker:
+
+```text
+external_work_started = true | false
+```
+
+This lets recovery distinguish pre-application infrastructure failure from an attempt that may have changed external state.
+
+# 71. Crash Before Submit
+
+If the browser crashes before Submit:
+
+```text
+browser failure
+→ no submission evidence
+→ retry may be safe subject to workflow rules
+```
+
+Capture diagnostic evidence when possible.
+
+# 72. Crash During Submit
+
+If the browser crashes around final submission:
+
+```text
+submission-unconfirmed
+```
+
+Persist:
+
+```text
+attempt_id
+channel
+timestamp
+last URL
+pre-submit evidence
+submit-stage marker
+browser failure
+```
+
+Do not replay automatically.
+
+# 73. Reconciliation
+
+Ambiguous attempts are reconciled using:
+
+```text
+confirmation page
+→ application history
+→ confirmation email
+→ stored attempt evidence
+→ current channel state
+```
+
+Only evidence supporting non-submission permits another attempt.
+
+If uncertainty remains:
+
+```text
+unconfirmed / manual review
+```
+
+# 74. Already Applied
+
+Clear already-applied state:
+
+```text
+stop
+→ record evidence
+→ return ALREADY_APPLIED
+```
+
+Never continue to Submit after a strong duplicate signal.
+
+# 75. Expired Job
+
+Clear expired state:
+
+```text
+stop
+→ record useful evidence
+→ return EXPIRED
+```
+
+Do not force an expired form open.
+
+# 76. Form-Changed Recovery
+
+Correct response:
+
+```text
+unexpected/missing control
+→ re-snapshot
+→ reclassify
+→ re-resolve current controls
+→ bounded recovery
+→ FORM_SCHEMA_CHANGED if still unsupported
+```
+
+Do not escalate to unrestricted selectors or arbitrary script execution.
+
+# 77. Stale-Reference Recovery
+
+Correct response:
+
+```text
+stale reference
+→ new snapshot
+→ fresh semantic resolution
+→ validate
+→ bounded retry
+```
+
+Repeated staleness indicates page instability.
+
+# 78. Progress Detection
+
+Useful progress signals:
+
+```text
+URL change
+page-phase change
+step indicator change
+new validation result
+new required field satisfied
+submit control appears
+confirmation state
+```
+
+Repeated actions without progress terminate safely.
+
+# 79. Per-Application Budget
+
+Every application has a bounded budget covering:
+
+```text
+navigation
+form discovery
+field entry
+screening
+OTP
+submit
+verification
+cleanup
+```
+
+On budget exhaustion:
+
+```text
+stop
+→ preserve evidence
+→ return typed outcome
+→ recover safely
+```
+
+# 80. Loop Bounds
+
+Every driver must bound:
+
+```text
+navigation hops
+form steps
+state retries
+stale-element retries
+OTP wait
+consecutive no-progress cycles
+```
+
+No infinite browser loop is allowed.
+
+# 81. Browser Health
+
+Expose useful telemetry such as:
+
+```text
+connected
+browser_pid
+context_count
+page_count
+protocol_ok
+renderer_errors
+last_navigation
+last_action
+rss_bytes
+restart_count
+last_restart_reason
+```
+
+Health is operational telemetry, not job eligibility.
+
+# 82. Resource Budget
+
+Hermes shares resources among:
+
+```text
+browser
+Python worker
+SQLite
+local model processes
+source discovery
+desktop
+```
+
+The
 
 ```text
 one active application
