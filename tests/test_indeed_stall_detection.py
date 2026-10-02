@@ -10,8 +10,36 @@ No browser: _snapshot/classify_page/_handle_classified_page are all monkeypatche
 """
 from __future__ import annotations
 
+import time
+
 import indeed_apply as ia
 import states as S
+
+
+def test_overall_deadline_already_exceeded_fails_terminal_without_touching_browser(monkeypatch):
+    """Phase 9 audit (checklist item 11, bounded execution): a hung/slow
+    browser call must not leave the attempt stuck past the hard 6-minute
+    budget. If `deadline` has already elapsed before/at loop entry,
+    `_drive_application` must land on a terminal ApplyResult (FAILED, which
+    engine_apply.py maps to a retryable-or-terminal transition depending on
+    execution_phase — see src/engine_apply.py's `_record_infra_or_fatal`)
+    immediately, rather than ever calling into the browser-driving helpers."""
+    calls = {"n": 0}
+
+    def fail_if_called(*_a, **_kw):
+        calls["n"] += 1
+        raise AssertionError("must not drive the browser past an already-expired deadline")
+
+    monkeypatch.setattr(ia, "_snapshot", fail_if_called)
+    monkeypatch.setattr(ia, "classify_page", fail_if_called)
+    monkeypatch.setattr(ia, "_handle_classified_page", fail_if_called)
+    monkeypatch.setattr(ia, "_screenshot", lambda *_a, **_kw: None)
+
+    result = ia._drive_application({}, {"title": "x"}, "cover", "resume.pdf", "shot.png",
+                                    dry_run=False, deadline=time.monotonic() - 1)
+    assert result.state == S.FAILED
+    assert "exceeded 6-minute apply budget" in result.detail
+    assert calls["n"] == 0
 
 
 def test_identical_application_snapshot_twice_fails_fast(monkeypatch):

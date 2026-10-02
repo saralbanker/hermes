@@ -31,6 +31,7 @@ import os
 import re
 import time
 from pathlib import Path
+from typing import Callable
 
 import states
 from answers import answer_question
@@ -717,8 +718,18 @@ def _pick_button(buttons: list) -> tuple[str | None, bool]:
     return None, False
 
 
-def _click_next_or_submit(page, dry_run: bool) -> tuple[bool, bool]:
-    """Returns (advanced, was_final_submit). Never clicks the final submit in dry_run."""
+def _click_next_or_submit(
+    page, dry_run: bool, on_progress: Callable[[str], None] | None = None
+) -> tuple[bool, bool]:
+    """Returns (advanced, was_final_submit). Never clicks the final submit in dry_run.
+
+    `on_progress` (Phase 3, src/engine/ integration only — always None on the
+    legacy src/apply.py call path): fired with "submit_intent" the instant
+    the final Submit control's click returns, before the post-click sleep or
+    any re-snapshot/classification — this is the synchronous boundary
+    BROWSER_SYSTEM.md §72 requires `execution_phase = SUBMIT_INTENT` to be
+    written at, before waiting for any post-submit response.
+    """
     _dismiss_cookie_banner(page)  # else its Accept/Reject buttons are all _BUTTONS_JS finds
     idx, is_final = None, False
     for _ in range(6):  # Indeed disables Continue/Submit for a few seconds while a step validates
@@ -739,12 +750,15 @@ def _click_next_or_submit(page, dry_run: bool) -> tuple[bool, bool]:
     except Exception as exc:  # click intercepted/detached → treated as "no control"
         print(f"  [indeed] click failed: {exc}")
         return False, False
+    if is_final and on_progress is not None:
+        on_progress("submit_intent")
     time.sleep(2.5)
     return True, is_final
 
 
 def _drive_application(page, job: dict, cover_letter: str, resume_path: str,
-                        screenshot_path: str, dry_run: bool, deadline: float) -> ApplyResult:
+                        screenshot_path: str, dry_run: bool, deadline: float,
+                        on_progress: Callable[[str], None] | None = None) -> ApplyResult:
     last_cls = "never classified"
     last_signature = None
     for step in range(MAX_FORM_STEPS):
@@ -782,7 +796,8 @@ def _drive_application(page, job: dict, cover_letter: str, resume_path: str,
                                     screenshot=_screenshot(page, screenshot_path))
 
         result = _handle_classified_page(page, cls, job, cover_letter, resume_path,
-                                          screenshot_path, dry_run, url, title, text, html)
+                                          screenshot_path, dry_run, url, title, text, html,
+                                          on_progress)
         if result is not None:
             return result
         # cls in {"job_page", "application"} with no terminal result yet: loop continues
@@ -825,14 +840,15 @@ def _form_changed_no_control(page, text: str, html: str, screenshot_path: str) -
 
 def _handle_application_step(page, job: dict, cover_letter: str, resume_path: str,
                               screenshot_path: str, dry_run: bool,
-                              text: str, html: str) -> ApplyResult | None:
+                              text: str, html: str,
+                              on_progress: Callable[[str], None] | None = None) -> ApplyResult | None:
     """The 'application' page class: fill whatever is visible on this step, then advance
     or submit. Returns a terminal ApplyResult, or None to keep driving the loop."""
     detail = _fill_form_step(page, cover_letter, resume_path)
     if detail:
         return ApplyResult(states.FORM_CHANGED, detail=detail,
                             screenshot=_screenshot(page, screenshot_path))
-    advanced, was_final = _click_next_or_submit(page, dry_run)
+    advanced, was_final = _click_next_or_submit(page, dry_run, on_progress)
     if was_final and dry_run:
         return ApplyResult(states.DRY_RUN_OK, detail="stopped before clicking final submit")
     if was_final and advanced:
@@ -844,7 +860,8 @@ def _handle_application_step(page, job: dict, cover_letter: str, resume_path: st
 
 def _handle_classified_page(page, cls: str, job: dict, cover_letter: str, resume_path: str,
                              screenshot_path: str, dry_run: bool,
-                             url: str, title: str, text: str, html: str) -> ApplyResult | None:
+                             url: str, title: str, text: str, html: str,
+                             on_progress: Callable[[str], None] | None = None) -> ApplyResult | None:
     """Returns a terminal ApplyResult, or None to keep driving the loop."""
     hay = f"{title}\n{text}\n{html}"
 
@@ -875,7 +892,7 @@ def _handle_classified_page(page, cls: str, job: dict, cover_letter: str, resume
         return None
     if cls == "application":
         return _handle_application_step(page, job, cover_letter, resume_path, screenshot_path,
-                                        dry_run, text, html)
+                                        dry_run, text, html, on_progress)
     return ApplyResult(states.FAILED, detail=f"unrecognized page state (url={url})",
                         screenshot=_screenshot(page, screenshot_path))
 
@@ -890,8 +907,20 @@ def _close_browser(page) -> None:
 
 
 def run_indeed_apply(job: dict, cover_letter: str, resume_path: str,
-                      screenshot_path: str, dry_run: bool = False) -> ApplyResult:
-    """Apply to one Indeed job. Always closes the browser it opened."""
+                      screenshot_path: str, dry_run: bool = False,
+                      on_progress: Callable[[str], None] | None = None) -> ApplyResult:
+    """Apply to one Indeed job. Always closes the browser it opened.
+
+    `on_progress` (Phase 3, src/engine/ integration only — always None on the
+    legacy src/apply.py call path, which never passes it, so that path's
+    behavior is byte-for-byte unchanged): fired once with
+    "external_work_started" right after navigation to the job's own URL
+    succeeds (BROWSER_SYSTEM.md §70 `external_work_started` driver signal —
+    everything before this point, including browser launch and the Indeed
+    account/session check, is infrastructure/session setup, not yet external
+    work toward *this* opportunity), and with "submit_intent" at the
+    synchronous boundary inside `_click_next_or_submit` (§72).
+    """
     ensure_virtual_display()
 
     page = None
@@ -913,10 +942,13 @@ def run_indeed_apply(job: dict, cover_letter: str, resume_path: str,
         except Exception as exc:
             return ApplyResult(states.NETWORK_ERROR, detail=f"navigation failed: {exc}"[:300],
                                 screenshot=_screenshot(page, screenshot_path))
+        if on_progress is not None:
+            on_progress("external_work_started")
 
         time.sleep(2.0)
         deadline = time.monotonic() + MAX_APPLY_SECONDS
-        return _drive_application(page, job, cover_letter, resume_path, screenshot_path, dry_run, deadline)
+        return _drive_application(page, job, cover_letter, resume_path, screenshot_path, dry_run,
+                                   deadline, on_progress)
 
     except Exception as exc:
         return ApplyResult(states.FAILED, detail=f"unexpected: {exc}"[:300],

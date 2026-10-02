@@ -383,13 +383,13 @@ verified posted_at
 → first_seen_at fallback
 ```
 
-Bands:
+Bands (literal values as stored in `opportunities.age_band`, per DATA_MODEL.md §5.6/§27):
 
 ```text
-BAND_0 = 0–3 days
-BAND_1 = 4–7 days
-BAND_2 = 8–14 days
-BAND_3 = 15–21 days
+0_3D  = 0–3 days
+4_7D  = 4–7 days
+8_14D = 8–14 days
+15_21D = 15–21 days
 ```
 
 At >21 days:
@@ -462,6 +462,8 @@ AND no permanent all-route block
 AND retry due when applicable
 ```
 
+`retry due when applicable` is: no attempt has yet failed for this opportunity, or its backoff has elapsed — exactly `work_queue.next_attempt_at IS NULL OR work_queue.next_attempt_at <= now()` (DATA_MODEL.md §26). This is the timing clause of the full retry-eligibility predicate; see Section 22 for the complete condition (attempt count, route availability) governing whether automatic retry is permitted at all.
+
 READY is derived operational state.
 
 ---
@@ -519,7 +521,7 @@ WFQ is not the base scheduler.
 
 # 19. Fresh Preemption
 
-A new BAND_0 opportunity can preempt older work at the next claim.
+A new 0_3D opportunity can preempt older work at the next claim.
 
 Example:
 
@@ -539,7 +541,7 @@ The worker must not blindly consume a large stale in-memory queue.
 Conceptually:
 
 ```text
-for band in [BAND_0, BAND_1, BAND_2, BAND_3]:
+for band in [0_3D, 4_7D, 8_14D, 15_21D]:
     candidate = best claimable candidate in band
     if candidate exists:
         claim atomically
@@ -563,7 +565,7 @@ Example:
 Day 2
 → NETWORK_ERROR
 → retry later
-→ remains BAND_0
+→ remains 0_3D
 ```
 
 The same opportunity changes age band naturally as time passes.
@@ -572,22 +574,30 @@ The same opportunity changes age band naturally as time passes.
 
 # 22. Retry Eligibility
 
-Automatic retry requires:
+This is the authoritative, opportunity-level retry-eligibility predicate. Automatic retry requires:
 
 ```text
-retryable outcome
+opportunity.application_state = READY
+AND most recent attempt's retry_eligible = 1 (DATA_MODEL.md §7.4 — the outcome/error_class
+    fell in a bounded-retry row of Section 114's Retry Matrix)
 AND attempts < 3
 AND no confirmed submission
 AND route is not permanently blocked
-AND retry time is due
+AND retry time is due (work_queue.next_attempt_at IS NULL OR next_attempt_at <= now — Section 15/DATA_MODEL.md §26)
 AND opportunity remains within horizon
 ```
+
+An attempt counts against `attempts < 3` above only if its `execution_phase` (DATA_MODEL.md §7.5) advanced past `NOT_STARTED` before finishing — i.e., some external browser/network action toward the target site began. A tailoring failure that never leaves `NOT_STARTED` does not consume a slot in this count, consistent with §30.
 
 Current cap:
 
 ```text
 MAX_ATTEMPTS = 3
 ```
+
+Reaching `MAX_ATTEMPTS` with no confirmed submission is not silence: the opportunity is moved to `MANUAL_REVIEW` (Section 66), which removes it from `READY` and therefore from `READY_RESERVE` (DATA_MODEL.md §26) — it does not linger in `READY` as unclaimable dead inventory.
+
+`application_state = READY` is listed explicitly above because this predicate is also evaluated at claim-time revalidation (Section 72, Candidate Revalidation), where an opportunity already in `APPLYING`, `AWAITING_RECONCILIATION`, or `MANUAL_REVIEW` must never be treated as retry-eligible regardless of its attempt history.
 
 ---
 
@@ -620,11 +630,14 @@ Required:
 BEGIN IMMEDIATE
 → select claimable candidate
 → revalidate critical conditions
-→ create attempt
+→ create attempt (new attempt_id)
 → create lease
 → mark opportunity APPLYING
+→ set opportunities.current_attempt_id = new attempt_id
 → COMMIT
 ```
+
+`current_attempt_id` is the fencing token consumed by Section 105.
 
 No browser operation occurs in this transaction.
 
@@ -676,7 +689,7 @@ claim only if capacity remains
 Target:
 
 ```text
-100 confirmed new applications/day
+100 confirmed new qualified applications/day
 ```
 
 The cap is not based on click count.
@@ -730,6 +743,8 @@ Do not mark submitted.
 
 Do not consume an application attempt unless actual external application work began.
 
+Concretely, its `execution_phase` remains `NOT_STARTED`, which is what §22's retry-eligibility count excludes.
+
 ---
 
 # 31. Resume Selection
@@ -756,6 +771,8 @@ external redirect route
 Resolve the route near application time.
 
 The actual route used belongs in the attempt record.
+
+LinkedIn is permanently unsupported: no route resolution, discovery source, or channel driver may target LinkedIn, and no workflow step may depend on LinkedIn being reachable or healthy.
 
 ---
 
@@ -948,13 +965,13 @@ outcome unknown
 → no blind retry
 ```
 
-Never treat a missing submitted row as proof that no submission occurred.
+Never treat a missing submitted row as proof that no submission occurred. Concretely: the attempt's persisted `execution_phase` (DATA_MODEL.md §7.5) is `SUBMIT_INTENT` — the crash happened at or after the irreversible boundary — regardless of whether `outcome` was ever written.
 
 ---
 
 # 42. Browser Crash Before Submit
 
-When evidence proves the submit phase was not reached:
+"Evidence proves the submit phase was not reached" means, concretely: the attempt's persisted `execution_phase` (DATA_MODEL.md §7.5) is `NOT_STARTED` or `EXTERNAL_WORK_STARTED`, never `SUBMIT_INTENT`.
 
 ```text
 browser crash
@@ -968,7 +985,7 @@ Respect attempt cap and age horizon.
 
 # 43. Browser Crash After Possible Submit
 
-When submission may have occurred:
+"Submission may have occurred" means, concretely: the attempt's persisted `execution_phase` (DATA_MODEL.md §7.5) is `SUBMIT_INTENT` with no `outcome` yet recorded.
 
 ```text
 browser crash
@@ -1004,19 +1021,21 @@ Recovery is repeatable and idempotent.
 
 # 45. Lease Recovery
 
-### No external action started
+This is a direct read of the expired lease's attempt: `execution_phase` (DATA_MODEL.md §7.5) selects the branch; `outcome`, if already written, overrides phase-based inference.
+
+### No external action started (`execution_phase = NOT_STARTED`)
 
 Release/requeue when durable state proves it.
 
-### Browser started, submit not reached
+### Browser started, submit not reached (`execution_phase = EXTERNAL_WORK_STARTED`)
 
 Retry only when safe.
 
-### Submit may have occurred
+### Submit may have occurred (`execution_phase = SUBMIT_INTENT`, no `outcome` recorded)
 
 Mark unconfirmed and reconcile.
 
-### Confirmed submission
+### Confirmed submission (`outcome = SUBMITTED` already recorded)
 
 Finalize submitted and never retry.
 
@@ -1154,7 +1173,7 @@ Server-side anti-bot rejection:
 
 ```text
 record attempt
-→ BLOCKED_ANTIBOT
+→ record attempt outcome = CHANNEL_BLOCKED; set channel_health.status = ANTIBOT_BLOCKED
 → channel health update
 → no evasion
 → alternate supported route if one exists
@@ -1167,7 +1186,7 @@ record attempt
 Unexpected form structure:
 
 ```text
-FORM_CHANGED
+FORM_SCHEMA_CHANGED
 → capture evidence
 → bounded reinspection when safe
 → channel metric
@@ -1183,7 +1202,7 @@ Never blindly reuse stale selectors.
 Expired session:
 
 ```text
-AUTH_EXPIRED / LOGIN_REQUIRED
+AUTH_EXPIRED
 → pause route
 → preserve opportunity
 → resume after valid session recovery
@@ -1198,7 +1217,7 @@ Other channels continue.
 Ollama or model failure:
 
 ```text
-MODEL_UNAVAILABLE / MODEL_TIMEOUT
+runtime unavailable / timeout
 → preserve opportunity
 → defer model-dependent work
 → bounded retry
@@ -1251,7 +1270,6 @@ Automatic application completion:
 SUBMITTED
 ALREADY_APPLIED
 EXPIRED
-PERMANENTLY_INVALID
 ```
 
 History remains durable.
@@ -1268,6 +1286,9 @@ conflicting identity
 unsafe unknown form
 uncertain candidate answer
 security-sensitive edge case
+interview request received (human decision required — AI_SYSTEM.md §28)
+salary/offer discussion or offer received (human decision required — AI_SYSTEM.md §28)
+contract or legal/identity document request (human decision required — AI_SYSTEM.md §28)
 ```
 
 Manual review is an exception state, not an age queue.
@@ -1288,6 +1309,19 @@ Gmail ingestion
 → notify when required
 ```
 
+The operator-facing communication path for every email-derived signal is fixed: Company → Platform → Gmail → Hermes → Telegram. Every "notify when required" step above travels this path; Hermes never contacts the operator through any other channel.
+
+"Notify when required" means classifying the event against one of four notification levels. This is the one definition of the model; every other reference in this document and in EXECUTION_PROTOCOL.md names a level rather than restating it:
+
+```text
+Ignore                                — no durable record, no operator signal (routine/expected internal state, e.g. a healthy claim or an age-band roll-forward)
+Log                                   — persisted for audit/debugging, no operator interruption
+Telegram Notification                 — sent to the operator via the path above, routine attention, not time-critical
+High Priority Telegram Notification   — sent via the same path, flagged for immediate operator attention
+```
+
+Section 62 maps response classification to a level; Section 68's Transition Table lists the level for each application-attempt event; EXECUTION_PROTOCOL.md §§41-45 and §74 tag the level for each operational/recovery event.
+
 Failure of the watcher must not stop application processing.
 
 ---
@@ -1306,6 +1340,23 @@ timestamp relationship
 ```
 
 Generic phrases are not proof of application or interview status.
+
+Classification routes the message to the correct next state and notification level (Section 61), bounded by the automation boundary (AI_SYSTEM.md §28, Generation Role):
+
+```text
+screening-adjacent follow-up (resume/portfolio/GitHub request, project info)
+    → automatable; Notification: Log
+interview / salary / offer / contract / legal-identity-document signal
+    → human-required; MANUAL_REVIEW (Section 60); Notification: High Priority Telegram Notification
+rejection
+    → terminal, no action; Notification: Log
+ambiguous/unclassifiable
+    → human-required; MANUAL_REVIEW (Section 60); Notification: Telegram Notification
+acknowledgement (automated "application received" / no-action receipt)
+    → terminal, no action; Notification: Ignore
+```
+
+A forbidden-category message is a workflow signal, not merely an AI constraint: the workflow must route it to MANUAL_REVIEW rather than silently falling through to automated handling.
 
 ---
 
@@ -1382,19 +1433,25 @@ After 3 unsuccessful automatic attempts:
 no automatic retry
 ```
 
+"No automatic retry" is a state transition, not a stall: the opportunity moves from `READY` to `MANUAL_REVIEW` (Section 68) in the same transaction that records the third attempt's outcome. It does not remain `READY` — a `READY` opportunity with no further eligible attempt would be unclaimable dead inventory that still passed the `READY_RESERVE` derivation (DATA_MODEL.md §26). An operator may resolve a `MANUAL_REVIEW` item and, if warranted, trigger a further attempt manually (EXECUTION_PROTOCOL.md §74.2); this is a human decision outside the automatic scheduler, not a fourth automatic attempt.
+
 ---
 
 # 67. Attempt Terminality
 
-Attempt may terminate as:
+An attempt terminates with one of the outcome values defined in Section 4 ("Application outcome"):
 
 ```text
 SUBMITTED
 ALREADY_APPLIED
-BLOCKED_ANTIBOT
+SUBMISSION_UNCONFIRMED
+RETRYABLE_FAILURE
+CHANNEL_BLOCKED
 UNSUPPORTED_CHANNEL
 TERMINAL_FAILURE
 ```
+
+`CHANNEL_BLOCKED` is the attempt-outcome value for this dimension; it is distinct from `channel_health.status = ANTIBOT_BLOCKED` (Section 4, "Channel health"), which describes the route's operational condition independently of any single attempt. The two are never the same field.
 
 A terminal attempt does not automatically make every other legitimate route terminal.
 
@@ -1402,20 +1459,23 @@ A terminal attempt does not automatically make every other legitimate route term
 
 # 68. Transition Table
 
-| Event | Opportunity | Attempt | Queue |
-|---|---|---|---|
-| observation created | OBSERVED/EVALUATING | — | no |
-| eligible | READY | — | add |
-| claim success | APPLYING | CLAIMED | remove |
-| browser starts | APPLYING | STARTED | absent |
-| confirmed | COMPLETED | SUBMITTED | remove |
-| duplicate | COMPLETED | ALREADY_APPLIED | remove |
-| ambiguous submit | AWAITING_RECONCILIATION | SUBMISSION_UNCONFIRMED | remove |
-| retryable failure | RETRY_WAIT/READY | RETRYABLE_FAILURE | delayed |
-| channel blocked | route-dependent | CHANNEL_BLOCKED | route-dependent |
-| unsupported | history/route-dependent | UNSUPPORTED_CHANNEL | no same-route retry |
-| >21d | EXPIRED | — | remove |
-| manual review | MANUAL_REVIEW | appropriate | remove |
+| Event | Opportunity | Attempt | Queue | Notification (Section 61) |
+|---|---|---|---|---|
+| observation created | OBSERVED/EVALUATING | — | no | Ignore |
+| eligible | READY | — | add | Ignore |
+| claim success | APPLYING | CLAIMED | remove | Ignore |
+| browser starts | APPLYING | STARTED | absent | Ignore |
+| confirmed | COMPLETED | SUBMITTED | remove | Log |
+| duplicate | COMPLETED | ALREADY_APPLIED | remove | Log |
+| ambiguous submit | AWAITING_RECONCILIATION | SUBMISSION_UNCONFIRMED | remove | Telegram Notification |
+| retryable failure (attempts < MAX_ATTEMPTS) | READY | RETRYABLE_FAILURE | delayed | Log |
+| retryable failure (attempts = MAX_ATTEMPTS) | MANUAL_REVIEW | RETRYABLE_FAILURE | remove | High Priority Telegram Notification |
+| channel blocked | route-dependent | CHANNEL_BLOCKED | route-dependent | Log (escalates per §51/EXECUTION_PROTOCOL.md §74.6 if persistent) |
+| unsupported | history/route-dependent | UNSUPPORTED_CHANNEL | no same-route retry | Log |
+| >21d | EXPIRED | — | remove | Ignore |
+| manual review | MANUAL_REVIEW | appropriate | remove | High Priority Telegram Notification |
+
+The Opportunity column uses only the canonical `opportunities.application_state` values defined in DATA_MODEL.md §5.9. Retry timing is tracked by `work_queue.next_attempt_at` (DATA_MODEL.md §9.2), not by a separate opportunity-level literal. "Confirmed" and "duplicate" are Log rather than Telegram Notification because, at a 100/day target, a per-submission push would be noise; operator-facing progress is read from the funnel metrics (Section 81), not a message per event.
 
 ---
 
@@ -1474,7 +1534,7 @@ Immediately before external application, revalidate:
 ```text
 not submitted
 not already applied
-within 21 days
+within 21 days (age_band recomputed live from age_reference_at, not read from the cached column — DATA_MODEL.md §27.1)
 still eligible
 claim still owned
 daily capacity remains
@@ -1541,6 +1601,7 @@ Periodic maintenance:
 
 ```text
 lease sweep
+age-band recomputation sweep
 queue consistency
 expiration
 channel cooldown
@@ -1550,6 +1611,10 @@ temporary artifacts
 metrics
 response watcher
 ```
+
+The age-band recomputation sweep refreshes the cached `opportunities.age_band` column (DATA_MODEL.md §27.1) for all non-expired opportunities so it does not drift across a band boundary between claims. This is distinct from per-claim revalidation, which recomputes the live value at claim time regardless of sweep cadence.
+
+`DB health` includes WAL checkpoint maintenance: the same maintenance pass issues a passive checkpoint attempt (SQLite's `PRAGMA wal_checkpoint`) and records the resulting WAL file size as one of the metrics in SYSTEM_RULES.md §32. If a checkpoint cannot complete — SQLite's own semantics are that a long-lived open reader blocks a checkpoint from reclaiming WAL pages behind it — maintenance does not force-close the blocking reader and does not fall back to a different concurrency model; it logs the condition and lets the next scheduled pass retry. Unbounded WAL growth across repeated passes is a `DECISION FAILURE`-adjacent observability signal (SYSTEM_RULES.md §32), not a new failure class, and is surfaced through existing metrics rather than a new worker or watchdog.
 
 Maintenance must not starve application claims.
 
@@ -1664,7 +1729,7 @@ Use measurements to locate the actual throughput bottleneck.
 Target:
 
 ```text
-100 confirmed applications/day
+100 confirmed qualified applications/day
 ```
 
 Equivalent average:
@@ -2009,9 +2074,18 @@ No duplicate success state may be created.
 
 # 105. Worker Fencing
 
-A durable lease token or generation value may be used.
+`opportunities.current_attempt_id` is the durable fencing token (DATA_MODEL.md §5.2, §19.1). It is set only inside the atomic claim transaction and never reused across a retry, since every retry mints a new `attempt_id` (Section 24; DATA_MODEL.md §7.3).
 
-Result writes should match current attempt ownership.
+Result writes are **required** — not optional — to be conditioned on still owning the lease:
+
+```text
+UPDATE opportunities
+SET application_state = ...
+WHERE opportunity_id = :opportunity_id
+  AND current_attempt_id = :attempt_id
+```
+
+Zero rows affected means a newer attempt already owns the opportunity; the write must be discarded and routed to reconciliation (Section 40) rather than applied. No separate token table or generation counter is introduced; `attempt_id` itself is the fencing value because it is already guaranteed unique per attempt.
 
 ---
 
@@ -2593,7 +2667,7 @@ anti-bot blocked
 Route behavior:
 
 ```text
-record BLOCKED_ANTIBOT
+record attempt outcome = CHANNEL_BLOCKED; set channel_health.status = ANTIBOT_BLOCKED
 → channel health
 → no bypass
 ```
@@ -2719,12 +2793,12 @@ SUBMITTED
 Given eligible candidates in all bands:
 
 ```text
-BAND_0 before BAND_1
-BAND_1 before BAND_2
-BAND_2 before BAND_3
+0_3D before 4_7D
+4_7D before 8_14D
+8_14D before 15_21D
 ```
 
-New BAND_0 arrival must be selectable at the next claim.
+New 0_3D arrival must be selectable at the next claim.
 
 ---
 
@@ -2733,8 +2807,8 @@ New BAND_0 arrival must be selectable at the next claim.
 Prove:
 
 ```text
-retryable BAND_0
-→ remains BAND_0
+retryable 0_3D
+→ remains 0_3D
 ```
 
 No separate retry age queue exists.
@@ -3018,7 +3092,7 @@ discover
 
 Its purpose is not to maximize clicks.
 
-Its purpose is to maximize verified, legitimate applications while preserving:
+Its purpose is to maximize verified, legitimate, qualified applications while preserving:
 
 ```text
 candidate truth

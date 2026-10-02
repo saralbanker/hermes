@@ -81,7 +81,7 @@ def test_resume_variants_distinct_and_awis_below_neuro_zenith():
         pages = int(next(l.split()[-1] for l in info.splitlines() if l.startswith("Pages")))
         assert 1 <= pages <= 2, p
         text = subprocess.run(["pdftotext", str(p), "-"], capture_output=True, text=True).stdout
-        assert "9016990136" in text and text.index("Neuro-Zenith —") < text.index("AWIS —")
+        assert "9106990136" in text and text.index("Neuro-Zenith —") < text.index("AWIS —")
 
 
 @pytest.mark.parametrize("question,expected", [

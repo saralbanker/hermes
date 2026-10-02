@@ -307,11 +307,6 @@ The browser competes for CPU and RAM with Python, SQLite, Ollama/local models, s
 
 The subsystem therefore prefers low process count, browser reuse, bounded tabs, bounded contexts, and measurable resource behavior.
 
-ed graphics
-CPU-only AI inference
-KDE / Wayland
-```
-
 The legacy Xvfb path is migration input only.
 
 Xvfb is not a permanent global browser dependency.
@@ -744,8 +739,6 @@ project/coursework experience
 
 A professional-years question must not silently receive a larger overall-development number.
 
- receive a larger overall-development number.
-
 # 31. Numeric Fields
 
 For numeric screening:
@@ -926,7 +919,7 @@ Legitimate employer job URLs can contain tracking parameters.
 Board-owned signup/login walls are:
 
 ```text
-ACCOUNT_REQUIRED
+ACCOUNT_WALL
 ```
 
 Hermes may use a known legitimate employer/ATS route when already resolved.
@@ -951,6 +944,8 @@ collect_evidence()
 Drivers call BrowserGateway.
 
 They do not own global scheduling or daily limits.
+
+LinkedIn is permanently unsupported: no channel driver may target LinkedIn, and no other driver may depend on a LinkedIn-sourced session, cookie, or identity signal. The channel drivers below (Indeed, ATS routes, direct forms) are the full current driver set.
 
 # 43. Indeed
 
@@ -1189,6 +1184,8 @@ very low content + challenge marker
 
 Weak indicators such as a generic "Sign in" link or passive challenge scripts are insufficient.
 
+A response with HTTP 200 and an ordinary page shape that nonetheless contains a known per-channel rejection phrase (e.g., Ashby's observed "flagged as possible spam" text) must be classified as `ANTIBOT_BLOCKED` / attempt outcome `CHANNEL_BLOCKED`, never as a confirmation or passable ambiguous state. Maintain a small per-channel rejection-phrase list and check it against post-submit page text before accepting any confirmation-shaped signal (§62 Evidence Hierarchy) — a rejection-phrase match overrides weak confirmation signals.
+
 # 57. CAPTCHA / Turnstile
 
 A visible CAPTCHA or Turnstile is a security block.
@@ -1406,12 +1403,12 @@ OTP_UNAVAILABLE
 CAPTCHA_BLOCKED
 ANTIBOT_BLOCKED
 RATE_LIMITED
-ACCOUNT_REQUIRED
+ACCOUNT_WALL
 UNSUPPORTED_DESTINATION
 SUBMISSION_UNCONFIRMED
 CONFIRMATION_NOT_FOUND
 ALREADY_APPLIED
-NETWORK_ERROR
+NETWORK_UNAVAILABLE
 ```
 
 Workflow maps these into canonical application outcomes.
@@ -1443,9 +1440,11 @@ external_work_started = true | false
 
 This lets recovery distinguish pre-application infrastructure failure from an attempt that may have changed external state.
 
+`external_work_started` is the driver-level signal for the boundary DATA_MODEL.md §7.5 persists as `application_attempts.execution_phase`: `false → true` is the driver telling the workflow layer to write `execution_phase = EXTERNAL_WORK_STARTED`. It is a report to the persistence layer, not itself the durable record.
+
 # 71. Crash Before Submit
 
-If the browser crashes before Submit:
+If the browser crashes before Submit — i.e. `execution_phase` is still `NOT_STARTED` or `EXTERNAL_WORK_STARTED` (DATA_MODEL.md §7.5), never `SUBMIT_INTENT`:
 
 ```text
 browser failure
@@ -1457,7 +1456,9 @@ Capture diagnostic evidence when possible.
 
 # 72. Crash During Submit
 
-If the browser crashes around final submission:
+The Submit control being invoked is the `submit-stage marker`: the driver reports this the instant it invokes Submit, and the workflow layer writes `execution_phase = SUBMIT_INTENT` (DATA_MODEL.md §7.5) synchronously, before waiting for any post-submit response. This write is what makes the boundary durable across a crash that happens a moment later.
+
+If the browser crashes around final submission — `execution_phase` is `SUBMIT_INTENT` with no `outcome` yet recorded:
 
 ```text
 submission-unconfirmed
@@ -1471,7 +1472,7 @@ channel
 timestamp
 last URL
 pre-submit evidence
-submit-stage marker
+execution_phase = SUBMIT_INTENT
 browser failure
 ```
 
@@ -2013,6 +2014,19 @@ network outage
 
 Opportunity truth remains separate.
 
+### 103.1 Channel Recovery
+
+A channel degrade must have a defined reactivation path; none is implicit.
+
+```text
+AUTH_EXPIRED    -> clears only via successful re-authentication (EXECUTION_PROTOCOL.md §74.5)
+RATE_LIMITED    -> clears when channel_health.cooldown_until elapses
+NETWORK_UNAVAILABLE -> clears when cooldown_until elapses and the next health probe succeeds
+FORM_SCHEMA_CHANGED -> does not self-heal on a timer; requires an explicit driver fix before clearing
+ANTIBOT_BLOCKED -> requires minimum cooldown AND a successful read-only, non-mutating
+                   probe before resuming submission attempts on that route
+```
+
 # 104. Channel Cooldown
 
 Channel cooldown is separate from opportunity age.
@@ -2342,7 +2356,7 @@ Preserve these semantics.
 
 Move browser mechanics behind BrowserGateway.
 
-refore prefer:
+The migration should therefore prefer:
 
 ```text
 one active application
@@ -2548,10 +2562,6 @@ navigation
 → opportunity remains durable
 ```
 
-ed
-→ opportunity remains durable
-```
-
 # 135. Unknown-Answer Contract Example
 
 ```text
@@ -2567,7 +2577,7 @@ required question
 ```text
 Apply
 → board signup
-→ ACCOUNT_REQUIRED
+→ ACCOUNT_WALL
 → alternate known legitimate route if already resolved
 → otherwise unsupported
 ```

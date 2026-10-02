@@ -1,0 +1,16 @@
+[Unit]
+Description=Hermes Phase 5 continuous engine worker (src/engine/worker.py) — NOT YET ENABLED
+Wants=network-online.target
+After=network-online.target ollama.service
+
+[Service]
+Type=simple
+WorkingDirectory=/mnt/data/rj/hermes
+ExecStart=/usr/bin/python3 /mnt/data/rj/hermes/scripts/hermes_engine_worker.py
+Restart=always
+RestartSec=30
+Nice=5
+KillMode=control-group
+
+[Install]
+WantedBy=default.target

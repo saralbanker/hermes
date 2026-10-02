@@ -3,7 +3,7 @@
 
 contact:
   name: Saral Banker
-  line: Ahmedabad, India · +91 9016990136 · saralbanker1@gmail.com
+  line: Ahmedabad, India · +91 9106990136 · saralbanker1@gmail.com
   links:
     - [linkedin.com/in/saralbanker, https://www.linkedin.com/in/saralbanker]
     - [github.com/saralbanker, https://github.com/saralbanker]
@@ -16,7 +16,7 @@ variants:
       Full-stack engineer who ships complete systems, from data model to deployment. Delivered a
       paid billing platform for an industrial estate of 220+ units that saves the client 40+ hours
       of manual work a month, and built a 70k-line AI productivity platform and an event-sourced
-      workflow engine in Go. I work with AI coding agents (Claude Code) and own the specification,
+      workflow engine in Go. I work with AI coding agents and own the specification,
       architecture, code review and testing. Available immediately for remote roles.
     project_order: [neuro-zenith, awis, hermes]
     skills_order: [languages, frontend, backend, data, ai, infra]
@@ -26,7 +26,7 @@ variants:
       Backend engineer focused on reliable services and data-heavy workflows. Built AWIS, an
       event-sourced workflow engine in Go backed by 773 test functions and a race-checked CI gate,
       and delivered a paid billing platform for an industrial estate of 220+ units. I work with AI
-      coding agents (Claude Code) and own the specification, architecture, code review and
+      coding agents and own the specification, architecture, code review and
       testing. Available immediately for remote roles.
     project_order: [neuro-zenith, awis, hermes]
     skills_order: [languages, backend, data, infra, ai, frontend]
@@ -36,7 +36,7 @@ variants:
       AI application engineer who puts LLMs into real products. Built Neuro-Zenith, a local-first
       AI platform with a RAG pipeline (BGE embeddings, pgvector HNSW) and multi-provider LLM
       routing, and Hermes, a job-search pipeline that runs local LLMs through Ollama. I work with
-      AI coding agents (Claude Code) and own the specification, architecture, code review and
+      AI coding agents and own the specification, architecture, code review and
       testing. Available immediately for remote roles.
     project_order: [neuro-zenith, hermes, awis]
     skills_order: [ai, languages, backend, data, frontend, infra]

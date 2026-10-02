@@ -138,7 +138,7 @@ rate-control parameters
 Current target values inherited from the Master Plan include:
 
 ~~~
-100 confirmed applications/day
+100 confirmed, qualified applications/day
 ₹25,000/month India published salary floor
 ₹30,000/month global-remote published salary floor
 20 km normal office/hybrid radius from Shahibaug
@@ -721,6 +721,8 @@ Only one primary generative specialist should normally be resident on the 16 GB 
 
 Model storage size and parameter count are not substitutes for measured Linux/Ollama process RSS.
 
+Before loading or reloading a generative/scoring model, check current browser process RSS (BROWSER_SYSTEM.md §81); before opening a new browser context mid-cycle, check current Ollama RSS. If combined measured RSS would exceed the safe ceiling established during IMPLEMENTATION_ROADMAP.md §22's resource baseline, the lower-priority operation defers per the existing priority order (AI_SYSTEM.md §74).
+
 ---
 
 # 25. AI Output Validation
@@ -767,6 +769,8 @@ Do not rewind the whole database to an old snapshot merely because a browser cra
 Backups are disaster-recovery snapshots, not routine browser-crash undo points.
 
 SQLite busy errors require bounded retry/backoff while preserving transaction discipline.
+
+Checkpoint maintenance (reclaiming WAL pages back into the main database file) is owned by the existing periodic maintenance pass (WORKFLOW_ENGINE.md §76, "DB health") — it is not a separate worker or watchdog. If a long-lived reader blocks a checkpoint from completing, maintenance does not force-close that reader; it logs the condition and retries on the next pass. WAL file size is a monitored metric (§32) precisely so unbounded growth from a stuck checkpoint is visible rather than silent.
 
 ---
 
@@ -897,6 +901,17 @@ must not by themselves create an application acknowledgement.
 
 Response monitoring state must remain distinct from submission confirmation.
 
+Notifications travel the fixed path **Company → Platform → Gmail → Hermes → Telegram**. Every notification-worthy event must be classified into exactly one severity tier:
+
+~~~
+Ignore — no durable action, no record
+Log — recorded for observability, not surfaced to the user
+Telegram Notification — routine/operational, sent to the user's Telegram
+High Priority Telegram Notification — affects a human-required decision (Section 22 of ARCHITECTURE_REDESIGN_FINAL-2026-09-27-FROZEN.md: interview decisions, salary negotiation, offer handling, contract handling, legal/identity document handling)
+~~~
+
+Only `Telegram Notification` and `High Priority Telegram Notification` reach the user; `Ignore` and `Log` do not.
+
 ---
 
 # 32. Observability
@@ -928,6 +943,7 @@ browser crash/restart count
 process RSS
 model latency/failure rate
 DB busy/retry count
+WAL size / checkpoint lag
 source freshness
 ~~~
 

@@ -105,6 +105,29 @@ Foreign keys:
     ON
 \`\`\`
 
+## 3.1 Schema Version
+
+The database tracks its own schema generation using SQLite's built-in \`PRAGMA user_version\`.
+
+\`\`\`text
+PRAGMA user_version = <integer schema generation>
+\`\`\`
+
+Every schema migration step (Section 24) increments this value as part of the same migration transaction that applies the corresponding structural change.
+
+Before any write path runs, the worker must read \`PRAGMA user_version\` and refuse to start if it does not match the schema generation the running code expects. This is a compatibility check using an existing SQLite mechanism, not a new persistence mechanism; no additional table is introduced.
+
+\`PRAGMA user_version\` versions exactly one axis: the structural shape of this database (tables/columns/indexes). It is independent of, and must never substitute for:
+
+\`\`\`text
+identity_version      -- canonical-identity algorithm generation (§5.3/§5.4, opportunities row)
+policy_version         -- eligibility/scoring policy generation (§10.2, evaluation_history row)
+model_version          -- AI model identifier/generation (§10.2, evaluation_history row; AI_SYSTEM.md §25)
+prompt/output-schema version  -- AI prompt + structured-output-schema generation (recorded in evaluation_history.metadata, §10.2; AI_SYSTEM.md §25)
+\`\`\`
+
+A mismatch on any one of these axes does not imply a mismatch on another: a database schema upgrade does not require re-scoring existing evaluations, and a model/prompt change does not require a database migration. Each axis is read and compared independently by the subsystem that owns it.
+
 The database must persist enough state to reconstruct the actionable system after process death.
 
 A derived queue may be rebuilt.
@@ -181,6 +204,7 @@ fit_confidence              REAL
 fit_reasons                 TEXT
 core_or_stretch             TEXT
 application_state           TEXT NOT NULL
+current_attempt_id          INTEGER REFERENCES application_attempts
 terminal_reason             TEXT
 selected_resume_variant     TEXT
 current_cover_letter_ref    TEXT
@@ -322,25 +346,52 @@ A low historical score does not make the opportunity a permanent tombstone.
 
 ## 5.9 Application state
 
-\`application_state\` describes the current application relationship to the canonical opportunity.
+\`application_state\` describes the opportunity's current position in the processing lifecycle — the dimension WORKFLOW_ENGINE.md §4 calls "opportunity processing state." It is deliberately narrow.
 
-It must not be used to store raw browser errors or source-specific observation state.
-
-Conceptual values include:
+It must **not** be used to store:
 
 \`\`\`text
-NOT_APPLIED
+raw browser errors
+source-specific observation state
+application outcome (owned by application_attempts.outcome)
+channel operational health (owned by channel_health.status)
+\`\`\`
+
+The authoritative value set — identical to WORKFLOW_ENGINE.md §4 and IMPLEMENTATION_ROADMAP.md §34 — is:
+
+\`\`\`text
+OBSERVED
+EVALUATING
 READY
 APPLYING
-SUBMITTED
-ALREADY_APPLIED
-SUBMISSION_UNCONFIRMED
-RETRY_WAIT
-CHANNEL_BLOCKED
-UNSUPPORTED_CHANNEL
-MANUAL_REVIEW
+AWAITING_RECONCILIATION
+COMPLETED
 EXPIRED
+MANUAL_REVIEW
 \`\`\`
+
+Mapping notes:
+
+\`\`\`text
+a confirmed submission or a confirmed prior application
+    → opportunity moves to COMPLETED
+    (application_attempts.outcome distinguishes SUBMITTED vs ALREADY_APPLIED)
+
+an ambiguous submit
+    → opportunity moves to AWAITING_RECONCILIATION
+    (application_attempts.outcome = SUBMISSION_UNCONFIRMED)
+
+a retryable failure
+    → opportunity returns to READY
+    (retry timing lives in work_queue.next_attempt_at, not in this field)
+
+a channel block or unsupported route
+    → opportunity remains READY, EXPIRED, or MANUAL_REVIEW depending on whether
+      another legitimate route exists
+    (application_attempts.outcome and channel_health.status carry the detail)
+\`\`\`
+
+This field carries no attempt-outcome or channel-health literal. Those dimensions are never collapsed into it, consistent with ARCHITECTURE_REDESIGN_FINAL.md §5.1 ("These states must not be collapsed into a single overloaded status field...").
 
 Exact workflow transitions are owned by Doc 4 (\`WORKFLOW_ENGINE.md\`); this document defines the data meaning only.
 
@@ -457,6 +508,7 @@ lease_until                 DATETIME
 started_at                  DATETIME
 finished_at                 DATETIME
 attempt_state               TEXT NOT NULL
+execution_phase              TEXT NOT NULL DEFAULT 'NOT_STARTED'
 outcome                     TEXT
 error_code                  TEXT
 error_class                 TEXT
@@ -510,9 +562,66 @@ UNSUPPORTED_CHANNEL
 TERMINAL_FAILURE
 \`\`\`
 
+\`application_attempts.retry_eligible\` (§7.2) is the attempt-level classification of that outcome, set once when the attempt finishes:
+
+\`\`\`text
+owner: DATA_MODEL.md (this section)
+inputs: this attempt's own outcome and error_class
+exact truth condition: retry_eligible = 1 if and only if outcome/error_class falls in the "bounded retry" /
+        "bounded reinspection" / "channel cooldown" rows of WORKFLOW_ENGINE.md §114 (Retry Matrix);
+        0 for SUBMITTED, ALREADY_APPLIED, SUBMISSION_UNCONFIRMED (reconciliation-gated, not auto-retry),
+        UNSUPPORTED_CHANNEL, and TERMINAL_FAILURE
+evaluation moment: written in the same transaction that records the attempt's outcome (WORKFLOW_ENGINE.md §68)
+persisted, not derived; not cacheable (single write, read-only after)
+consumers: WORKFLOW_ENGINE.md §22 (Retry Eligibility) reads this attempt-level bit as its "retryable outcome"
+        input; it is one input among several, not the full opportunity-level retry-eligibility predicate
+\`\`\`
+
+This bit answers "was this attempt's own result the kind that permits automatic retry" — a fact about one attempt. It is not the same question as "is this opportunity retry-eligible right now" (WORKFLOW_ENGINE.md §22), which additionally depends on attempt count, confirmed-submission history, route availability, and retry timing.
+
 Exact workflow transition ownership belongs to Doc 4.
 
-## 7.5 Attempt evidence
+## 7.5 Execution phase
+
+\`execution_phase\` is the field ARCHITECTURE_REDESIGN_FINAL.md §4.4 names but does not itself schema-define; this section is that definition, and it is the single authoritative source WORKFLOW_ENGINE.md §41-§45 and BROWSER_SYSTEM.md §70/§72 must read/write.
+
+It exists to answer the one question crash recovery cannot answer from \`attempt_state\` (CLAIMED/STARTED/FINISHED) alone: **did external, possibly-irreversible work begin before the process died?**
+
+\`\`\`text
+NOT_STARTED             -- attempt claimed; no browser/network action toward the target site has begun
+EXTERNAL_WORK_STARTED   -- browser navigation/form-fill toward the target site is in progress; the Submit control has not been invoked
+SUBMIT_INTENT           -- the Submit control has been invoked; an external mutation may have occurred; this is the irreversible boundary
+OBSERVED                -- post-submit observation (BROWSER_SYSTEM.md §61) has completed and evidence has been collected; \`outcome\` then classifies the result
+\`\`\`
+
+Contract:
+
+\`\`\`text
+owner: DATA_MODEL.md (this section)
+inputs: browser-driver progress signal (BROWSER_SYSTEM.md §70's external_work_started marker maps to
+        NOT_STARTED -> EXTERNAL_WORK_STARTED; BROWSER_SYSTEM.md §72's "submit-stage marker" maps to
+        EXTERNAL_WORK_STARTED -> SUBMIT_INTENT); post-submit observation completion maps to
+        SUBMIT_INTENT -> OBSERVED
+exact truth condition: monotonic forward-only progression through the four values above; set by the
+        same transaction/write that performs the corresponding browser action, never inferred after the fact
+evaluation moment: written synchronously as the browser layer crosses each boundary, not batch-recomputed
+persisted, not derived: yes -- this is precisely the field lease recovery needs to survive process death
+cacheable: no
+consumers: WORKFLOW_ENGINE.md §41-§45 (crash classification), §103-§105 (late-result fencing)
+\`\`\`
+
+Lease-recovery classification (WORKFLOW_ENGINE.md §45) reads directly off this field:
+
+\`\`\`text
+execution_phase = NOT_STARTED             -> "No external action started"    -> release/requeue
+execution_phase = EXTERNAL_WORK_STARTED   -> "Browser started, submit not reached" -> retry only when safe
+execution_phase = SUBMIT_INTENT           -> "Submit may have occurred"      -> mark unconfirmed, reconcile
+execution_phase = OBSERVED                -> outcome already classified; recovery defers to outcome, not phase
+\`\`\`
+
+A crash never rewrites \`execution_phase\` backward. If the process dies at \`SUBMIT_INTENT\`, that value is what recovery inspects — it is proof of "submit may have occurred" and is the concrete durable state WORKFLOW_ENGINE.md §42/§43 mean by "when evidence proves the submit phase was not reached" and "when submission may have occurred."
+
+## 7.6 Attempt evidence
 
 The attempt ledger must preserve evidence needed to explain an outcome.
 
@@ -529,7 +638,7 @@ browser/network supporting signal
 
 Do not store secrets such as Gmail app passwords, session cookies, access tokens, or passwords in the attempt record.
 
-## 7.6 Submission invariant
+## 7.7 Submission invariant
 
 \`\`\`text
 SUBMITTED requires sufficient evidence.
@@ -554,6 +663,8 @@ Lever
 Ashby
 Direct
 \`\`\`
+
+LinkedIn is permanently unsupported: Hermes must not automate LinkedIn and must not depend on LinkedIn, so no \`channel_key\` may represent it and no \`channel_health\` row may ever be created for it.
 
 The same channel can have different health states over time.
 
@@ -709,6 +820,8 @@ model_version               TEXT
 metadata                    TEXT
 \`\`\`
 
+\`metadata\` is where the prompt/output-schema version and input version AI_SYSTEM.md §25 requires retained are recorded (as structured JSON); no separate column is introduced for them, consistent with §3.1's rule that this is a distinct versioning axis from \`policy_version\`, \`model_version\`, and the database's own \`PRAGMA user_version\`.
+
 ## 10.3 Evaluation types
 
 Examples:
@@ -765,6 +878,7 @@ opportunity_id              INTEGER REFERENCES opportunities
 attempt_id                  INTEGER REFERENCES application_attempts
 job_url_observed            TEXT
 notified_at                 DATETIME
+notification_level          TEXT
 message_hash                TEXT
 correlation_reason          TEXT
 raw_message_ref             TEXT
@@ -773,14 +887,7 @@ created_at                  DATETIME NOT NULL
 
 ## 11.3 Response classifications
 
-At minimum:
-
-\`\`\`text
-positive
-rejection
-ack
-other
-\`\`\`
+Allowed values are the four categories defined in WORKFLOW_ENGINE.md §62 and must use that exact wording, consistent with §11.6's rule for \`notification_level\`: \`screening_follow_up\`, \`human_required_signal\`, \`rejection\`, \`acknowledgement\`, \`ambiguous\`. (five values)
 
 Classification must not be inferred from generic boilerplate alone when stronger correlation evidence exists.
 
@@ -804,6 +911,23 @@ A response must not be linked to an opportunity solely because it contains a gen
 
 A confirmation email may contribute to \`application_attempts\` evidence, but the response watcher must not retroactively fabricate an attempt that does not exist.
 
+## 11.6 Notification level
+
+\`notification_level\` persists the severity tier that Section 61's classification decision assigned, so an engineer is not left inventing the field or its allowed values. This is the single existing gap the notification model needs closed: no durable field previously existed anywhere in this document to hold it.
+
+Allowed values are the four tiers defined once in WORKFLOW_ENGINE.md §61 (sourced from SYSTEM_RULES.md §31) and must use that exact wording, not a paraphrase:
+
+\`\`\`text
+Ignore
+Log
+Telegram Notification
+High Priority Telegram Notification
+\`\`\`
+
+\`Ignore\`-tier events produce no durable record by definition (WORKFLOW_ENGINE.md §61), so \`notification_level = 'Ignore'\` should not normally appear as a persisted row; a \`responses\` row that exists at all is expected to carry \`Log\`, \`Telegram Notification\`, or \`High Priority Telegram Notification\`.
+
+\`notification_level\` is independent from \`classification\` (§11.3): \`classification\` describes what the message is, \`notification_level\` describes what Hermes did about it. The mapping from classification to level is owned by WORKFLOW_ENGINE.md §62, not by this table.
+
 ---
 
 # 12. \`daily_limits\`
@@ -816,7 +940,7 @@ Daily quota state protects the system-wide application cap and supports accurate
 
 \`\`\`text
 date                        TEXT PRIMARY KEY
-linkedin_count              INTEGER NOT NULL DEFAULT 0
+indeed_count                INTEGER NOT NULL DEFAULT 0
 other_count                 INTEGER NOT NULL DEFAULT 0
 total_count                 INTEGER NOT NULL DEFAULT 0
 confirmed_count             INTEGER NOT NULL DEFAULT 0
@@ -824,11 +948,13 @@ attempt_count               INTEGER NOT NULL DEFAULT 0
 updated_at                  DATETIME NOT NULL
 \`\`\`
 
+\`indeed_count\` replaces a prior \`linkedin_count\` field: LinkedIn is permanently unsupported (Hermes must not automate or depend on LinkedIn), so a per-platform counter must not exist for it. Indeed is the current Supported (Primary) platform and is therefore the per-platform counter actually needed today; \`other_count\` continues to cover every other enabled channel (e.g. Greenhouse, Lever) without naming a specific unsupported platform.
+
 The exact fields may be normalized or extended, but the distinction between **attempts** and **confirmed submissions** must remain.
 
 ## 12.3 Counting invariant
 
-Only confirmed new submissions count toward the 100/day target.
+Only confirmed new submissions, for opportunities that passed hard eligibility (DATA_MODEL.md §5.7), count toward the 100 qualified applications/day target.
 
 \`\`\`text
 confirmed new submission    +1
@@ -1111,12 +1237,15 @@ BEGIN IMMEDIATE
 
 select one claimable opportunity
 
-create/update application_attempts row
+create new application_attempts row (new attempt_id, next attempt_number)
 mark opportunity as APPLYING
+set opportunities.current_attempt_id = new attempt_id
 set lease_until
 
 COMMIT
 \`\`\`
+
+Every retry creates a **new** \`application_attempts\` row with a new \`attempt_id\` (Section 7.3); an expired lease is never reused for a subsequent attempt.
 
 No browser interaction occurs while the transaction is holding its write lock.
 
@@ -1128,6 +1257,23 @@ worker_id
 claimed_at
 lease_until
 \`\`\`
+
+## 19.1 Lease Fencing Contract
+
+\`opportunities.current_attempt_id\` (Section 5.2) is the fencing token. It is set only inside the claim transaction above, and only the attempt currently named there is authorized to mutate the opportunity's \`application_state\`.
+
+Every write that promotes an attempt's result onto the opportunity must be conditioned on still owning the lease:
+
+\`\`\`text
+UPDATE opportunities
+SET application_state = :new_state, ...
+WHERE opportunity_id = :opportunity_id
+  AND current_attempt_id = :attempt_id
+\`\`\`
+
+If this statement affects zero rows, the writing attempt is no longer the current owner — a later attempt has already claimed the opportunity. The write must be discarded and the result routed to reconciliation (WORKFLOW_ENGINE.md §40) rather than applied. This is what "Worker Fencing" (WORKFLOW_ENGINE.md §105) means concretely: no separate token table or generation counter is introduced, and no new architecture is added. \`application_attempts.attempt_id\` already changes on every retry (Section 7.3), so a stale worker attempting to write always carries an \`attempt_id\` that no longer matches \`opportunities.current_attempt_id\`, and its write is atomically rejected by the \`WHERE\` clause above.
+
+This closes the late-write race described in WORKFLOW_ENGINE.md §104 ("Late Success vs Retry"): attempt 1's late success report can still update its own \`application_attempts\` row (preserving evidence for reconciliation), but it can no longer overwrite \`opportunities.application_state\` once attempt 2 has claimed the lease.
 
 The data model does not permit a browser crash to erase unrelated opportunity, observation, response, or attempt history.
 
@@ -1326,6 +1472,10 @@ A migrated submission must carry as much evidence linkage as the legacy data can
 
 The migration must never upgrade an unverified historical row into \`SUBMITTED\` merely because its status string says \`submitted\` if stronger evidence contradicts it.
 
+## 23.6 Legacy attempt rows and \`execution_phase\`
+
+Every migrated \`application_attempts\` row must receive a value for \`execution_phase\` (§7.5) — it is \`NOT NULL\`. A legacy row that already carries a terminal \`outcome\` (\`SUBMITTED\`, \`ALREADY_APPLIED\`, \`SUBMISSION_UNCONFIRMED\`, \`RETRYABLE_FAILURE\`, \`CHANNEL_BLOCKED\`, \`UNSUPPORTED_CHANNEL\`, \`TERMINAL_FAILURE\`) backfills to \`OBSERVED\` — the outcome itself is the durable record, and \`execution_phase\` at that point only matters for in-flight recovery, which does not apply to a historical row. A legacy row with no recorded outcome and no way to determine whether external work began must **not** default to \`NOT_STARTED\` — that value asserts "safe to retry," which is exactly the unverified assumption §23.5 forbids. Such a row backfills to \`SUBMIT_INTENT\` (the conservative value: "submission may have occurred, reconcile before touching") unless migration evidence positively supports a more precise classification.
+
 ---
 
 # 24. Migration Strategy
@@ -1396,16 +1546,20 @@ Conceptual predicate:
 current_open_state IN (OPEN, UNKNOWN when policy allows)
 AND age_band IN (0_3D, 4_7D, 8_14D, 15_21D)
 AND hard_eligibility_state = ELIGIBLE
-AND application_state NOT IN (
-    SUBMITTED,
-    ALREADY_APPLIED,
-    APPLYING,
-    MANUAL_REVIEW,
-    EXPIRED
-)
+AND application_state = READY
 AND no permanent all-channel block
 AND retry conditions satisfied
 \`\`\`
+
+\`COMPLETED\` covers both a confirmed submission and a confirmed prior application (see §5.9); both are canonical-history-protected and must not re-enter the reserve.
+
+\`retry conditions satisfied\` is not a separate predicate; it is exactly:
+
+\`\`\`text
+work_queue.next_attempt_at IS NULL OR work_queue.next_attempt_at <= now()
+\`\`\`
+
+i.e. either this opportunity has never failed an attempt (no retry timer set), or its backoff (WORKFLOW_ENGINE.md §23) has already elapsed. An opportunity whose retry is not yet due fails this clause and correctly does not count toward \`READY_RESERVE\` even though its \`application_state\` remains \`READY\` — it exists but is not currently claimable. This is the timing half of WORKFLOW_ENGINE.md §22's full opportunity-level retry-eligibility predicate; §22 additionally governs whether automatic retry is permitted **at all** (attempt count, route availability). An opportunity that has exhausted \`MAX_ATTEMPTS\` (§7.3) without a confirmed submission is moved to \`MANUAL_REVIEW\` by WORKFLOW_ENGINE.md §66/§68, which the \`application_state NOT IN (...)\` clause above already excludes — so exhausted-retry opportunities cannot silently inflate the reserve by lingering in \`READY\` forever.
 
 This derivation prevents:
 
@@ -1456,6 +1610,33 @@ The scheduler will query:
 → 8_14D
 → 15_21D
 \`\`\`
+
+## 27.1 Recomputation Contract
+
+The stored \`opportunities.age_band\` column is a denormalized cache that exists so the scheduler's claim query can filter/index cheaply. It is **not** the canonical age determination.
+
+\`\`\`text
+canonical age_band = f(age_basis, age_reference_at, now)
+\`\`\`
+
+using the boundary hours fixed in ARCHITECTURE_REDESIGN_FINAL.md §3.2 (0–72h / >72–168h / >168–336h / >336–504h / >504h = EXPIRED).
+
+Two refresh paths keep the cached column from drifting past a band boundary:
+
+\`\`\`text
+1. Per-claim revalidation (WORKFLOW_ENGINE.md §72 "Candidate Revalidation";
+   IMPLEMENTATION_ROADMAP.md §38 "M2 — Freshness Revalidation")
+   recomputes age_band live from age_reference_at at claim time and
+   uses that live value for the claim decision, never the stale cached
+   column alone.
+
+2. A periodic maintenance sweep (WORKFLOW_ENGINE.md §76) recomputes and
+   persists age_band for all non-expired opportunities so the cached
+   column, indexes, and reserve/observability counts stay accurate
+   between claims.
+\`\`\`
+
+An opportunity's cached \`age_band\` may lag between sweeps; the scheduler's claim-time revalidation is the correctness guarantee, and the sweep is the performance/observability guarantee. Neither may be skipped.
 
 The data model must not introduce additional age-priority tiers for:
 

@@ -8,7 +8,7 @@
 **Target runtime:** Arch Linux · Ryzen 7 7730U · 16 GB RAM · Vega 8 iGPU · CPU-only  
 **Primary runtime:** Ollama · SQLite/WAL · local Chromium/Chrome via BrowserGateway  
 **Operating mode:** Continuous unattended worker while the laptop is available  
-**Primary objective:** 100 truthful, confirmed new applications/day
+**Primary objective:** 100 truthful, confirmed, qualified new applications/day
 
 > **Authority:** The frozen architecture is the parent technical specification. This Master Plan is the project-level execution contract beneath it. Every lower-level plan, prompt, implementation, and verification activity must work downward from these two documents. Lower-level documents may add implementation detail; they may not silently redefine architecture.
 
@@ -45,14 +45,14 @@ The project is not a scraping script, a browser macro, or a security-evasion too
 The target is:
 
 ```text
-100 confirmed new applications per 24 hours
+100 confirmed, qualified new applications per 24 hours
 ```
 
 Equivalent average rate:
 
 ```text
-4.17 confirmed applications/hour
-1 confirmed application every ~14.4 minutes on average
+4.17 confirmed, qualified applications/hour
+1 confirmed, qualified application every ~14.4 minutes on average
 ```
 
 This is an operating target, not an architectural guarantee.
@@ -612,6 +612,8 @@ Additional candidate-facing platforms are optional and should be introduced only
 
 The project must not expand platform count merely to make architecture look larger.
 
+Platform status is fixed: **Indeed** = supported primary channel; **We Work Remotely** = Future Phase 2; **Wellfound** = Future Phase 3; **Greenhouse**, **Lever**, and **Ashby** = Future Evaluation (already implemented at the discovery/routing level, not committed/actively-expanded production channels; Ashby submission is currently blocked by platform anti-bot); **LinkedIn** = permanently unsupported — Hermes must not automate LinkedIn and must not depend on LinkedIn. Rollout proceeds strictly in order: perfect Indeed, then add the single easiest platform, then add one medium-complexity platform, then stop and re-evaluate the hardest integrations before any further implementation.
+
 ## 10.3 Source handling
 
 For each source:
@@ -926,6 +928,8 @@ Gmail IMAP
 → response state
 → notification
 ```
+
+Notification follows the fixed communication path **Company → Platform → Gmail → Hermes → Telegram**. Each notification is assigned exactly one severity tier (defined in `SYSTEM_RULES.md` §31: Ignore / Log / Telegram Notification / High Priority Telegram Notification); only the latter two reach the user's Telegram client.
 
 Classification must avoid broad false signals such as treating any `no-reply` message or generic footer phrase as an application acknowledgement.
 
@@ -1413,7 +1417,7 @@ resource containment
 accurate throughput accounting
 ```
 
-And, when sufficient legitimate supply and channel availability exist, measured operation must be capable of reaching the project's 100 confirmed applications/day target.
+And, when sufficient legitimate supply and channel availability exist, measured operation must be capable of reaching the project's 100 confirmed, qualified applications/day target.
 
 ---
 

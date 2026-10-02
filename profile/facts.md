@@ -9,7 +9,7 @@ here, the candidate cannot claim it.
 - Name: Saral Banker
 - Location: Ahmedabad, Gujarat, India (Shahibaug) — open to fully remote roles, or on-site/hybrid within Ahmedabad
 - Email: saralbanker1@gmail.com
-- Phone: +91 9016990136
+- Phone: +91 9106990136
 - GitHub: github.com/saralbanker
 - LinkedIn: linkedin.com/in/saralbanker
 - Portfolio: orvion-co.vercel.app

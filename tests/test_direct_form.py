@@ -76,6 +76,38 @@ def test_map_error_login_wall_is_not_the_indeed_login_required_state():
 
 
 # ---------------------------------------------------------------------------
+# _drive_steps — overall apply-time-budget deadline (Phase 9 audit, checklist
+# item 11, bounded execution): a hung/slow browser call must land on a
+# retryable outcome, not stall the attempt past the hard time budget.
+# ---------------------------------------------------------------------------
+
+def test_drive_steps_deadline_already_exceeded_returns_network_error_without_touching_page(monkeypatch):
+    calls = {"n": 0}
+
+    def fail_if_called(*_a, **_kw):
+        calls["n"] += 1
+        raise AssertionError("must not drive the page past an already-expired deadline")
+
+    monkeypatch.setattr(df, "_dismiss_cookies", fail_if_called)
+    monkeypatch.setattr(df, "_wall_state", fail_if_called)
+    monkeypatch.setattr(df, "_extract_fields", fail_if_called)
+
+    import time
+    error, evidence = df._drive_steps(
+        page=None, cover_letter="cover", resume_path="resume.pdf", cover_path="cover.txt",
+        dry_run=False, deadline=time.monotonic() - 1,
+    )
+    assert error == "network_error:exceeded apply time budget"
+    assert evidence is None
+    assert calls["n"] == 0
+
+    # And the resulting error code maps to the retryable NETWORK_ERROR state,
+    # not a silently-dropped or terminal one.
+    result = df._map_error(error, screenshot=None)
+    assert result.state == S.NETWORK_ERROR
+
+
+# ---------------------------------------------------------------------------
 # run_direct_apply — no URL to open at all
 # ---------------------------------------------------------------------------
 
