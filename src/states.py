@@ -43,11 +43,13 @@ MODEL_UNAVAILABLE = "model_unavailable"
 MODEL_TIMEOUT = "model_timeout"
 FAILED = "failed"                              # unexpected error (retryable up to MAX_ATTEMPTS)
 DRY_RUN_OK = "dry_run_ok"                      # form filled, submit deliberately skipped (never stored)
+VALIDATION_FAILED = "validation_failed"        # pre-submission gate blocked it (terminal, not retryable:
+                                                # a data problem, not a transient one — needs a human fix)
 
 APPLIER_STATES = frozenset({
     SUBMITTED, EXPIRED, INVALID, LOGIN_REQUIRED, SECURITY_INTERSTITIAL, CAPTCHA_REQUIRED,
     BLOCKED_ANTIBOT, OTP_REQUIRED, NETWORK_ERROR, FORM_CHANGED, ALREADY_APPLIED,
-    SUBMISSION_UNCONFIRMED, UNSUPPORTED_CHANNEL, FAILED, DRY_RUN_OK,
+    SUBMISSION_UNCONFIRMED, UNSUPPORTED_CHANNEL, FAILED, DRY_RUN_OK, VALIDATION_FAILED,
 })
 
 # States that go back to TAILORED for another attempt on a later run.

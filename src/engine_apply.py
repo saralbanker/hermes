@@ -33,6 +33,7 @@ from pathlib import Path
 import yaml
 
 import states as S
+from submission_gate import run_submission_gate
 from engine import channel_health as ch
 from engine import claim, db as enginedb, transitions
 from engine.enums import ChannelStatus, ExecutionPhase
@@ -439,6 +440,12 @@ def _drive_redirect_channel_and_record(conn: sqlite3.Connection, claimed: claim.
     and is what every channel_health write below is keyed on — `execution_channel` is only
     used to pick the driver (ats_apply vs direct_form) and is never itself written to
     channel_health here."""
+    # Gate first — after route resolution, before any run_*_apply and before the Ashby
+    # refusal — so a bad-data job is a terminal VALIDATION_FAILED, never mis-booked as an
+    # anti-bot block against channel health.
+    blocked = _gate_or_record_block(conn, claimed, job, cover_letter, now)
+    if blocked is not None:
+        return blocked
     if execution_channel == S.CH_ASHBY:
         # Same platform-wide anti-bot refusal src/apply.py's route() hardcodes for Ashby
         # (IMPLEMENTATION_ROADMAP.md §85: "Ashby is not a bypass project") — a deliberate
@@ -481,9 +488,26 @@ def _claim_preconditions(conn: sqlite3.Connection, claimed: claim.ClaimResult, j
     return None
 
 
+def _gate_or_record_block(conn: sqlite3.Connection, claimed: claim.ClaimResult, job: dict,
+                          cover_letter: str | None, now: str):
+    """Hard pre-submission gate (src/submission_gate.py::run_submission_gate — the same
+    single fail-closed entry point src/apply.py uses). Returns None when the job is clean;
+    otherwise records a terminal VALIDATION_FAILED outcome (execution_phase is still
+    NOT_STARTED: no external work has begun) and returns its TransitionResult. Callers
+    MUST return that result without calling any run_*_apply function."""
+    findings = run_submission_gate(job, cover_letter)
+    if not findings:
+        return None
+    result = S.ApplyResult(S.VALIDATION_FAILED, "; ".join(findings)[:400])
+    return _record_outcome(conn, claimed, result, now)
+
+
 def _drive_and_record(conn: sqlite3.Connection, claimed: claim.ClaimResult, job: dict,
                        cover_letter: str, resume_path: str, screenshot_dir: str,
                        dry_run: bool, now: str):
+    blocked = _gate_or_record_block(conn, claimed, job, cover_letter, now)
+    if blocked is not None:
+        return blocked
     Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
     screenshot_path = str(Path(screenshot_dir) / f"{claimed.attempt_id}_indeed.png")
     on_progress = _make_progress_writer(conn, claimed.attempt_id)
@@ -540,6 +564,9 @@ def _record_outcome(conn: sqlite3.Connection, claimed: claim.ClaimResult, result
     if simple is not _NO_MATCH:
         return simple
 
+    if result.state == S.VALIDATION_FAILED:
+        return _record_validation_failed(conn, claimed, result, phase, now)
+
     if result.state == S.LOGIN_REQUIRED:
         return _record_login_required(conn, claimed, not_started, now)
 
@@ -595,6 +622,17 @@ def _record_simple_outcome(conn: sqlite3.Connection, claimed: claim.ClaimResult,
     if state == S.UNSUPPORTED_CHANNEL:
         return transitions.record_unsupported_channel(conn, claimed.attempt_id, claimed.opportunity_id, now=now)
     return _NO_MATCH
+
+
+def _record_validation_failed(conn: sqlite3.Connection, claimed: claim.ClaimResult, result,
+                               phase: ExecutionPhase, now: str):
+    """Pre-submission gate block (src/submission_gate.py): a data problem that needs a
+    human fix — terminal (MANUAL_REVIEW), never retried, and no channel_health effect
+    (the channel itself is fine). The finding text is kept in error_code for triage."""
+    return transitions.record_terminal_failure(
+        conn, claimed.attempt_id, claimed.opportunity_id, execution_phase=phase,
+        error_class="validation_failed", error_code=(result.detail or "")[:200], now=now,
+    )
 
 
 def _record_confirmed(conn: sqlite3.Connection, claimed: claim.ClaimResult, result, now: str):

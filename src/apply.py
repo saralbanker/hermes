@@ -35,6 +35,7 @@ from cap_enforcer import remaining_today
 from db import (already_applied_key, claim_job, dedupe_key, get_conn, get_jobs_by_status,
                 increment_daily, init_db, tier_counts_today, update_job)
 from filters import role_priority
+from submission_gate import run_submission_gate
 
 ROOT = Path(__file__).parent.parent
 SCREENSHOTS = ROOT / "screenshots"
@@ -268,10 +269,18 @@ def apply_one(job: dict, cfg: dict, dry_run: bool) -> S.ApplyResult | None:
     SCREENSHOTS.mkdir(exist_ok=True)
     shot = str(SCREENSHOTS / f"{slug(job)}.png")
     cover = read_cover_letter(job.get("cover_letter_path"))
-    try:
-        result = route(job, cover, resolve_resume(job.get("resume_variant"), cfg), shot, dry_run)
-    except Exception as exc:  # an applier bug must not kill the batch; recorded as FAILED
-        result = S.ApplyResult(S.FAILED, f"{type(exc).__name__}: {exc}"[:400])
+    # Hard pre-submission gate: identity/placeholder/company checks on the cached cover
+    # letter + identity payload about to reach a channel submitter. ANY failed check —
+    # or any failure of the gate itself (it fails closed, never raises) — blocks dispatch
+    # below: no warning mode, no soft fail.
+    gate_problems = run_submission_gate(job, cover)
+    if gate_problems:
+        result = S.ApplyResult(S.VALIDATION_FAILED, "; ".join(gate_problems)[:400])
+    else:
+        try:
+            result = route(job, cover, resolve_resume(job.get("resume_variant"), cfg), shot, dry_run)
+        except Exception as exc:  # an applier bug must not kill the batch; recorded as FAILED
+            result = S.ApplyResult(S.FAILED, f"{type(exc).__name__}: {exc}"[:400])
     record_result(job, result)
     return result
 
