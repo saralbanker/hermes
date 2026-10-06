@@ -25,11 +25,15 @@ here, the candidate cannot claim it.
 
 ## Work experience
 - Freelance Full-Stack & AI Application Developer, Ahmedabad, Jan 2025 – present.
+<!-- RETIRED:Shade Ledger -->
   - Shade Ledger (paid client contract, Rs. 60,000): maintenance billing and collection system for an
     industrial estate of 220+ shed units. Replaced a manual Excel workflow: owners/tenants, invoices,
     payments, penalty calculation, WhatsApp reminders, reports. Saves the client 40+ hours of manual work per month.
     Stack: React, TypeScript, Vite, Supabase/PostgreSQL, later migrated to Convex.
+<!-- /RETIRED -->
+<!-- RETIRED:HeatMax -->
   - HeatMax (client project): product catalog website for an industrial boiler manufacturer. React, TypeScript, Supabase.
+<!-- /RETIRED -->
 
 ## Projects
 - AWIS (Jul 2026 – present, personal, private repo): local-first, event-sourced workflow execution engine in Go.
@@ -45,7 +49,9 @@ here, the candidate cannot claim it.
   local Qwen), Sentry and Prometheus, GitHub Actions CI. About 70,000 lines across 400+ files.
 - Hermes (2026, personal, private repo): automated job-search pipeline in Python — scraping, local-LLM scoring with
   Ollama, browser automation with Playwright/DrissionPage, SQLite state machine, systemd scheduling.
+<!-- RETIRED:Carbon Compass -->
 - Carbon Compass (public repo): carbon emission calculator for manufacturing compliance reporting.
+<!-- /RETIRED -->
 
 ## How I work (state this honestly when relevant)
 - I build software with AI coding agents (Claude Code and similar). I write the specification and acceptance

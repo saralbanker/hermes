@@ -3,7 +3,10 @@ WORKFLOW_ENGINE.md §41-45, §103-105, §158; DATA_MODEL.md §20."""
 
 import datetime as dt
 
+import pytest
+
 from engine import claim, db as enginedb, recovery, retry, transitions
+from engine.policy import MAX_VALIDATION_ATTEMPTS
 
 
 def _expire_lease(conn, attempt_id):
@@ -202,3 +205,99 @@ def test_expire_stale_opportunities_sweep(make_opportunity, engine_conn):
         "SELECT COUNT(*) AS n FROM work_queue WHERE opportunity_id = ?", (opp_id,)
     ).fetchone()
     assert row["n"] == 0
+
+
+# ---------------------------------------------------------------------------
+# §5.2/§5.3 — release_manual_review: the only way out of MANUAL_REVIEW, and the
+# validation-failure budget reset it grants.
+# ---------------------------------------------------------------------------
+
+def _requeue_indeed(engine_conn, opp_id, now):
+    engine_conn.execute(
+        "INSERT INTO work_queue (opportunity_id, ready_state, age_band, priority_score, "
+        "candidate_channel, updated_at) VALUES (?, 'READY', '0_3D', 0.9, 'indeed', ?)",
+        (opp_id, now),
+    )
+
+
+def _one_gate_finding(engine_conn, now):
+    claimed = claim.claim_next(engine_conn, "w1", 900, now, channel_filter="indeed")
+    assert claimed is not None, "opportunity must still be claimable before exhaustion"
+    return transitions.record_validation_finding(
+        engine_conn, claimed.attempt_id, claimed.opportunity_id,
+        error_class="gate_finding", error_code="cover letter is empty, missing, or whitespace-only",
+        now=now,
+    )
+
+
+def _seconds_later(now: str, n: int) -> str:
+    return (dt.datetime.strptime(now, "%Y-%m-%d %H:%M:%S") + dt.timedelta(seconds=n)).strftime(
+        "%Y-%m-%d %H:%M:%S")
+
+
+def test_release_manual_review_resets_validation_failure_budget(make_opportunity, seed_channel, engine_conn):
+    """Exhaust MAX_VALIDATION_ATTEMPTS via repeated gate findings (-> MANUAL_REVIEW), release
+    via release_manual_review, and confirm the budget is genuinely fresh: the 3 pre-release
+    attempts must not count against the post-release budget (countable_validation_failure_count
+    resets to 0 immediately), and a 4th finding after release is attempt 1 of a new 3 — not an
+    instant re-exhaustion back into MANUAL_REVIEW. Mechanically proves what the Implementation
+    Agent verified with an ad hoc script, now as a real pytest test.
+
+    Timestamps are explicit and strictly increasing (never enginedb.now_iso() back-to-back):
+    countable_validation_failure_count's cutoff is `created_at > manual_released_at` — an
+    attempt created at the exact same (second-granularity) timestamp as the release is, by
+    that filter's own documented intent, treated as at/before the release and excluded. Real
+    wall-clock calls a few microseconds apart can collide on the same second, which would
+    make this test flaky without forcing distinct seconds explicitly.
+    """
+    seed_channel("indeed")
+    # latest_application_route is what release_manual_review's fresh work_queue row carries
+    # forward as candidate_channel (src/engine/recovery.py) — normally set by discovery.py;
+    # set explicitly here so the post-release claim_next(channel_filter="indeed") can find it.
+    opp_id = make_opportunity("canon::release-boundary", latest_application_route="indeed")
+
+    now = enginedb.now_iso()
+    for _ in range(MAX_VALIDATION_ATTEMPTS - 1):
+        tr = _one_gate_finding(engine_conn, now)
+        assert tr.new_application_state == "READY"
+        _requeue_indeed(engine_conn, opp_id, now)
+        now = _seconds_later(now, 1)
+
+    tr = _one_gate_finding(engine_conn, now)  # occurrence MAX_VALIDATION_ATTEMPTS: exhausted
+    assert tr.new_application_state == "MANUAL_REVIEW"
+    assert retry.countable_validation_failure_count(engine_conn, opp_id) == MAX_VALIDATION_ATTEMPTS
+
+    release_now = _seconds_later(now, 1)
+    release_tr = recovery.release_manual_review(engine_conn, opp_id, now=release_now)
+    assert release_tr.new_application_state == "READY"
+    assert retry.countable_validation_failure_count(engine_conn, opp_id) == 0
+    opp = enginedb.fetch_opportunity(engine_conn, opp_id)
+    assert opp["application_state"] == "READY"
+    assert opp["current_attempt_id"] is None
+
+    # release_manual_review re-inserts its own work_queue row — claimable again immediately,
+    # strictly after the release timestamp.
+    post_release_now = _seconds_later(release_now, 1)
+    claimed = claim.claim_next(engine_conn, "w1", 900, post_release_now, channel_filter="indeed")
+    assert claimed is not None
+
+    tr4 = transitions.record_validation_finding(
+        engine_conn, claimed.attempt_id, claimed.opportunity_id,
+        error_class="gate_finding", error_code="cover letter is empty, missing, or whitespace-only",
+        now=post_release_now,
+    )
+    assert tr4.new_application_state == "READY", "a 4th finding post-release must be attempt 1, not re-exhaustion"
+    assert retry.countable_validation_failure_count(engine_conn, opp_id) == 1
+
+
+def test_release_manual_review_refuses_a_non_manual_review_opportunity(make_opportunity, seed_channel, engine_conn):
+    seed_channel("indeed")
+    opp_id = make_opportunity("canon::release-refused")  # created straight to READY, never MANUAL_REVIEW
+    with pytest.raises(recovery.ManualReleaseError):
+        recovery.release_manual_review(engine_conn, opp_id)
+    assert enginedb.fetch_opportunity(engine_conn, opp_id)["application_state"] == "READY"
+
+
+def test_release_manual_review_refuses_a_nonexistent_opportunity(engine_conn):
+    with pytest.raises(recovery.ManualReleaseError):
+        recovery.release_manual_review(engine_conn, 999999)

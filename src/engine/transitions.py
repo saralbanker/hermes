@@ -19,8 +19,8 @@ from . import db as enginedb
 from .age import compute_age_band
 from .daily_limits import record_confirmed_submission
 from .enums import ApplicationState, ExecutionPhase, Outcome
-from .policy import MAX_ATTEMPTS, retry_eligible_bit
-from .retry import countable_attempt_count, compute_next_attempt_at
+from .policy import MAX_ATTEMPTS, MAX_VALIDATION_ATTEMPTS, retry_eligible_bit
+from .retry import countable_attempt_count, countable_validation_failure_count, compute_next_attempt_at
 
 
 @dataclass(frozen=True)
@@ -357,7 +357,7 @@ def record_posting_expired(
 
 def record_tailoring_failure(
     conn: sqlite3.Connection, attempt_id: int, opportunity_id: int, now: str | None = None,
-    *, reason: str = "tailoring_failure",
+    *, reason: str = "tailoring_failure", error_code: str | None = None,
 ) -> TransitionResult:
     """§30 Tailoring Failure (Patch 2): execution_phase stays NOT_STARTED,
     no outcome is recorded, and — critically — this attempt must NOT count
@@ -369,18 +369,23 @@ def record_tailoring_failure(
     regardless of cause, so Phase 3's src/engine_apply.py also calls this
     for a pre-navigation login-session failure, a browser-launch failure, or
     a dry run that never reached Submit, passing a more specific reason
-    string; the default stays "tailoring_failure" for the Phase 2 caller."""
+    string; the default stays "tailoring_failure" for the Phase 2 caller.
+
+    `error_code` is additive (default None preserves every existing caller's
+    behavior unchanged) — used by record_validation_finding below (and
+    engine_apply.py's infra_error branch) to carry the gate's own finding
+    text alongside the `reason` error_class."""
     now = now or enginedb.now_iso()
     conn.execute("BEGIN IMMEDIATE")
     try:
         conn.execute(
             """
             UPDATE application_attempts
-            SET attempt_state = 'FINISHED', error_class = ?,
+            SET attempt_state = 'FINISHED', error_class = ?, error_code = ?,
                 finished_at = ?, updated_at = ?
             WHERE attempt_id = ?
             """,
-            (reason, now, now, attempt_id),
+            (reason, error_code, now, now, attempt_id),
         )
         applied = _fenced_opportunity_update(
             conn, opportunity_id, attempt_id, ApplicationState.READY.value, now
@@ -395,6 +400,27 @@ def record_tailoring_failure(
     except Exception:
         conn.execute("ROLLBACK")
         raise
+
+
+def record_validation_finding(
+    conn: sqlite3.Connection, attempt_id: int, opportunity_id: int, *, error_class: str,
+    error_code: str | None, now: str | None = None,
+) -> TransitionResult:
+    """A pre-submission gate finding or job-data-specific gate exception. execution_phase
+    stays NOT_STARTED on every attempt this touches — no external work ever began.
+    Counted only by countable_validation_failure_count, never MAX_ATTEMPTS. Below
+    MAX_VALIDATION_ATTEMPTS: release to READY for a fresh tailor regeneration. At budget:
+    terminal MANUAL_REVIEW via record_terminal_failure with execution_phase=NOT_STARTED
+    passed explicitly."""
+    now = now or enginedb.now_iso()
+    prior = countable_validation_failure_count(conn, opportunity_id)
+    if prior + 1 >= MAX_VALIDATION_ATTEMPTS:
+        conn.execute("UPDATE application_attempts SET error_class=?, error_code=? WHERE attempt_id=?",
+                    (error_class, error_code, attempt_id))
+        return record_terminal_failure(conn, attempt_id, opportunity_id,
+            execution_phase=ExecutionPhase.NOT_STARTED, error_class=error_class, error_code=error_code, now=now)
+    return record_tailoring_failure(conn, attempt_id, opportunity_id, now=now,
+                                    reason=error_class, error_code=error_code)
 
 
 def resolve_channel(conn: sqlite3.Connection, attempt_id: int, resolved_channel: str, now: str | None = None) -> None:

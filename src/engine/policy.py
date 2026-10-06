@@ -13,6 +13,9 @@ from __future__ import annotations
 from .enums import Outcome
 
 MAX_ATTEMPTS = 3
+MAX_VALIDATION_ATTEMPTS = 3  # separate bounded budget for gate findings/job-data gate
+                             # exceptions (src/engine/retry.py's countable_validation_
+                             # failure_count), independent of MAX_ATTEMPTS/execution_phase.
 READY_RESERVE_TARGET = 300
 DAILY_CONFIRMED_TARGET = 100
 

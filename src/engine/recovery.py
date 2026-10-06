@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from . import db as enginedb
+from .age import compute_age_band
 from .enums import ApplicationState, ExecutionPhase
 from .reserve import rebuild_work_queue
 from .transitions import (
@@ -137,6 +138,70 @@ def run_startup_recovery(conn: sqlite3.Connection, now: str | None = None) -> di
     recovered = [recover_expired_lease(conn, attempt, now) for attempt in expired]
     requeued = rebuild_work_queue(conn, now)
     return {"recovered_leases": len(recovered), "recovered": recovered, "work_queue_rows": requeued}
+
+
+class ManualReleaseError(RuntimeError):
+    """Raised when `release_manual_review` is asked to release an opportunity that is not
+    (or no longer) in MANUAL_REVIEW — refuses rather than silently no-opping."""
+
+
+def release_manual_review(conn: sqlite3.Connection, opportunity_id: int, *, now: str | None = None) -> TransitionResult:
+    """§5.2 — The ONLY way an opportunity ever leaves MANUAL_REVIEW. Fenced inside BEGIN
+    IMMEDIATE: the UPDATE's WHERE re-checks application_state = 'MANUAL_REVIEW'
+    atomically (not a separate SELECT-then-UPDATE, which could race). current_attempt_id
+    explicitly cleared. Any stray work_queue row deleted before the fresh insert.
+
+    `manual_released_at` is both the release timestamp AND the cutoff
+    countable_attempt_count/countable_validation_failure_count (src/engine/retry.py)
+    filter attempts on — a release grants a genuinely fresh budget for both counters,
+    not a permanently truncated one, since MANUAL_REVIEW is reachable via either one.
+
+    Raises ManualReleaseError (after rolling back) if the opportunity is not currently
+    MANUAL_REVIEW — including if it does not exist at all."""
+    now = now or enginedb.now_iso()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        opp = enginedb.fetch_opportunity(conn, opportunity_id)
+        if opp is None or opp["application_state"] != ApplicationState.MANUAL_REVIEW.value:
+            conn.execute("ROLLBACK")
+            raise ManualReleaseError(
+                f"opportunity {opportunity_id} is not MANUAL_REVIEW "
+                f"(state={opp['application_state'] if opp else 'MISSING'!r})"
+            )
+        updated = conn.execute(
+            """
+            UPDATE opportunities
+            SET application_state = 'READY', current_attempt_id = NULL,
+                manual_released_at = ?, updated_at = ?
+            WHERE opportunity_id = ? AND application_state = 'MANUAL_REVIEW'
+            """,
+            (now, now, opportunity_id),
+        )
+        if updated.rowcount == 0:
+            conn.execute("ROLLBACK")
+            raise ManualReleaseError(
+                f"opportunity {opportunity_id} was concurrently moved out of MANUAL_REVIEW"
+            )
+        conn.execute("DELETE FROM work_queue WHERE opportunity_id = ?", (opportunity_id,))
+        age_band = compute_age_band(opp["age_reference_at"], now)
+        conn.execute(
+            """
+            INSERT INTO work_queue (
+                opportunity_id, ready_state, age_band, priority_score,
+                next_attempt_at, candidate_channel, queue_reason, updated_at
+            ) VALUES (?, 'READY', ?, ?, NULL, ?, 'manual_release', ?)
+            """,
+            (opportunity_id, age_band, opp["fit_score"], opp["latest_application_route"], now),
+        )
+        conn.execute("COMMIT")
+        return TransitionResult(False, ApplicationState.READY.value)
+    except ManualReleaseError:
+        # Already rolled back above, at the exact point the refusal was detected —
+        # re-raise as-is rather than rolling back a second time (no active transaction).
+        raise
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
 
 
 def expire_stale_opportunities(conn: sqlite3.Connection, now: str | None = None) -> int:

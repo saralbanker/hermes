@@ -33,7 +33,7 @@ from pathlib import Path
 import yaml
 
 import states as S
-from submission_gate import run_submission_gate
+from submission_gate import classify_gate_outcome, run_submission_gate
 from engine import channel_health as ch
 from engine import claim, db as enginedb, transitions
 from engine.enums import ChannelStatus, ExecutionPhase
@@ -441,8 +441,9 @@ def _drive_redirect_channel_and_record(conn: sqlite3.Connection, claimed: claim.
     used to pick the driver (ats_apply vs direct_form) and is never itself written to
     channel_health here."""
     # Gate first — after route resolution, before any run_*_apply and before the Ashby
-    # refusal — so a bad-data job is a terminal VALIDATION_FAILED, never mis-booked as an
-    # anti-bot block against channel health.
+    # refusal — so a bad-data job is truthfully classified (gate finding / job-data /
+    # infra error, see _gate_or_record_block), never mis-booked as an anti-bot block
+    # against channel health.
     blocked = _gate_or_record_block(conn, claimed, job, cover_letter, now)
     if blocked is not None:
         return blocked
@@ -492,14 +493,26 @@ def _gate_or_record_block(conn: sqlite3.Connection, claimed: claim.ClaimResult, 
                           cover_letter: str | None, now: str):
     """Hard pre-submission gate (src/submission_gate.py::run_submission_gate — the same
     single fail-closed entry point src/apply.py uses). Returns None when the job is clean;
-    otherwise records a terminal VALIDATION_FAILED outcome (execution_phase is still
-    NOT_STARTED: no external work has begun) and returns its TransitionResult. Callers
-    MUST return that result without calling any run_*_apply function."""
+    otherwise records a truthfully-classified outcome and returns its TransitionResult.
+    Callers MUST return that result without calling any run_*_apply function.
+
+    classify_gate_outcome distinguishes an infra/config problem (GateConfigError/
+    GateContractError — recorded via record_tailoring_failure, uncounted toward any
+    budget, retried for free) from a genuine finding or job-data-specific gate exception
+    (recorded via record_validation_finding, counted only by
+    countable_validation_failure_count, bounded by MAX_VALIDATION_ATTEMPTS before
+    terminal MANUAL_REVIEW) — execution_phase stays NOT_STARTED in every case here: no
+    external work has begun."""
     findings = run_submission_gate(job, cover_letter)
-    if not findings:
+    kind = classify_gate_outcome(findings)
+    if kind == "ok":
         return None
-    result = S.ApplyResult(S.VALIDATION_FAILED, "; ".join(findings)[:400])
-    return _record_outcome(conn, claimed, result, now)
+    if kind == "infra_error":
+        return transitions.record_tailoring_failure(conn, claimed.attempt_id, claimed.opportunity_id,
+            now=now, reason="gate_infra_error", error_code="; ".join(findings)[:200])
+    error_class = "gate_finding" if kind == "finding" else "gate_job_data_error"
+    return transitions.record_validation_finding(conn, claimed.attempt_id, claimed.opportunity_id,
+        error_class=error_class, error_code="; ".join(findings)[:200], now=now)
 
 
 def _drive_and_record(conn: sqlite3.Connection, claimed: claim.ClaimResult, job: dict,
@@ -564,8 +577,10 @@ def _record_outcome(conn: sqlite3.Connection, claimed: claim.ClaimResult, result
     if simple is not _NO_MATCH:
         return simple
 
-    if result.state == S.VALIDATION_FAILED:
-        return _record_validation_failed(conn, claimed, result, phase, now)
+    # S.VALIDATION_FAILED is deliberately not handled here: run_*_apply never returns it
+    # (the only source is _gate_or_record_block, which now records its own outcome via
+    # transitions.record_tailoring_failure/record_validation_finding directly and returns
+    # before any run_*_apply call — see _drive_and_record/_drive_redirect_channel_and_record).
 
     if result.state == S.LOGIN_REQUIRED:
         return _record_login_required(conn, claimed, not_started, now)
@@ -622,17 +637,6 @@ def _record_simple_outcome(conn: sqlite3.Connection, claimed: claim.ClaimResult,
     if state == S.UNSUPPORTED_CHANNEL:
         return transitions.record_unsupported_channel(conn, claimed.attempt_id, claimed.opportunity_id, now=now)
     return _NO_MATCH
-
-
-def _record_validation_failed(conn: sqlite3.Connection, claimed: claim.ClaimResult, result,
-                               phase: ExecutionPhase, now: str):
-    """Pre-submission gate block (src/submission_gate.py): a data problem that needs a
-    human fix — terminal (MANUAL_REVIEW), never retried, and no channel_health effect
-    (the channel itself is fine). The finding text is kept in error_code for triage."""
-    return transitions.record_terminal_failure(
-        conn, claimed.attempt_id, claimed.opportunity_id, execution_phase=phase,
-        error_class="validation_failed", error_code=(result.detail or "")[:200], now=now,
-    )
 
 
 def _record_confirmed(conn: sqlite3.Connection, claimed: claim.ClaimResult, result, now: str):

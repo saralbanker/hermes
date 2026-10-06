@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import sys
 from pathlib import Path
 
 from . import gateway
@@ -20,12 +21,22 @@ ROOT = Path(__file__).parent.parent.parent.parent
 FACTS_PATH = ROOT / "profile" / "facts.md"
 REPRESENTATION_VERSION = "v1"
 
+# Dependency-free import of project_registry (src/project_registry.py), without importing
+# src/llm.py — this module stays isolated from llm.py per the Phase 4 brief (own file I/O
+# below), but must derive the SAME retired-project redaction llm.py uses.
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
+from project_registry import redact_retired_sections  # noqa: E402
+
 
 def candidate_text() -> str:
     """§13 Candidate Representation: profile/facts.md only — no OTPs, no
     mailbox contents, no speculative/unverified claims (those were never in
-    facts.md to begin with, by construction of that file)."""
-    return FACTS_PATH.read_text(encoding="utf-8")
+    facts.md to begin with, by construction of that file). Retired-project
+    sections are redacted via project_registry.redact_retired_sections (same
+    registry src/llm.py's facts() uses), which fails closed on any delimiter
+    drift rather than risk a retired project leaking into an LLM prompt."""
+    return redact_retired_sections(FACTS_PATH.read_text(encoding="utf-8"))
 
 
 def job_text(title: str, description: str, location: str = "", work_mode: str = "",

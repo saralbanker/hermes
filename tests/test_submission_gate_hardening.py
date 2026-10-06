@@ -439,23 +439,47 @@ def _status(db, url) -> dict:
     return row
 
 
-@pytest.mark.parametrize("break_gate", ["raises", "none", "false", "zero", "tuple", "str", "mixed"])
-def test_apply_one_blocks_when_gate_breaks(temp_db, monkeypatch, tmp_path, break_gate):
+@pytest.mark.parametrize("break_gate", ["none", "false", "zero", "tuple", "str", "mixed"])
+def test_apply_one_treats_gate_contract_violation_as_infra_error(temp_db, monkeypatch, tmp_path, break_gate):
+    """GateContractError (validator returned something other than list[str]) is classified
+    infra_error, not a job-data finding: it recurs identically for every job regardless of
+    that job's own data, so it must never consume the bounded validation_attempts budget —
+    apply.py reverts the attempt and stays TAILORED, repeatable indefinitely."""
     import apply
     calls = _mock_submitters(monkeypatch)
 
     def broken(job, letter):
-        if break_gate == "raises":
-            raise RuntimeError("gate blew up")
         return {"none": None, "false": False, "zero": 0, "tuple": ("x",), "str": "bad",
                 "mixed": ["ok", 7]}[break_gate]
 
     monkeypatch.setattr(gate, "validate_job_submission", broken)
     row = _seed_job(temp_db, tmp_path, f"https://x/broken-{break_gate}")
     result = apply.apply_one(row, CFG, dry_run=False)
-    assert result.state == S.VALIDATION_FAILED
+    assert result.state == S.GATE_INFRA_ERROR
     assert sum(calls.values()) == 0
-    assert _status(temp_db, row["url"])["status"] == S.VALIDATION_FAILED
+    row_after = _status(temp_db, row["url"])
+    assert row_after["status"] == S.TAILORED
+    assert "gate_infra_error" in row_after["status_reason"]
+
+
+def test_apply_one_treats_generic_gate_exception_as_bounded_job_data_error(temp_db, monkeypatch, tmp_path):
+    """A generic (non-GateConfigError/GateContractError) exception from the gate is THIS
+    job's data breaking something unanticipated — classified job_data_error, counted toward
+    the bounded validation_attempts budget exactly like a genuine finding, never infra."""
+    import apply
+    calls = _mock_submitters(monkeypatch)
+
+    def boom(job, letter):
+        raise RuntimeError("gate blew up")
+
+    monkeypatch.setattr(gate, "validate_job_submission", boom)
+    row = _seed_job(temp_db, tmp_path, "https://x/broken-raises")
+    result = apply.apply_one(row, CFG, dry_run=False)
+    assert result.state == S.VALIDATION_FAILED
+    assert result.meta.get("gate_kind") == "job_data_error"
+    assert sum(calls.values()) == 0
+    row_after = _status(temp_db, row["url"])
+    assert row_after["status"] == S.TAILORED
 
 
 def test_run_queue_survives_gate_exceptions_and_records_each_job(temp_db, monkeypatch, tmp_path):
@@ -468,18 +492,24 @@ def test_run_queue_survives_gate_exceptions_and_records_each_job(temp_db, monkey
     monkeypatch.setattr(gate, "validate_job_submission", boom)
     queue = [_seed_job(temp_db, tmp_path, f"https://x/q{i}") for i in range(3)]
     stats = apply.run_queue(queue, CFG, dry_run=True, deadline=1e12)
-    assert stats[S.VALIDATION_FAILED] == 3
+    assert stats[S.VALIDATION_FAILED] == 3          # transient tag; still the correct bucket key
     assert sum(calls.values()) == 0
-    assert all(_status(temp_db, j["url"])["status"] == S.VALIDATION_FAILED for j in queue)
+    # One occurrence each: persisted status is TAILORED (budget not yet exhausted), never
+    # the transient VALIDATION_FAILED tag itself.
+    assert all(_status(temp_db, j["url"])["status"] == S.TAILORED for j in queue)
 
 
 def test_missing_facts_blocks_apply_one(temp_db, monkeypatch, tmp_path, facts_file):
+    """profile/facts.md missing is a GateConfigError — an environment/config problem that
+    recurs for every job, not this job's data — so it is classified infra_error, not a
+    bounded VALIDATION_FAILED finding."""
     import apply
     calls = _mock_submitters(monkeypatch)
     row = _seed_job(temp_db, tmp_path, "https://x/no-facts")
     result = apply.apply_one(row, CFG, dry_run=False)
-    assert result.state == S.VALIDATION_FAILED and "facts.md" in result.detail
+    assert result.state == S.GATE_INFRA_ERROR and "facts.md" in result.detail
     assert sum(calls.values()) == 0
+    assert _status(temp_db, row["url"])["status"] == S.TAILORED
 
 
 def test_company_mismatch_blocks_apply_one(temp_db, monkeypatch, tmp_path):
@@ -493,12 +523,33 @@ def test_company_mismatch_blocks_apply_one(temp_db, monkeypatch, tmp_path):
 
 
 def test_validation_failed_is_terminal_not_retryable(temp_db, monkeypatch, tmp_path):
+    """VALIDATION_FAILED is only ever a transient ApplyResult.state tag — never itself a
+    persisted jobs.status. 3 calls to apply_one on the same bad-data job: occurrences 1-2
+    land on persisted TAILORED (bounded-retry budget remaining), occurrence 3 exhausts the
+    budget into terminal MANUAL_REVIEW. VALIDATION_FAILED stays out of RETRYABLE throughout —
+    it is governed by its own validation_attempts/MAX_VALIDATION_ATTEMPTS counter, not the
+    generic attempts/MAX_ATTEMPTS retry mechanism."""
     import apply
     _mock_submitters(monkeypatch)
     row = _seed_job(temp_db, tmp_path, "https://x/terminal", company="Unknown")
-    apply.apply_one(row, CFG, dry_run=False)
+    cover_letter_path = row["cover_letter_path"]
     assert S.VALIDATION_FAILED not in S.RETRYABLE
-    assert _status(temp_db, row["url"])["status"] == S.VALIDATION_FAILED
+
+    for expected_status, expected_validation_attempts in (
+        (S.TAILORED, 1), (S.TAILORED, 2), (S.MANUAL_REVIEW, 3)
+    ):
+        result = apply.apply_one(row, CFG, dry_run=False)
+        assert result.state == S.VALIDATION_FAILED
+        conn = temp_db.get_conn()
+        db_row = dict(conn.execute("SELECT * FROM jobs WHERE url=?", (row["url"],)).fetchone())
+        conn.close()
+        assert db_row["status"] == expected_status
+        assert db_row["validation_attempts"] == expected_validation_attempts
+        row = db_row
+        row["cover_letter_path"] = cover_letter_path  # not a persisted jobs column; carry forward
+
+    # Exhausted: terminal and human-release-only — not claimable for another automatic attempt.
+    assert temp_db.claim_job(row["url"]) is False
 
 
 # ---------------------------------------------------------------------------
@@ -599,3 +650,110 @@ def test_indeed_external_apply_hop_cannot_change_gated_fields(temp_db, monkeypat
     assert result.state == S.SUBMITTED
     assert len(gate_inputs) == 1
     assert received == {"company": "Ahead", "cover": CLEAN_LETTER.strip()}
+
+
+# ---------------------------------------------------------------------------
+# H. classify_gate_outcome — ok / finding / infra_error / job_data_error
+# ---------------------------------------------------------------------------
+
+def test_classify_gate_outcome_ok_for_empty_findings():
+    assert gate.classify_gate_outcome([]) == "ok"
+
+
+def test_classify_gate_outcome_finding_for_a_genuine_problem():
+    assert gate.classify_gate_outcome(["cover letter names a different company"]) == "finding"
+    assert gate.classify_gate_outcome(["problem one", "problem two"]) == "finding"
+
+
+def test_classify_gate_outcome_infra_error_for_gate_config_error(monkeypatch):
+    def boom(job, letter):
+        raise gate.GateConfigError("profile/facts.md is empty")
+    monkeypatch.setattr(gate, "validate_job_submission", boom)
+    findings = gate.run_submission_gate(GOOD_JOB, CLEAN_LETTER)
+    assert gate.classify_gate_outcome(findings) == "infra_error"
+    assert findings[0].startswith(gate.GATE_INFRA_PREFIX)
+
+
+def test_classify_gate_outcome_infra_error_for_gate_contract_error(monkeypatch):
+    monkeypatch.setattr(gate, "validate_job_submission", lambda job, letter: None)
+    findings = gate.run_submission_gate(GOOD_JOB, CLEAN_LETTER)
+    assert gate.classify_gate_outcome(findings) == "infra_error"
+    assert findings[0].startswith(gate.GATE_INFRA_PREFIX)
+    assert "GateContractError" in findings[0]
+
+
+def test_classify_gate_outcome_job_data_error_for_generic_exception(monkeypatch):
+    def boom(job, letter):
+        raise RuntimeError("unexpected")
+    monkeypatch.setattr(gate, "validate_job_submission", boom)
+    findings = gate.run_submission_gate(GOOD_JOB, CLEAN_LETTER)
+    assert gate.classify_gate_outcome(findings) == "job_data_error"
+    assert findings[0].startswith(gate.GATE_JOB_DATA_PREFIX)
+
+
+def test_classify_gate_outcome_defaults_unknown_single_findings_to_finding_not_infra():
+    """A single-element findings list that doesn't start with either prefix (a genuine,
+    ordinary finding that happens to be the only one) must classify as 'finding', never
+    accidentally match the infra/job_data prefix branches."""
+    assert gate.classify_gate_outcome(["cover letter is empty, missing, or whitespace-only"]) == "finding"
+
+
+# ---------------------------------------------------------------------------
+# I. find_retired_project_mentions — F2 gate-level backstop
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("name", ["Shade Ledger", "HeatMax", "Carbon Compass"])
+def test_find_retired_project_mentions_detects_each_retired_project(name):
+    text = f"I previously worked on {name}, a great project."
+    assert gate.find_retired_project_mentions(text) == [name]
+
+
+def test_find_retired_project_mentions_ignores_active_projects():
+    text = "I built Neuro-Zenith, AWIS and Hermes, all active projects."
+    assert gate.find_retired_project_mentions(text) == []
+
+
+def test_find_retired_project_mentions_is_case_insensitive_and_word_bounded():
+    assert gate.find_retired_project_mentions("i worked on heatmax") == ["HeatMax"]
+    # "Shade" alone must not false-positive as "Shade Ledger"
+    assert gate.find_retired_project_mentions("the room was in shade all day") == []
+
+
+@pytest.mark.parametrize("text", [None, ""])
+def test_find_retired_project_mentions_handles_blank_input(text):
+    assert gate.find_retired_project_mentions(text) == []
+
+
+def test_validate_cover_letter_rejects_a_retired_project_mention():
+    letter = CLEAN_LETTER + "\n\nI previously built Shade Ledger."
+    problems = gate.validate_cover_letter(letter, CANON)
+    assert any("retired project" in p and "Shade Ledger" in p for p in problems)
+
+
+# ---------------------------------------------------------------------------
+# J. F1 — direct unit-level matrix (conditions 4-7; see tests/test_f1_empty_letter_matrix.py
+#    for the full end-to-end matrix across every real submit call site, both pipelines)
+# ---------------------------------------------------------------------------
+
+def test_read_cover_letter_maps_missing_or_empty_file_to_blank_string(tmp_path):
+    """F1 conditions 1-3: src/apply.py:read_cover_letter converges every file-shaped
+    "there is effectively no letter" input onto "" — proven explicitly for each, not
+    assumed from reading the source once."""
+    import apply
+    zero_byte = tmp_path / "zero-byte.txt"
+    zero_byte.write_bytes(b"")
+
+    assert apply.read_cover_letter(None) == ""                                   # condition 1
+    assert apply.read_cover_letter(str(tmp_path / "never-written.txt")) == ""    # condition 2
+    assert apply.read_cover_letter(str(zero_byte)) == ""                         # condition 3
+
+
+@pytest.mark.parametrize("text,condition", [
+    (None, "condition 4: Python None reaching the gate directly (defensive)"),
+    ("", "condition 5: empty string"),
+    ("   ", "condition 6: whitespace-only"),
+    ("\n\n", "condition 7: newline-only"),
+])
+def test_validate_cover_letter_rejects_every_blank_shaped_text_value(text, condition):
+    problems = gate.validate_cover_letter(text, CANON)
+    assert problems == ["cover letter is empty, missing, or whitespace-only"], condition

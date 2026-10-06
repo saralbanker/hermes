@@ -16,6 +16,8 @@ from pathlib import Path
 import requests
 import yaml
 
+from project_registry import redact_retired_sections
+
 ROOT = Path(__file__).parent.parent
 FACTS_PATH = ROOT / "profile" / "facts.md"
 
@@ -38,10 +40,18 @@ def llm_config() -> dict:
     return {**DEFAULTS, **(cfg.get("llm") or {})}
 
 
-@lru_cache(maxsize=1)
-def facts() -> str:
-    """The verified fact sheet — the only candidate facts an LLM may use."""
+def facts_full() -> str:
+    """Unredacted — audit/human tooling ONLY. Never pass to an LLM prompt."""
     return FACTS_PATH.read_text(encoding="utf-8")
+
+
+@lru_cache(maxsize=1)   # existing decorator, unchanged position
+def facts() -> str:
+    """The verified fact sheet, retired-project sections redacted — the only candidate
+    facts an LLM may use. See project_registry.redact_retired_sections: fails closed
+    (raises FactsRedactionError) if facts.md's RETIRED delimiters drift from the
+    registry, rather than ever risking a retired project leaking into an LLM prompt."""
+    return redact_retired_sections(facts_full())
 
 
 def chat(prompt: str, system: str = "", temperature: float = 0.3,

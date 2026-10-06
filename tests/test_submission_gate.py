@@ -342,7 +342,11 @@ def test_bad_job_never_reaches_any_channel_submitter(temp_db, monkeypatch, tmp_p
     result = apply.apply_one(row, CFG, dry_run=False)
     assert sum(calls.values()) == 0, "a blocked job must never reach any channel submitter"
     assert result.state == S.VALIDATION_FAILED
-    assert _row(temp_db, j["url"])["status"] == S.VALIDATION_FAILED
+    # VALIDATION_FAILED is a transient tag; persisted status after a single occurrence
+    # (validation_attempts budget not yet exhausted) is TAILORED, not VALIDATION_FAILED.
+    row_after = _row(temp_db, j["url"])
+    assert row_after["status"] == S.TAILORED
+    assert row_after["validation_attempts"] == 1
 
 
 @pytest.mark.parametrize("channel,call_key", [
@@ -386,5 +390,8 @@ def test_validation_failed_job_never_hits_network_and_is_not_retried_as_submitte
     assert calls["indeed"] == 0
     assert result.state == S.VALIDATION_FAILED
     final = _row(temp_db, j["url"])
-    assert final["status"] == S.VALIDATION_FAILED
+    # One occurrence does not exhaust the validation budget: persisted status is TAILORED
+    # (bounded retry), never silently promoted to a submitted-like state.
+    assert final["status"] == S.TAILORED
+    assert final["validation_attempts"] == 1
     assert final["status_reason"] and "placeholder" in final["status_reason"]

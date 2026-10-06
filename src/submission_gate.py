@@ -23,6 +23,8 @@ import unicodedata
 from functools import lru_cache
 from pathlib import Path
 
+from project_registry import RETIRED_PROJECTS
+
 ROOT = Path(__file__).parent.parent
 FACTS_PATH = ROOT / "profile" / "facts.md"
 
@@ -57,6 +59,19 @@ _BAD_COMPANY_KEYS = frozenset({
 _GENERIC_COMPANY_WORDS = ("unknown", "n/a", "tbd", "confidential")
 
 LINK_FIELDS = ("linkedin", "github", "portfolio")
+
+# Gate-level backstop (defense in depth, cover-letter text only): catches a retired
+# project name even if src/tailor.py's/src/engine/ai/generate.py's own generation-time
+# safeguards (project_registry.redact_retired_sections, PROOF_BY_VARIANT's load-time
+# guard) are ever bypassed by a stale cache or future code change. Last hard gate before
+# any of the 6 submit call sites.
+_RETIRED_PROJECT_RE = {n: re.compile(rf"\b{re.escape(n)}\b", re.I) for n in RETIRED_PROJECTS}
+
+
+def find_retired_project_mentions(text: str | None) -> list[str]:
+    if not text:
+        return []
+    return sorted(n for n, pat in _RETIRED_PROJECT_RE.items() if pat.search(text))
 
 
 class GateConfigError(Exception):
@@ -352,10 +367,11 @@ def _phone_problems_in_text(text: str, canonical_phone: str) -> list[str]:
 
 def validate_cover_letter(text: str | None, canonical: dict) -> list[str]:
     """Placeholder tokens, a wrong/transposed phone embedded in the prose, the employer
-    being addressed by the candidate's own name, and generic/placeholder company
-    references — all inside the cached cover-letter text itself."""
-    if not text:
-        return []
+    being addressed by the candidate's own name, generic/placeholder company
+    references, an empty/missing/whitespace-only letter, and a retired-project mention
+    — all inside the cached cover-letter text itself."""
+    if not text or not text.strip():
+        return ["cover letter is empty, missing, or whitespace-only"]
     problems: list[str] = []
     placeholders = find_placeholders(text)
     if placeholders:
@@ -372,6 +388,9 @@ def validate_cover_letter(text: str | None, canonical: dict) -> list[str]:
     for bad in _GENERIC_COMPANY_WORDS:
         if re.search(rf"\b(?:at|with|for)\s+{re.escape(bad)}\b", text, re.I):
             problems.append(f"cover letter contains a malformed/generic company reference ('{bad}')")
+    retired = find_retired_project_mentions(text)
+    if retired:
+        problems.append(f"cover letter names retired project(s) no longer presentable: {', '.join(retired)}")
     return problems
 
 
@@ -568,16 +587,47 @@ def _enforce_findings_contract(findings: object) -> list[str]:
     return findings
 
 
+GATE_INFRA_PREFIX = "submission gate failed closed (infra): "
+GATE_JOB_DATA_PREFIX = "submission gate failed closed (job data): "
+
+
 def run_submission_gate(job: dict, cover_letter: str | None) -> list[str]:
     """THE shared, fail-closed entry point every submission path must use (apply.py's
     apply_one and both engine_apply drivers). Never raises: any Exception from profile/
     facts loading, canonical extraction, validation logic or a monkeypatched validator,
     and any contract violation, becomes a finding. Returns [] only for a genuinely
-    clean list; any non-empty result is a hard, terminal block (VALIDATION_FAILED).
+    clean list; any non-empty result is a hard, terminal block.
+
+    Unchanged contract: [] means safe to submit; any non-empty result is a hard block.
+    Never raises. Callers that need to distinguish *why* it blocked (infra/config error
+    vs. a genuine finding vs. a job-data-specific gate exception) call
+    classify_gate_outcome on the returned list — this function's return type stays
+    list[str], it is not changed to a tuple.
 
     `validate_job_submission` is resolved at call time so tests can monkeypatch it.
     BaseException (KeyboardInterrupt/SystemExit) is deliberately not caught."""
     try:
         return _enforce_findings_contract(validate_job_submission(job, cover_letter))
-    except Exception as exc:  # fail-closed boundary: every failure mode must block, never escape
-        return [f"submission gate failed closed: {type(exc).__name__}: {exc}"[:300]]
+    except (GateConfigError, GateContractError) as exc:
+        # Environment/config problem or a validator contract violation (code bug) — same
+        # failure recurs for every job; classified infra-like as a deliberate choice.
+        return [f"{GATE_INFRA_PREFIX}{type(exc).__name__}: {exc}"[:300]]
+    except Exception as exc:
+        # THIS job's data broke something unanticipated — not an environment problem.
+        return [f"{GATE_JOB_DATA_PREFIX}{type(exc).__name__}: {exc}"[:300]]
+
+
+def classify_gate_outcome(findings: list[str]) -> str:
+    """'ok' | 'infra_error' | 'job_data_error' | 'finding' — derived purely from the shape
+    run_submission_gate already returns; does not change its contract.
+
+    Deliberate choice: an unrecognized exception type defaults to 'job_data_error'
+    (bounded retry), not 'infra_error' (unbounded) — defaulting unknowns to infinite
+    retry would reopen the bug being fixed."""
+    if not findings:
+        return "ok"
+    if len(findings) == 1 and findings[0].startswith(GATE_INFRA_PREFIX):
+        return "infra_error"
+    if len(findings) == 1 and findings[0].startswith(GATE_JOB_DATA_PREFIX):
+        return "job_data_error"
+    return "finding"

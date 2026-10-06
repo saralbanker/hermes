@@ -13,13 +13,40 @@ import sqlite3
 from . import db as enginedb
 from .age import is_within_horizon
 from .enums import ApplicationState, CONFIRMED_OUTCOMES, Outcome
-from .policy import MAX_ATTEMPTS, RETRY_BACKOFF_SECONDS
+from .policy import MAX_ATTEMPTS, MAX_VALIDATION_ATTEMPTS, RETRY_BACKOFF_SECONDS
+
+# A pre-submission gate finding or job-data-specific gate exception (see
+# src/submission_gate.py's classify_gate_outcome), as recorded in
+# application_attempts.error_class by transitions.record_validation_finding.
+VALIDATION_ERROR_CLASSES = frozenset({"gate_finding", "gate_job_data_error"})
+
+
+def _manual_released_at(conn: sqlite3.Connection, opportunity_id: int) -> str | None:
+    row = conn.execute(
+        "SELECT manual_released_at FROM opportunities WHERE opportunity_id = ?",
+        (opportunity_id,),
+    ).fetchone()
+    return row["manual_released_at"] if row else None
 
 
 def countable_attempt_count(conn: sqlite3.Connection, opportunity_id: int) -> int:
     """WORKFLOW_ENGINE.md §22 (Patch 2): attempts whose execution_phase
-    advanced past NOT_STARTED — i.e. external work actually began.
+    advanced past NOT_STARTED — i.e. external work actually began. Attempts
+    created at/before a manual_released_at timestamp (if set) are excluded —
+    a release grants a genuinely fresh budget, not a permanently truncated
+    one (both this counter and countable_validation_failure_count must reset
+    together on release, since MANUAL_REVIEW is reachable via either one).
     """
+    released_at = _manual_released_at(conn, opportunity_id)
+    if released_at:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) AS n FROM application_attempts
+            WHERE opportunity_id = ? AND execution_phase != 'NOT_STARTED' AND created_at > ?
+            """,
+            (opportunity_id, released_at),
+        ).fetchone()
+        return row["n"]
     row = conn.execute(
         """
         SELECT COUNT(*) AS n FROM application_attempts
@@ -28,6 +55,22 @@ def countable_attempt_count(conn: sqlite3.Connection, opportunity_id: int) -> in
         (opportunity_id,),
     ).fetchone()
     return row["n"]
+
+
+def countable_validation_failure_count(conn: sqlite3.Connection, opportunity_id: int) -> int:
+    """Attempts tagged as a pre-submission gate finding or job-data gate exception,
+    counted by error_class — independent of execution_phase. Attempts created at/before
+    a manual_released_at timestamp (if set) are excluded — a release grants a genuinely
+    fresh budget, not a permanently truncated one."""
+    released_at = _manual_released_at(conn, opportunity_id)
+    if released_at:
+        return conn.execute(
+            "SELECT COUNT(*) AS n FROM application_attempts WHERE opportunity_id = ? "
+            "AND error_class IN (?, ?) AND created_at > ?",
+            (opportunity_id, *VALIDATION_ERROR_CLASSES, released_at)).fetchone()["n"]
+    return conn.execute(
+        "SELECT COUNT(*) AS n FROM application_attempts WHERE opportunity_id = ? AND error_class IN (?, ?)",
+        (opportunity_id, *VALIDATION_ERROR_CLASSES)).fetchone()["n"]
 
 
 def has_confirmed_submission(conn: sqlite3.Connection, opportunity_id: int) -> bool:
