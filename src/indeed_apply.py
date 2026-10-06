@@ -37,6 +37,18 @@ import states
 from answers import answer_question
 from display import ensure_virtual_display
 from states import ApplyResult
+from browser_watchdog import (
+    allocate_endpoint,
+    create_unique_profile,
+    verify_browser_process,
+    cleanup_profile,
+    BrowserWatchdog,
+    AttemptAbortContext,
+    HardTimeoutError,
+    ProcessIdentity,
+    BrowserOwnershipError,
+)
+from db import update_job_phase, get_job_phase
 
 ROOT = Path(__file__).parent.parent
 PROFILE_DIR = ROOT / "output" / "chrome-indeed-profile"
@@ -195,27 +207,48 @@ MYJOBS_APPLIED_URL = "https://myjobs.indeed.com/applied"
 
 _session_checked = False
 _session_logged_in = True  # optimistic default; only a clear login wall flips this
+_profile_login_cache: dict[str, bool] = {}
 
 
-def _check_indeed_login(page) -> str | None:
-    """Visit the account's Applied list once per process (cached — one Indeed profile,
-    one account, for the whole run). Returns a detail string when the session is
-    unauthenticated (guest/anonymous), else None. An ambiguous result (network hiccup,
+def _reset_session_cache() -> None:
+    global _session_checked, _session_logged_in, _profile_login_cache
+    _session_checked = False
+    _session_logged_in = True
+    _profile_login_cache.clear()
+
+
+def _check_indeed_login(page, profile_path: str | Path | None = None) -> str | None:
+    """Visit the account's Applied list once per profile/process. Returns a detail string when
+    the session is unauthenticated (guest/anonymous), else None. An ambiguous result (network hiccup,
     unrecognized page) is never treated as evidence of logged-out — only classify_page
-    naming it a 'login' wall counts, so this can never false-block every application."""
-    global _session_checked, _session_logged_in
-    if _session_checked:
-        return None if _session_logged_in else "Indeed session is not signed in (guest/anonymous)"
-    _session_checked = True
+    naming it a 'login' wall counts, so this can never false-block every application.
+    A cached login result for one profile CANNOT stand in for checking a new profile."""
+    global _session_checked, _session_logged_in, _profile_login_cache
+    if profile_path is not None:
+        prof_key = str(profile_path)
+        if prof_key in _profile_login_cache:
+            return None if _profile_login_cache[prof_key] else "Indeed session is not signed in (guest/anonymous)"
+    else:
+        if _session_checked:
+            return None if _session_logged_in else "Indeed session is not signed in (guest/anonymous)"
+
     try:
         page.get(MYJOBS_APPLIED_URL, timeout=NAV_TIMEOUT)
         time.sleep(1.5)
         url, title, text, html = _snapshot(page)
         if classify_page(url, title, text, html) == "login":
+            if profile_path is not None:
+                _profile_login_cache[str(profile_path)] = False
             _session_logged_in = False
+            _session_checked = True
             return "Indeed session is not signed in (guest/anonymous) — run: python scripts/indeed_setup.py"
     except Exception as exc:  # can't confirm either way — proceed rather than false-block
         print(f"  [indeed] account/session check failed, proceeding: {exc}")
+
+    if profile_path is not None:
+        _profile_login_cache[str(profile_path)] = True
+    _session_checked = True
+    _session_logged_in = True
     return None
 
 
@@ -282,13 +315,33 @@ def _gmail_confirmation(title: str) -> str:
 # Browser lifecycle
 # ---------------------------------------------------------------------------
 
-def _launch_browser():
+def _launch_browser(profile_path: Path | None = None, endpoint: str | None = None):
     from DrissionPage import ChromiumOptions, ChromiumPage
     from display import cleanup_orphan_browsers
+    import shutil
 
-    PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+    if endpoint is None:
+        endpoint, port = allocate_endpoint()
+    else:
+        port = int(endpoint.split(":")[-1])
+
+    if profile_path is None:
+        profile_path = create_unique_profile()
+    profile_path.mkdir(parents=True, exist_ok=True)
+
+    # Seed cookies into the unique profile before launch if persistent cookies exist
+    default_cookies = PROFILE_DIR / "Default" / "Cookies"
+    if default_cookies.exists():
+        target_default = profile_path / "Default"
+        target_default.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(default_cookies, target_default / "Cookies")
+        except Exception:
+            pass
+
     co = ChromiumOptions()
-    co.set_user_data_path(str(PROFILE_DIR))
+    co.set_local_port(port)
+    co.set_user_data_path(str(profile_path))
     co.headless(False)  # headful — Cloudflare blocks headless on Indeed viewjob pages
     co.set_argument("--window-size=1366,900")
     co.set_argument("--disable-blink-features=AutomationControlled")
@@ -298,8 +351,13 @@ def _launch_browser():
     try:
         page = ChromiumPage(addr_or_opts=co)
         page.set.timeouts(base=ELE_TIMEOUT, page_load=NAV_TIMEOUT, script=15)
-        return page
+        pid = getattr(page, "process_id", None)
+        if not pid:
+            raise BrowserOwnershipError("Failed to obtain browser process_id from ChromiumPage")
+        root_ident = verify_browser_process(pid, endpoint, profile_path)
+        return page, endpoint, profile_path, root_ident
     except Exception:
+        cleanup_profile(profile_path)
         cleanup_orphan_browsers()
         raise
 
@@ -661,13 +719,15 @@ def _fill_form_step(page, cover_letter: str, resume_path: str) -> str | None:
 # Driver
 # ---------------------------------------------------------------------------
 
-def _wait_out_interstitial(page, deadline: float) -> str:
+def _wait_out_interstitial(page, deadline: float, abort_context: AttemptAbortContext | None = None) -> str:
     """Poll up to INTERSTITIAL_WAIT_SECONDS for a Cloudflare check to clear on
     its own. Never clicks or solves anything. Returns the page class once it
     stops being 'security_interstitial' or the wait/overall deadline is hit."""
     give_up = min(deadline, time.monotonic() + INTERSTITIAL_WAIT_SECONDS)
     cls = "security_interstitial"
     while time.monotonic() < give_up:
+        if abort_context and abort_context.is_timed_out:
+            raise HardTimeoutError(abort_context.timeout_reason)
         time.sleep(2.0)
         url, title, text, html = _snapshot(page)
         cls = classify_page(url, title, text, html)
@@ -719,7 +779,9 @@ def _pick_button(buttons: list) -> tuple[str | None, bool]:
 
 
 def _click_next_or_submit(
-    page, dry_run: bool, on_progress: Callable[[str], None] | None = None
+    page, dry_run: bool, on_progress: Callable[[str], None] | None = None,
+    abort_context: AttemptAbortContext | None = None,
+    job: dict | None = None,
 ) -> tuple[bool, bool]:
     """Returns (advanced, was_final_submit). Never clicks the final submit in dry_run.
 
@@ -730,26 +792,56 @@ def _click_next_or_submit(
     BROWSER_SYSTEM.md §72 requires `execution_phase = SUBMIT_INTENT` to be
     written at, before waiting for any post-submit response.
     """
+    if abort_context and abort_context.is_timed_out:
+        raise HardTimeoutError(abort_context.timeout_reason)
     _dismiss_cookie_banner(page)  # else its Accept/Reject buttons are all _BUTTONS_JS finds
     idx, is_final = None, False
     for _ in range(6):  # Indeed disables Continue/Submit for a few seconds while a step validates
+        if abort_context and abort_context.is_timed_out:
+            raise HardTimeoutError(abort_context.timeout_reason)
         try:
             idx, is_final = _pick_button(page.run_js(_BUTTONS_JS) or [])
         except Exception as exc:  # page navigated mid-script; rescan
+            if abort_context and abort_context.is_timed_out:
+                raise HardTimeoutError(abort_context.timeout_reason)
+            from DrissionPage.errors import PageDisconnectedError, BrowserConnectError
+            if isinstance(exc, (PageDisconnectedError, BrowserConnectError)):
+                raise HardTimeoutError(f"browser disconnected during button scan: {exc}")
             print(f"  [indeed] button scan failed: {exc}")
         if idx is not None:
             break
         _dismiss_cookie_banner(page)
+        if abort_context and abort_context.is_timed_out:
+            raise HardTimeoutError(abort_context.timeout_reason)
         time.sleep(2)
     if idx is None:
         return False, False
     if is_final and dry_run:
         return False, True
+
+    if is_final and job:
+        url = job.get("url", "")
+        attempt = job.get("attempts", 1)
+        ok = update_job_phase(url, states.PHASE_SUBMIT_MAY_HAVE_DISPATCHED, attempt)
+        if not ok:
+            raise RuntimeError(f"Failed to commit SUBMIT_MAY_HAVE_DISPATCHED before final click for {url}")
+
     try:
         page.ele(f'css:[data-hermes-btn="{idx}"]', timeout=2).click(by_js=None)
     except Exception as exc:  # click intercepted/detached → treated as "no control"
+        if abort_context and abort_context.is_timed_out:
+            raise HardTimeoutError(abort_context.timeout_reason)
+        from DrissionPage.errors import PageDisconnectedError, BrowserConnectError
+        if isinstance(exc, (PageDisconnectedError, BrowserConnectError)):
+            raise HardTimeoutError(f"browser disconnected during click: {exc}")
         print(f"  [indeed] click failed: {exc}")
         return False, False
+
+    if is_final and job:
+        url = job.get("url", "")
+        attempt = job.get("attempts", 1)
+        update_job_phase(url, states.PHASE_CONFIRMATION_PENDING, attempt)
+
     if is_final and on_progress is not None:
         on_progress("submit_intent")
     time.sleep(2.5)
@@ -758,14 +850,14 @@ def _click_next_or_submit(
 
 def _drive_application(page, job: dict, cover_letter: str, resume_path: str,
                         screenshot_path: str, dry_run: bool, deadline: float,
-                        on_progress: Callable[[str], None] | None = None) -> ApplyResult:
+                        on_progress: Callable[[str], None] | None = None,
+                        abort_context: AttemptAbortContext | None = None) -> ApplyResult:
     last_cls = "never classified"
     last_signature = None
     for step in range(MAX_FORM_STEPS):
+        if abort_context and abort_context.is_timed_out:
+            raise HardTimeoutError(abort_context.timeout_reason)
         if time.monotonic() > deadline:
-            # Precise, not generic: which step and which page state it was stuck on,
-            # so a real stall (vs. a merely long multi-step form) is diagnosable from the
-            # DB alone next time, instead of needing a live re-run to find out.
             return ApplyResult(states.FAILED,
                                 detail=f"exceeded 6-minute apply budget at step {step + 1}/"
                                        f"{MAX_FORM_STEPS}, last page state: {last_cls}",
@@ -774,13 +866,6 @@ def _drive_application(page, job: dict, cover_letter: str, resume_path: str,
         url, title, text, html = _snapshot(page)
         cls = last_cls = classify_page(url, title, text, html)
 
-        # Confirmed root cause of a real 6-minute-budget timeout (MyProFunnels, 2026-09-25):
-        # a required <select> whose "*" wasn't found by _is_required's DOM-walk was silently
-        # left unanswered, so Continue kept failing the same validation while every filler
-        # reported success — the exact same page (same URL, same visible text) reappeared
-        # every iteration until the deadline. Two identical "application" snapshots in a row
-        # is proof nothing advanced last iteration, whatever the specific unrecognized
-        # control turns out to be — fail fast and precisely instead of burning the budget.
         signature = (url, len(text), text[:300])
         if cls == "application" and signature == last_signature:
             return ApplyResult(states.FORM_CHANGED,
@@ -790,31 +875,34 @@ def _drive_application(page, job: dict, cover_letter: str, resume_path: str,
         last_signature = signature if cls == "application" else None
 
         if cls == "security_interstitial":
-            cls = _wait_out_interstitial(page, deadline)
+            cls = _wait_out_interstitial(page, deadline, abort_context=abort_context)
             if cls == "security_interstitial":
                 return ApplyResult(states.SECURITY_INTERSTITIAL, detail="Cloudflare check did not clear",
                                     screenshot=_screenshot(page, screenshot_path))
 
         result = _handle_classified_page(page, cls, job, cover_letter, resume_path,
                                           screenshot_path, dry_run, url, title, text, html,
-                                          on_progress)
+                                          on_progress, abort_context=abort_context)
         if result is not None:
             return result
-        # cls in {"job_page", "application"} with no terminal result yet: loop continues
 
-    # Nothing was submitted unless a final click happened (handled above), so this is
-    # a form we could not drive — never "unconfirmed submission".
     return ApplyResult(states.FORM_CHANGED, detail="ran out of form steps",
                         screenshot=_screenshot(page, screenshot_path))
 
 
-def _confirm_final_submit(page, job: dict, screenshot_path: str) -> ApplyResult:
+def _confirm_final_submit(page, job: dict, screenshot_path: str,
+                          abort_context: AttemptAbortContext | None = None) -> ApplyResult:
     """After a click that looked like the final Submit: re-snapshot and classify once
     more. Only a 'success' page counts as SUBMITTED — a click or HTTP response is never
     proof by itself (hard rule)."""
     time.sleep(1.5)
+    if abort_context and abort_context.is_timed_out:
+        raise HardTimeoutError(abort_context.timeout_reason)
     url2, title2, text2, html2 = _snapshot(page)
     if classify_page(url2, title2, text2, html2) == "success":
+        url = job.get("url", "")
+        attempt = job.get("attempts", 1)
+        update_job_phase(url, states.PHASE_CONFIRMED, attempt)
         evidence = (_success_evidence(f"{title2}\n{text2}\n{html2}", url2)
                     + _verify_in_applied_history(page, job)
                     + _gmail_confirmation(job.get("title") or ""))
@@ -824,13 +912,21 @@ def _confirm_final_submit(page, job: dict, screenshot_path: str) -> ApplyResult:
                         screenshot=_screenshot(page, screenshot_path))
 
 
-def _form_changed_no_control(page, text: str, html: str, screenshot_path: str) -> ApplyResult:
+def _form_changed_no_control(page, text: str, html: str, screenshot_path: str,
+                             abort_context: AttemptAbortContext | None = None) -> ApplyResult:
     """No Continue/Next/Submit could be found or clicked. Dumps every button (incl.
     hidden/disabled) into the DB reason so a real layout change is diagnosable without a
     live re-run, and optionally the raw page for HERMES_DEBUG_DUMP-driven local debugging."""
+    if abort_context and abort_context.is_timed_out:
+        raise HardTimeoutError(abort_context.timeout_reason)
     try:
         seen = page.run_js(_ALL_BUTTONS_JS)
     except Exception as exc:  # diagnostics only
+        if abort_context and abort_context.is_timed_out:
+            raise HardTimeoutError(abort_context.timeout_reason)
+        from DrissionPage.errors import PageDisconnectedError, BrowserConnectError
+        if isinstance(exc, (PageDisconnectedError, BrowserConnectError)):
+            raise HardTimeoutError(f"browser disconnected during button scan: {exc}")
         seen = f"<scan failed: {exc}>"
     if os.environ.get("HERMES_DEBUG_DUMP"):
         Path(os.environ["HERMES_DEBUG_DUMP"]).write_text(text + "\n\n" + html)
@@ -841,27 +937,32 @@ def _form_changed_no_control(page, text: str, html: str, screenshot_path: str) -
 def _handle_application_step(page, job: dict, cover_letter: str, resume_path: str,
                               screenshot_path: str, dry_run: bool,
                               text: str, html: str,
-                              on_progress: Callable[[str], None] | None = None) -> ApplyResult | None:
+                              on_progress: Callable[[str], None] | None = None,
+                              abort_context: AttemptAbortContext | None = None) -> ApplyResult | None:
     """The 'application' page class: fill whatever is visible on this step, then advance
     or submit. Returns a terminal ApplyResult, or None to keep driving the loop."""
+    if abort_context and abort_context.is_timed_out:
+        raise HardTimeoutError(abort_context.timeout_reason)
     detail = _fill_form_step(page, cover_letter, resume_path)
     if detail:
         return ApplyResult(states.FORM_CHANGED, detail=detail,
                             screenshot=_screenshot(page, screenshot_path))
-    advanced, was_final = _click_next_or_submit(page, dry_run, on_progress)
+    advanced, was_final = _click_next_or_submit(page, dry_run, on_progress,
+                                                abort_context=abort_context, job=job)
     if was_final and dry_run:
         return ApplyResult(states.DRY_RUN_OK, detail="stopped before clicking final submit")
     if was_final and advanced:
-        return _confirm_final_submit(page, job, screenshot_path)
+        return _confirm_final_submit(page, job, screenshot_path, abort_context=abort_context)
     if not advanced:
-        return _form_changed_no_control(page, text, html, screenshot_path)
+        return _form_changed_no_control(page, text, html, screenshot_path, abort_context=abort_context)
     return None
 
 
 def _handle_classified_page(page, cls: str, job: dict, cover_letter: str, resume_path: str,
                              screenshot_path: str, dry_run: bool,
                              url: str, title: str, text: str, html: str,
-                             on_progress: Callable[[str], None] | None = None) -> ApplyResult | None:
+                             on_progress: Callable[[str], None] | None = None,
+                             abort_context: AttemptAbortContext | None = None) -> ApplyResult | None:
     """Returns a terminal ApplyResult, or None to keep driving the loop."""
     hay = f"{title}\n{text}\n{html}"
 
@@ -892,7 +993,7 @@ def _handle_classified_page(page, cls: str, job: dict, cover_letter: str, resume
         return None
     if cls == "application":
         return _handle_application_step(page, job, cover_letter, resume_path, screenshot_path,
-                                        dry_run, text, html, on_progress)
+                                        dry_run, text, html, on_progress, abort_context=abort_context)
     return ApplyResult(states.FAILED, detail=f"unrecognized page state (url={url})",
                         screenshot=_screenshot(page, screenshot_path))
 
@@ -906,40 +1007,72 @@ def _close_browser(page) -> None:
         pass
 
 
+def _classify_timeout_result(job: dict, reason: str, screenshot_path: str | None = None) -> ApplyResult:
+    """Classify timeout outcome based on durable submission phase:
+    - PRE_SUBMIT: retryable TIMEOUT failure.
+    - SUBMIT_MAY_HAVE_DISPATCHED / CONFIRMATION_PENDING: SUBMISSION_UNCONFIRMED (never automatically retried).
+    - CONFIRMED: preserved as SUBMITTED (never downgraded by late watchdog).
+    """
+    url = job.get("url", "")
+    current_phase = get_job_phase(url)
+    if current_phase == states.PHASE_CONFIRMED:
+        return ApplyResult(states.SUBMITTED, evidence="submission confirmed prior to watchdog termination")
+    if current_phase in (states.PHASE_SUBMIT_MAY_HAVE_DISPATCHED, states.PHASE_CONFIRMATION_PENDING):
+        return ApplyResult(states.SUBMISSION_UNCONFIRMED,
+                           detail=f"timed out during {current_phase}: {reason}"[:300],
+                           screenshot=screenshot_path)
+    return ApplyResult(states.TIMEOUT, detail=f"pre-submit timeout: {reason}"[:300],
+                        screenshot=screenshot_path)
+
+
 def run_indeed_apply(job: dict, cover_letter: str, resume_path: str,
                       screenshot_path: str, dry_run: bool = False,
                       on_progress: Callable[[str], None] | None = None) -> ApplyResult:
-    """Apply to one Indeed job. Always closes the browser it opened.
-
-    `on_progress` (Phase 3, src/engine/ integration only — always None on the
-    legacy src/apply.py call path, which never passes it, so that path's
-    behavior is byte-for-byte unchanged): fired once with
-    "external_work_started" right after navigation to the job's own URL
-    succeeds (BROWSER_SYSTEM.md §70 `external_work_started` driver signal —
-    everything before this point, including browser launch and the Indeed
-    account/session check, is infrastructure/session setup, not yet external
-    work toward *this* opportunity), and with "submit_intent" at the
-    synchronous boundary inside `_click_next_or_submit` (§72).
-    """
+    """Apply to one Indeed job. Always closes the browser it opened."""
     ensure_virtual_display()
 
     page = None
+    endpoint = None
+    profile_path = None
+    root_ident = None
+    watchdog = None
+    abort_context = AttemptAbortContext()
+
     try:
         try:
-            page = _launch_browser()
+            launch_res = _launch_browser()
+            if isinstance(launch_res, tuple) and len(launch_res) == 4:
+                page, endpoint, profile_path, root_ident = launch_res
+            else:
+                page = launch_res
         except Exception as exc:
             return ApplyResult(states.NETWORK_ERROR, detail=f"browser launch failed: {exc}"[:300])
 
+        if root_ident is not None and endpoint is not None and profile_path is not None:
+            watchdog = BrowserWatchdog(
+                root_pid=root_ident.pid,
+                expected_endpoint=endpoint,
+                expected_profile=profile_path,
+                deadline_seconds=MAX_APPLY_SECONDS,
+                abort_context=abort_context,
+            )
+            watchdog.start()
+
         _seed_session_cookies(page)
 
-        login_detail = _check_indeed_login(page)
+        login_detail = _check_indeed_login(page, profile_path=profile_path)
         if login_detail:  # refuse to apply anonymously — see module docstring above
             return ApplyResult(states.LOGIN_REQUIRED, detail=login_detail,
                                 screenshot=_screenshot(page, screenshot_path))
 
         try:
+            abort_context.check()
             page.get(job["url"], timeout=NAV_TIMEOUT)
+        except HardTimeoutError as exc:
+            return _classify_timeout_result(job, str(exc), screenshot_path)
         except Exception as exc:
+            if abort_context.is_timed_out:
+                return _classify_timeout_result(job, abort_context.timeout_reason, screenshot_path)
             return ApplyResult(states.NETWORK_ERROR, detail=f"navigation failed: {exc}"[:300],
                                 screenshot=_screenshot(page, screenshot_path))
         if on_progress is not None:
@@ -948,10 +1081,19 @@ def run_indeed_apply(job: dict, cover_letter: str, resume_path: str,
         time.sleep(2.0)
         deadline = time.monotonic() + MAX_APPLY_SECONDS
         return _drive_application(page, job, cover_letter, resume_path, screenshot_path, dry_run,
-                                   deadline, on_progress)
+                                   deadline, on_progress, abort_context=abort_context)
 
+    except HardTimeoutError as exc:
+        return _classify_timeout_result(job, str(exc), screenshot_path)
     except Exception as exc:
+        if abort_context.is_timed_out or (watchdog and watchdog.is_timed_out):
+            reason = (watchdog and watchdog.abort_context.timeout_reason) or abort_context.timeout_reason or str(exc)
+            return _classify_timeout_result(job, reason, screenshot_path)
         return ApplyResult(states.FAILED, detail=f"unexpected: {exc}"[:300],
                             screenshot=_screenshot(page, screenshot_path))
     finally:
+        if watchdog is not None:
+            watchdog.stop()
         _close_browser(page)
+        if profile_path is not None:
+            cleanup_profile(profile_path, root_ident)

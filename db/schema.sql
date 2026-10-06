@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 
     status                  TEXT NOT NULL DEFAULT 'discovered',
     status_reason           TEXT,
+    phase                   TEXT,
     applied_at              TEXT,
     screenshot_path         TEXT,
 

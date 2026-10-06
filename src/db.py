@@ -30,6 +30,8 @@ MIGRATION_COLUMNS = {
     "submission_evidence": "TEXT",
     "last_attempt_at":  "TEXT",
     "response_notified_at": "TEXT",
+    "validation_attempts": "INTEGER DEFAULT 0",
+    "phase":            "TEXT",
 }
 
 
@@ -41,6 +43,13 @@ def init_db():
     for col, col_type in MIGRATION_COLUMNS.items():
         if col not in existing:
             conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {col_type}")
+    # Conservative migration: any pre-existing stuck 'applying' rows without a phase
+    # must fail closed to submission_unconfirmed, never blindly reset to tailored.
+    conn.execute(
+        "UPDATE jobs SET status = 'submission_unconfirmed', "
+        "status_reason = 'unresolved applying row without phase at migration' "
+        "WHERE status = 'applying' AND (phase IS NULL OR phase = '')"
+    )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_dedupe ON jobs(dedupe_key)")
     conn.commit()
@@ -125,10 +134,10 @@ def collapse_duplicates() -> int:
 
 
 def claim_job(url: str, max_attempts: int = 3) -> bool:
-    """Atomically move tailored → applying. False if another process claimed it or attempt cap reached."""
+    """Atomically move tailored → applying and initialize phase to PRE_SUBMIT. False if another process claimed it or attempt cap reached."""
     conn = get_conn()
     cur = conn.execute(
-        "UPDATE jobs SET status = 'applying', attempts = COALESCE(attempts, 0) + 1, "
+        "UPDATE jobs SET status = 'applying', phase = 'PRE_SUBMIT', attempts = COALESCE(attempts, 0) + 1, "
         "last_attempt_at = datetime('now') WHERE url = ? AND status = 'tailored' "
         "AND COALESCE(attempts, 0) < ?",
         (url, max_attempts),
@@ -136,6 +145,27 @@ def claim_job(url: str, max_attempts: int = 3) -> bool:
     conn.commit()
     conn.close()
     return cur.rowcount == 1
+
+
+def update_job_phase(url: str, phase: str, attempt: int) -> bool:
+    """Conditionally update phase only if the job is still 'applying' for the specified attempt count.
+    Returns True if updated, False if mismatched (e.g. attempt changed or job no longer applying)."""
+    conn = get_conn()
+    cur = conn.execute(
+        "UPDATE jobs SET phase = ? WHERE url = ? AND status = 'applying' AND attempts = ?",
+        (phase, url, attempt),
+    )
+    conn.commit()
+    conn.close()
+    return cur.rowcount == 1
+
+
+def get_job_phase(url: str) -> str | None:
+    """Return the currently persisted phase of a job."""
+    conn = get_conn()
+    row = conn.execute("SELECT phase FROM jobs WHERE url = ?", (url,)).fetchone()
+    conn.close()
+    return row["phase"] if row else None
 
 
 def tier_counts_today() -> dict:
