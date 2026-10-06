@@ -7,6 +7,19 @@ Sources (enable in config.search.boards):
   - himalayas   Himalayas API, filtered server-side to jobs open to India
   - remotive    Remotive public JSON API
   - remoteok    RemoteOK public JSON API
+  - wwr         We Work Remotely category RSS feeds (src/sources_wwr.py)
+  - arbeitnow   Arbeitnow public remote engineering API (src/sources_arbeitnow.py)
+  - wellfound   Wellfound public job-listing/detail pages, JSON-LD JobPosting data
+                (src/sources_wellfound.py) — registered here and fully unit-tested
+                (IMPLEMENTATION_ROADMAP.md §82), but deliberately NOT added to
+                config.yaml's `search.boards` yet: most live Wellfound postings observed
+                during Phase 8's investigation carry no external employer apply route at
+                all (Wellfound's own login-gated one-click apply is the only action), so
+                enabling it here would start the scheduled legacy pipeline discovering (and,
+                via src/apply.py's existing CH_REDIRECT handling, attempting to resolve/
+                apply to) postings this project cannot safely submit to yet. Adding
+                "wellfound" to config.yaml is a deliberate, separate decision for later —
+                same two-gates-before-anything-real-happens pattern as `engine.enabled`.
 
 Every scraped job passes through filters.passes_filters() (location, staleness,
 tier/role, salary). Rejected jobs are stored as status='filtered' (or 'expired'
@@ -267,7 +280,7 @@ def _safe_int(value) -> int | None:
 CHANNEL_BY_SITE = {
     "indeed": "indeed", "greenhouse": "greenhouse", "lever": "lever", "ashby": "ashby",
     "himalayas": "redirect", "remotive": "redirect", "remoteok": "redirect", "linkedin": "none",
-    "wwr": "redirect", "arbeitnow": "redirect",
+    "wwr": "redirect", "arbeitnow": "redirect", "wellfound": "redirect",
 }
 
 
@@ -390,10 +403,16 @@ def _scrape_arbeitnow(cfg: dict, limit: int | None) -> pd.DataFrame:
     return fetch_arbeitnow_jobs(cfg, limit)
 
 
+def _scrape_wellfound(cfg: dict, limit: int | None) -> pd.DataFrame:
+    from sources_wellfound import fetch_wellfound_jobs
+    return fetch_wellfound_jobs(cfg, limit)
+
+
 SCRAPERS = {
     "ats": lambda cfg, limit: _scrape_ats(cfg),
     "wwr": _scrape_wwr,
     "arbeitnow": _scrape_arbeitnow,
+    "wellfound": _scrape_wellfound,
     "himalayas": scrape_himalayas,
     "remotive": scrape_remotive,
     "remoteok": scrape_remoteok,

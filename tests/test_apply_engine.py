@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -12,10 +13,18 @@ CFG = {"search": {"stretch_share": 0.3, "stretch_min_score": 7.5, "min_score": 6
                   "linkedin_per_day": 0, "other_per_day": 100},
        "resumes": {"default": "resumes/resume-fullstack.pdf"}}
 
+# A real, non-empty, company-agnostic cover letter (no company named in its text at all, so
+# it never trips the F1/F2 gate checks regardless of which company a given test job uses).
+# Every test here is about the retry/state-machine/dedupe/cap/queue behavior of apply.py,
+# not the submission gate itself (see tests/test_submission_gate*.py for that) — these jobs
+# just need a cover letter the gate will not block on.
+GENERIC_COVER_LETTER_PATH = str(Path(__file__).parent / "fixtures" / "generic_cover_letter.txt")
+
 
 def job(i, tier=S.CORE, score=8.0, title="Backend Engineer", company=None, **kw):
     return {"url": f"https://x/{i}", "company": company or f"Co{i}", "title": title,
-            "description": "python api", "score": score, "tier": tier, "job_board": "indeed", **kw}
+            "description": "python api", "score": score, "tier": tier, "job_board": "indeed",
+            "cover_letter_path": GENERIC_COVER_LETTER_PATH, **kw}
 
 
 def test_queue_split_is_about_70_30():
@@ -56,7 +65,8 @@ def test_submitted_requires_evidence():
 def _seed(db, j, status=S.TAILORED):
     db.upsert_job({**j, "location": "Remote", "salary_min": None, "salary_max": None,
                    "date_posted": None, "status": status})
-    db.update_job(j["url"], {"dedupe_key": db.dedupe_key(j["company"], j["title"]), "tier": j["tier"]})
+    db.update_job(j["url"], {"dedupe_key": db.dedupe_key(j["company"], j["title"]), "tier": j["tier"],
+                             "cover_letter_path": j.get("cover_letter_path")})
 
 
 def _row(db, url):
@@ -211,8 +221,8 @@ def test_crash_leftover_applying_rows_exceeding_max_attempts_are_failed(temp_db)
     import apply
     j = job(41)
     _seed(temp_db, j)
-    # Set attempts to MAX_ATTEMPTS and simulate crash while in 'applying'
-    temp_db.update_job(j["url"], {"status": "applying", "attempts": S.MAX_ATTEMPTS})
+    # Set attempts to MAX_ATTEMPTS and simulate crash while in 'applying' in PRE_SUBMIT phase
+    temp_db.update_job(j["url"], {"status": "applying", "attempts": S.MAX_ATTEMPTS, "phase": S.PHASE_PRE_SUBMIT})
     assert apply.reset_stuck_applying(0) == 0  # not requeued to tailored
     row = _row(temp_db, j["url"])
     assert row["status"] == S.FAILED

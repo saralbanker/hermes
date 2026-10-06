@@ -1,0 +1,3 @@
+I'm excited about this opportunity and believe my background fits well. I have built
+production systems end to end, including APIs, data pipelines, and automated tests, and
+I'm ready to contribute immediately. Thank you for your consideration.

@@ -26,7 +26,7 @@ An automated job-application system that runs on your laptop with no input from 
 
 The source of truth is `profile/facts.md`. Every AI prompt may use only these facts.
 
-- **Saral Banker**, Shahibaug, Ahmedabad · +91 9016990136 · saralbanker1@gmail.com
+- **Saral Banker**, Shahibaug, Ahmedabad · +91 9106990136 · saralbanker1@gmail.com
 - **Education:** Diploma in Computer Engineering, LJ Polytechnic, May 2026, CGPA 8.36/10, top 10%. No bachelor's degree.
 - **Experience:** Freelance Full-Stack & AI Developer, Jan 2025 to present, part-time while studying until May 2026.
   - **Shade Ledger** (paid contract, Rs. 60,000): billing system for an industrial estate of 220+ units. Saves 40+ hours a month.

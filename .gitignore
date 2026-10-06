@@ -49,3 +49,6 @@ Thumbs.db
 chrome-*-profile/
 .pytest_cache/
 .claude/settings.local.json
+db/backups/
+*.bak
+*.tar.gz

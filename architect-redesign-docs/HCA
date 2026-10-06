@@ -1,0 +1,428 @@
+Good. This is actually the correct time to do cleanup work.
+
+If you jump directly into the new architecture, you'll end up debugging:
+
+```text
+old bugs
++ subprocess bugs
++ concurrency bugs
++ browser isolation bugs
+```
+
+all at once.
+
+I'd create a stabilization phase first.
+
+# Name of the Architecture
+
+I would call it:
+
+```text
+Hermes Cell Architecture (HCA)
+```
+
+because each application runs inside an isolated execution cell.
+
+```text
+Hermes Parent
+   ├─ Cell A
+   ├─ Cell B
+   └─ Cell C (future)
+```
+
+Alternative names:
+
+```text
+Hermes Execution Cells (HEC)
+Hermes Isolated Worker Cells (HIWC)
+Hermes Application Cell Runtime (ACR)
+```
+
+My vote:
+
+**Hermes Cell Architecture (HCA)**
+
+---
+
+# Stage 0 — Stabilization Before HCA
+
+This is what I'd do before touching architecture.
+
+---
+
+## Priority 1
+
+### Fix the repeated timeout accumulation
+
+This is the most important thing in the entire system.
+
+Current suspicion:
+
+```text
+30 sec timeout
+→ exception swallowed
+
+30 sec timeout
+→ exception swallowed
+
+30 sec timeout
+→ exception swallowed
+
+45 times later
+→ 24 minutes gone
+```
+
+You need exact proof.
+
+Goal:
+
+```text
+Find:
+- exact loop
+- exact exception
+- exact retry path
+- exact state machine path
+```
+
+before architecture work.
+
+---
+
+## Priority 2
+
+### Introduce Failure Taxonomy
+
+Right now too many things become:
+
+```text
+FAILED
+```
+
+You need:
+
+```text
+FAILED_TIMEOUT
+FAILED_BROWSER
+FAILED_CAPTCHA
+FAILED_FORM_LOOP
+FAILED_UPLOAD
+FAILED_NAVIGATION
+FAILED_PLATFORM
+FAILED_UNKNOWN
+```
+
+Why?
+
+Because after subprocesses arrive:
+
+```text
+child died
+```
+
+must become:
+
+```text
+WHY did child die?
+```
+
+otherwise debugging becomes impossible.
+
+---
+
+## Priority 3
+
+### Browser Ownership Cleanup
+
+Currently browser ownership looks fuzzy.
+
+Need:
+
+```text
+Application
+↓
+Browser PID
+↓
+Profile
+↓
+Xvfb
+↓
+Screenshot Folder
+```
+
+stored together.
+
+Every browser should have:
+
+```text
+session_id
+job_id
+browser_pid
+profile_path
+xvfb_display
+```
+
+attached.
+
+This makes future cell isolation much easier.
+
+---
+
+## Priority 4
+
+### Profile Isolation
+
+Today:
+
+```text
+single browser
+single profile
+```
+
+Future:
+
+```text
+Browser A → Profile A
+
+Browser B → Profile B
+```
+
+Prepare this now.
+
+Create profile abstraction before concurrency exists.
+
+Example:
+
+```python
+profile_manager.acquire()
+profile_manager.release()
+```
+
+Even if only one profile exists today.
+
+---
+
+## Priority 5
+
+### Remove Global State
+
+Subprocess architectures hate globals.
+
+Audit:
+
+```text
+globals
+singletons
+module caches
+shared temp files
+fixed paths
+fixed screenshots
+```
+
+Look for:
+
+```python
+/tmp/hermes
+/tmp/chrome
+output/latest.png
+```
+
+stuff.
+
+Anything shared becomes a future race condition.
+
+---
+
+## Priority 6
+
+### Add Application Phase Tracking
+
+This is huge.
+
+Every application should report:
+
+```text
+PHASE_CLAIMED
+
+PHASE_BROWSER_STARTED
+
+PHASE_FORM_FILLING
+
+PHASE_UPLOAD
+
+PHASE_PRE_SUBMIT
+
+PHASE_SUBMIT_INTENT
+
+PHASE_SUBMITTED
+
+PHASE_COMPLETE
+```
+
+Why?
+
+Future parent process needs visibility.
+
+Without this:
+
+```text
+child killed
+```
+
+means nothing.
+
+With phases:
+
+```text
+child killed during upload
+```
+
+or
+
+```text
+child killed after submit intent
+```
+
+Huge difference.
+
+---
+
+## Priority 7
+
+### Screenshot Discipline
+
+Today screenshots seem incidental.
+
+Make them deterministic.
+
+For every failure:
+
+```text
+before timeout
+
+before kill
+
+before retry
+
+before browser cleanup
+```
+
+capture evidence.
+
+Later this becomes critical.
+
+---
+
+## Priority 8
+
+### Introduce Structured Events
+
+Instead of:
+
+```python
+logger.info("clicked continue")
+```
+
+move toward:
+
+```python
+event(
+    type="button_click",
+    job_id=2110,
+    page="application",
+    button="continue"
+)
+```
+
+This will massively help debugging cells.
+
+---
+
+## Priority 9
+
+### Retry Policy Cleanup
+
+Currently retries appear mixed together.
+
+Need explicit policy:
+
+```text
+Timeout → retry
+
+Captcha → retry later
+
+Platform rejection → no retry
+
+Already applied → no retry
+
+Browser crash → retry
+```
+
+before subprocesses arrive.
+
+---
+
+## Priority 10
+
+### Measure True Throughput
+
+Before architecture changes establish:
+
+```text
+Applications/hour
+
+Success rate
+
+Average runtime
+
+P95 runtime
+
+P99 runtime
+
+Timeout count
+
+Browser crash count
+```
+
+otherwise you won't know if HCA actually helped.
+
+---
+
+# Then Build HCA
+
+Only after those 10 items.
+
+Then:
+
+```text
+Phase 1
+---------
+Fix timeout accumulation
+
+Phase 2
+---------
+Failure taxonomy
++
+phase tracking
+
+Phase 3
+---------
+Browser/profile isolation
+
+Phase 4
+---------
+Hermes Cell Architecture
+
+Parent
+  ├ Cell A
+  └ Cell B
+
+Phase 5
+---------
+Measure
+
+Phase 6
+---------
+Increase to 3 cells if justified
+```
+
+If you do the above, the architecture migration becomes dramatically easier because you're converting a well-observed system into isolated cells rather than trying to isolate a black box.

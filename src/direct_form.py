@@ -38,6 +38,7 @@ import re
 import tempfile
 import time
 from pathlib import Path
+from typing import Callable
 
 import states
 from ats_apply import (
@@ -203,11 +204,17 @@ def _click_apply_entry(page) -> bool:
     return False
 
 
-def _submit_direct(page) -> tuple[str | None, str | None]:
+def _submit_direct(page, on_progress: Callable[[str], None] | None = None) -> tuple[str | None, str | None]:
     """Click the final Submit/Send button and classify the outcome — same shape and
     polling logic as ats_apply._submit, just with FINAL_SELECTOR's wider button match
     (see its comment above). Returns (error_code, evidence); error_code is None with
-    evidence set on success."""
+    evidence set on success.
+
+    `on_progress` (Phase 7, src/engine/ integration only — always None on the legacy
+    src/apply.py call path, so that path's behavior is unchanged): fired the instant the
+    click itself returns, before the post-click polling/classification loop — the same
+    "submit_intent" boundary ats_apply._submit and indeed_apply._click_next_or_submit fire
+    at (BROWSER_SYSTEM.md §72)."""
     button = page.locator(FINAL_SELECTOR).last
     if not button.count():
         return "form_not_submitted", None
@@ -216,6 +223,8 @@ def _submit_direct(page) -> tuple[str | None, str | None]:
         button.click()
     except PWTimeoutError as exc:
         return f"network_error:{str(exc)[:150]}", None
+    if on_progress is not None:
+        on_progress("submit_intent")
     for _ in range(20):  # up to ~20 s for confirmation
         page.wait_for_timeout(1000)
         try:
@@ -239,11 +248,18 @@ def _submit_direct(page) -> tuple[str | None, str | None]:
 # Driver
 # ---------------------------------------------------------------------------
 
-def _open(page, url: str) -> str | None:
+def _open(page, url: str, on_progress: Callable[[str], None] | None = None) -> str | None:
+    """`on_progress` (Phase 7, src/engine/ integration only — see _submit_direct's
+    docstring): fired once navigation to the employer's form URL succeeds, before any
+    status/wall-state classification — the same "external_work_started" boundary
+    indeed_apply.run_indeed_apply fires right after its own job-page navigation
+    (BROWSER_SYSTEM.md §70)."""
     try:
         response = page.goto(url, wait_until="domcontentloaded", timeout=45000)
     except PWTimeoutError as exc:
         return f"network_error:{str(exc)[:150]}"
+    if on_progress is not None:
+        on_progress("external_work_started")
     if response is not None and response.status in (404, 410):
         return "posting_closed"
     page.wait_for_timeout(3000)
@@ -252,7 +268,8 @@ def _open(page, url: str) -> str | None:
 
 
 def _drive_steps(page, cover_letter: str, resume_path: str, cover_path: str,
-                  dry_run: bool, deadline: float) -> tuple[str | None, str | None]:
+                  dry_run: bool, deadline: float,
+                  on_progress: Callable[[str], None] | None = None) -> tuple[str | None, str | None]:
     """Fill/advance through however many steps the form has. Returns (error_code,
     evidence) in ats_apply's vocabulary, or ("dry_run_ok", None)."""
     for _ in range(MAX_STEPS):
@@ -276,7 +293,7 @@ def _drive_steps(page, cover_letter: str, resume_path: str, cover_path: str,
         if page.locator(FINAL_SELECTOR).count():
             if dry_run:
                 return "dry_run_ok", None
-            return _submit_direct(page)
+            return _submit_direct(page, on_progress)
         if _click_next(page):
             continue
         return "form_not_submitted", None
@@ -302,7 +319,11 @@ def _map_error(code: str, screenshot: str | None) -> states.ApplyResult:
 
 
 def run_direct_apply(job: dict, cover_letter: str, resume_path: str, screenshot_path: str,
-                     dry_run: bool = False) -> states.ApplyResult:
+                     dry_run: bool = False,
+                     on_progress: Callable[[str], None] | None = None) -> states.ApplyResult:
+    """`on_progress` (Phase 7, src/engine/ integration only — always None on the legacy
+    src/apply.py call path, which never passes it, so that path's behavior is byte-for-byte
+    unchanged): see _open/_submit_direct docstrings for the two boundaries it fires at."""
     url = job.get("direct_apply_url") or job.get("url")
     if not url:
         return states.ApplyResult(states.FORM_CHANGED, detail="no direct apply URL to open")
@@ -314,7 +335,7 @@ def run_direct_apply(job: dict, cover_letter: str, resume_path: str, screenshot_
             ctx = _launch(pw)
             try:
                 return _apply_in_browser(ctx, url, cover_letter, resume_path, cover_path,
-                                         screenshot_path, dry_run)
+                                         screenshot_path, dry_run, on_progress)
             finally:
                 ctx.close()
     except PWTimeoutError as exc:
@@ -332,13 +353,15 @@ def run_direct_apply(job: dict, cover_letter: str, resume_path: str, screenshot_
 
 
 def _apply_in_browser(ctx, url: str, cover_letter: str, resume_path: str, cover_path: str,
-                      screenshot_path: str, dry_run: bool) -> states.ApplyResult:
+                      screenshot_path: str, dry_run: bool,
+                      on_progress: Callable[[str], None] | None = None) -> states.ApplyResult:
     page = ctx.new_page()
-    error = _open(page, url)
+    error = _open(page, url, on_progress)
     if error:
         return _map_error(error, _screenshot(page, screenshot_path))
     deadline = time.monotonic() + MAX_APPLY_SECONDS
-    error, evidence = _drive_steps(page, cover_letter, resume_path, cover_path, dry_run, deadline)
+    error, evidence = _drive_steps(page, cover_letter, resume_path, cover_path, dry_run, deadline,
+                                   on_progress)
     if error == "dry_run_ok":
         return states.ApplyResult(states.DRY_RUN_OK, detail="all fields filled, submit deliberately skipped",
                                   screenshot=_screenshot(page, screenshot_path))

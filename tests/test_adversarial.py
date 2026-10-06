@@ -581,7 +581,7 @@ class TestEdgeCases:
         """Phone field should return candidate's phone."""
         with mock_no_llm():
             result = answers.rule_answer("phone number")
-            assert "+91 9016990136" in result, f"Phone returned {result}"
+            assert "+91 9106990136" in result, f"Phone returned {result}"
     
     def test_linkedin_rule_match(self):
         """LinkedIn field should return a URL."""

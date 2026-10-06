@@ -434,12 +434,15 @@ Score interpretation depends on the model and prompt/calibration version.
 Evaluation history should retain:
 
 - model identifier
-- prompt/schema version
+- prompt/output-schema version (the AI prompt template and structured-output shape — distinct from the
+  database's own schema generation, DATA_MODEL.md §3.1)
 - score
 - confidence
 - reason
 - input version
 - timestamp
+
+These are recorded in `evaluation_history.metadata` (DATA_MODEL.md §10.2), since no dedicated column exists for them.
 
 Changing a model must not erase historical evaluation evidence.
 
@@ -490,6 +493,26 @@ Generation is not used for:
 - security decisions
 - canonical identity
 - submission confirmation
+
+Automation boundary, binding on every AI-generated response (cover letters, screening answers, and any future auto-reply logic):
+
+Automation allowed — repeatable actions Hermes may generate/send:
+
+- resume delivery
+- portfolio delivery
+- GitHub delivery
+- project information
+- screening responses
+
+Automation forbidden — high-impact human decisions AI must never auto-handle:
+
+- interview decisions
+- salary negotiation
+- offer handling
+- contract handling
+- legal/identity document handling
+
+Hermes automates repeatable actions. Hermes never automates high-impact human decisions. A screening field answerable from a fixed deterministic policy value (e.g. a stated salary floor) is a screening response, not salary negotiation; any back-and-forth negotiation, counter-offer, or employer-initiated compensation/offer/contract/legal-document discussion is forbidden and must route to a human-required state (WORKFLOW_ENGINE.md §60, Manual Review) rather than receive an AI-generated response.
 
 ---
 
@@ -941,7 +964,7 @@ Task separation improves consistency and reduces unnecessary context.
 
 # 57. Prompt Versioning
 
-Record prompt/schema version with structured outputs.
+Record prompt/output-schema version with structured outputs (DATA_MODEL.md §10.2) — distinct from the database's own schema generation (DATA_MODEL.md §3.1).
 
 Prompt changes can materially change system behavior even when the model binary remains unchanged.
 
@@ -1359,7 +1382,7 @@ AI results belong in evaluation history with:
 - opportunity
 - task type
 - model
-- prompt/schema version
+- prompt/output-schema version
 - input version
 - timestamp
 - result
@@ -1907,7 +1930,7 @@ Continuous operation means safe degradation, not pretending every AI task must s
 
 # 123. Daily Target Interaction
 
-AI must never spend unbounded resources merely to approach the 100/day target.
+AI must never spend unbounded resources merely to approach the 100 qualified applications/day target.
 
 The target is a goal.
 

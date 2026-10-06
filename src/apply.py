@@ -35,6 +35,7 @@ from cap_enforcer import remaining_today
 from db import (already_applied_key, claim_job, dedupe_key, get_conn, get_jobs_by_status,
                 increment_daily, init_db, tier_counts_today, update_job)
 from filters import role_priority
+from submission_gate import classify_gate_outcome, run_submission_gate
 
 ROOT = Path(__file__).parent.parent
 SCREENSHOTS = ROOT / "screenshots"
@@ -213,6 +214,7 @@ def record_result(job: dict, result: S.ApplyResult) -> str:
     url = job["url"]
     if result.state == S.SUBMITTED:
         update_job(url, {"status": S.SUBMITTED, "status_reason": None,
+                         "phase": S.PHASE_CONFIRMED,
                          "applied_at": datetime.now().isoformat(timespec="seconds"),
                          "submission_evidence": (result.evidence or "")[:500],
                          "screenshot_path": result.screenshot})
@@ -232,6 +234,27 @@ def record_result(job: dict, result: S.ApplyResult) -> str:
                          "attempts": attempts,
                          "screenshot_path": result.screenshot})
         return S.TAILORED
+    if result.state == S.GATE_INFRA_ERROR:
+        # The gate itself failed closed on an environment/config problem — not this job's
+        # data. Revert the attempt (same treatment as any other infra failure) and leave
+        # validation_attempts untouched; it will simply be retried on the next run.
+        attempts = max(0, (job.get("attempts") or 1) - 1)
+        update_job(url, {"status": S.TAILORED, "status_reason": f"gate_infra_error: {result.detail}"[:500],
+                         "attempts": attempts, "screenshot_path": result.screenshot})
+        return S.TAILORED
+    if result.state == S.VALIDATION_FAILED:
+        # A genuine gate finding or a job-data-specific gate exception — this job's data,
+        # not the environment. Bounded by its own validation_attempts counter, separate
+        # from the generic attempts/MAX_ATTEMPTS retry mechanism (see states.py).
+        kind = (result.meta or {}).get("gate_kind", "finding")
+        attempts = max(0, (job.get("attempts") or 1) - 1)
+        validation_attempts = (job.get("validation_attempts") or 0) + 1
+        exhausted = validation_attempts >= S.MAX_VALIDATION_ATTEMPTS
+        status = S.MANUAL_REVIEW if exhausted else S.TAILORED
+        update_job(url, {"status": status, "status_reason": f"{kind}: {result.detail}"[:500],
+                         "attempts": attempts, "validation_attempts": validation_attempts,
+                         "screenshot_path": result.screenshot})
+        return status
     attempts = job.get("attempts") or 0
     reason = f"{result.state}: {result.detail}"[:500]
     retry = result.state in S.RETRYABLE and attempts < S.MAX_ATTEMPTS
@@ -268,10 +291,32 @@ def apply_one(job: dict, cfg: dict, dry_run: bool) -> S.ApplyResult | None:
     SCREENSHOTS.mkdir(exist_ok=True)
     shot = str(SCREENSHOTS / f"{slug(job)}.png")
     cover = read_cover_letter(job.get("cover_letter_path"))
-    try:
-        result = route(job, cover, resolve_resume(job.get("resume_variant"), cfg), shot, dry_run)
-    except Exception as exc:  # an applier bug must not kill the batch; recorded as FAILED
-        result = S.ApplyResult(S.FAILED, f"{type(exc).__name__}: {exc}"[:400])
+    # Hard pre-submission gate: identity/placeholder/company checks on the cached cover
+    # letter + identity payload about to reach a channel submitter. ANY failed check —
+    # or any failure of the gate itself (it fails closed, never raises) — blocks dispatch
+    # below: no warning mode, no soft fail.
+    gate_findings = run_submission_gate(job, cover)
+    gate_kind = classify_gate_outcome(gate_findings)
+    if gate_kind == "infra_error":
+        result = S.ApplyResult(S.GATE_INFRA_ERROR, "; ".join(gate_findings)[:400])
+    elif gate_kind != "ok":
+        result = S.ApplyResult(S.VALIDATION_FAILED, "; ".join(gate_findings)[:400], meta={"gate_kind": gate_kind})
+    else:
+        try:
+            result = route(job, cover, resolve_resume(job.get("resume_variant"), cfg), shot, dry_run)
+        except Exception as exc:  # an applier bug must not kill the batch
+            from browser_watchdog import HardTimeoutError
+            from db import get_job_phase
+            if isinstance(exc, HardTimeoutError) or "timeout" in type(exc).__name__.lower():
+                current_phase = get_job_phase(job["url"])
+                if current_phase in (S.PHASE_SUBMIT_MAY_HAVE_DISPATCHED, S.PHASE_CONFIRMATION_PENDING):
+                    result = S.ApplyResult(S.SUBMISSION_UNCONFIRMED, detail=f"timeout in submit phase: {exc}"[:400])
+                elif current_phase == S.PHASE_CONFIRMED:
+                    result = S.ApplyResult(S.SUBMITTED, evidence="submission confirmed prior to timeout")
+                else:
+                    result = S.ApplyResult(S.TIMEOUT, detail=f"pre-submit timeout: {exc}"[:400])
+            else:
+                result = S.ApplyResult(S.FAILED, f"{type(exc).__name__}: {exc}"[:400])
     record_result(job, result)
     return result
 
@@ -281,23 +326,52 @@ def apply_one(job: dict, cfg: dict, dry_run: bool) -> S.ApplyResult | None:
 # ---------------------------------------------------------------------------
 
 def reset_stuck_applying(max_age_minutes: int = 0) -> int:
-    """Rows left in 'applying' by a crashed run go back to the queue or are failed if attempts exhausted.
-
-    Safe with age 0 because pipeline.py/run_hermes.sh hold the run lock, so no other
-    applier can be mid-application. A standalone `apply.py` run uses 90 minutes.
+    """Rows left in 'applying' by a crashed run are recovered according to durable phase:
+    1. SUBMIT_MAY_HAVE_DISPATCHED or CONFIRMATION_PENDING -> submission_unconfirmed (never automatically retry).
+    2. CONFIRMED while in 'applying' -> invariant violation -> submission_unconfirmed.
+    3. Missing / unknown phase -> fail closed as submission_unconfirmed (never infer 'not submitted').
+    4. PRE_SUBMIT -> requeue to tailored if attempts < MAX_ATTEMPTS; otherwise fail.
+    Returns count of rows requeued to tailored.
     """
     conn = get_conn()
+    # 1. Submit-risk phases: commit happened before click or waiting confirmation. Never requeue.
+    conn.execute(
+        "UPDATE jobs SET status = 'submission_unconfirmed', "
+        "status_reason = 'unconfirmed submission after crash in submit phase' "
+        "WHERE status = 'applying' AND phase IN (?, ?) "
+        "AND (? = 0 OR last_attempt_at IS NULL OR last_attempt_at < datetime('now', ?))",
+        (S.PHASE_SUBMIT_MAY_HAVE_DISPATCHED, S.PHASE_CONFIRMATION_PENDING,
+         max_age_minutes, f"-{max_age_minutes} minutes"),
+    )
+    # 2. Invariant violation: applying row with CONFIRMED phase. Fail closed for reconciliation.
+    conn.execute(
+        "UPDATE jobs SET status = 'submission_unconfirmed', "
+        "status_reason = 'invariant violation: applying row with CONFIRMED phase' "
+        "WHERE status = 'applying' AND phase = ? "
+        "AND (? = 0 OR last_attempt_at IS NULL OR last_attempt_at < datetime('now', ?))",
+        (S.PHASE_CONFIRMED, max_age_minutes, f"-{max_age_minutes} minutes"),
+    )
+    # 3. Missing/unknown phase on a stale applying row -> fail closed as submission_unconfirmed.
+    conn.execute(
+        "UPDATE jobs SET status = 'submission_unconfirmed', "
+        "status_reason = 'unconfirmed submission: missing or unknown phase on crash recovery' "
+        "WHERE status = 'applying' AND (phase IS NULL OR phase NOT IN (?, ?, ?, ?)) "
+        "AND (? = 0 OR last_attempt_at IS NULL OR last_attempt_at < datetime('now', ?))",
+        (S.PHASE_PRE_SUBMIT, S.PHASE_SUBMIT_MAY_HAVE_DISPATCHED, S.PHASE_CONFIRMATION_PENDING, S.PHASE_CONFIRMED,
+         max_age_minutes, f"-{max_age_minutes} minutes"),
+    )
+    # 4. PRE_SUBMIT: safe to requeue if attempts remain; otherwise fail according to cap.
     conn.execute(
         "UPDATE jobs SET status = 'failed', status_reason = 'exceeded MAX_ATTEMPTS after crash' "
-        "WHERE status = 'applying' AND COALESCE(attempts, 0) >= ? AND (? = 0 OR last_attempt_at IS NULL OR "
-        "last_attempt_at < datetime('now', ?))",
-        (S.MAX_ATTEMPTS, max_age_minutes, f"-{max_age_minutes} minutes"),
+        "WHERE status = 'applying' AND phase = ? AND COALESCE(attempts, 0) >= ? "
+        "AND (? = 0 OR last_attempt_at IS NULL OR last_attempt_at < datetime('now', ?))",
+        (S.PHASE_PRE_SUBMIT, S.MAX_ATTEMPTS, max_age_minutes, f"-{max_age_minutes} minutes"),
     )
     cur = conn.execute(
         "UPDATE jobs SET status = 'tailored', status_reason = 'reset_after_crash' "
-        "WHERE status = 'applying' AND COALESCE(attempts, 0) < ? AND (? = 0 OR last_attempt_at IS NULL OR "
-        "last_attempt_at < datetime('now', ?))",
-        (S.MAX_ATTEMPTS, max_age_minutes, f"-{max_age_minutes} minutes"),
+        "WHERE status = 'applying' AND phase = ? AND COALESCE(attempts, 0) < ? "
+        "AND (? = 0 OR last_attempt_at IS NULL OR last_attempt_at < datetime('now', ?))",
+        (S.PHASE_PRE_SUBMIT, S.MAX_ATTEMPTS, max_age_minutes, f"-{max_age_minutes} minutes"),
     )
     conn.commit()
     conn.close()

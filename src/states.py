@@ -43,17 +43,46 @@ MODEL_UNAVAILABLE = "model_unavailable"
 MODEL_TIMEOUT = "model_timeout"
 FAILED = "failed"                              # unexpected error (retryable up to MAX_ATTEMPTS)
 DRY_RUN_OK = "dry_run_ok"                      # form filled, submit deliberately skipped (never stored)
+VALIDATION_FAILED = "validation_failed"        # transient ApplyResult.state tag only — never persisted
+                                                # to jobs.status directly. apply.py's record_result maps
+                                                # it to persisted jobs.status TAILORED (validation_attempts
+                                                # budget remaining) or terminal MANUAL_REVIEW (budget
+                                                # exhausted, human-release-only). Deliberately NOT in
+                                                # RETRYABLE below: it has its own dedicated counter
+                                                # (validation_attempts / MAX_VALIDATION_ATTEMPTS), not the
+                                                # generic attempts/MAX_ATTEMPTS retry mechanism.
+GATE_INFRA_ERROR = "gate_infra_error"          # the gate itself failed closed on an environment/config
+                                                # problem (GateConfigError/GateContractError) — not a job
+                                                # data problem; reverts the attempt and stays TAILORED.
+MANUAL_REVIEW = "manual_review"                # terminal, human-release-only (see scripts/release_manual_review.py)
+TIMEOUT = "timeout"                            # authoritative per-attempt timeout (retryable if PRE_SUBMIT)
+
+# Durable submission-risk phases (jobs.phase bound to attempt)
+PHASE_PRE_SUBMIT = "PRE_SUBMIT"
+PHASE_SUBMIT_MAY_HAVE_DISPATCHED = "SUBMIT_MAY_HAVE_DISPATCHED"
+PHASE_CONFIRMATION_PENDING = "CONFIRMATION_PENDING"
+PHASE_CONFIRMED = "CONFIRMED"
+VALID_PHASES = frozenset({
+    PHASE_PRE_SUBMIT,
+    PHASE_SUBMIT_MAY_HAVE_DISPATCHED,
+    PHASE_CONFIRMATION_PENDING,
+    PHASE_CONFIRMED,
+})
 
 APPLIER_STATES = frozenset({
     SUBMITTED, EXPIRED, INVALID, LOGIN_REQUIRED, SECURITY_INTERSTITIAL, CAPTCHA_REQUIRED,
     BLOCKED_ANTIBOT, OTP_REQUIRED, NETWORK_ERROR, FORM_CHANGED, ALREADY_APPLIED,
-    SUBMISSION_UNCONFIRMED, UNSUPPORTED_CHANNEL, FAILED, DRY_RUN_OK,
+    SUBMISSION_UNCONFIRMED, UNSUPPORTED_CHANNEL, FAILED, DRY_RUN_OK, VALIDATION_FAILED,
+    GATE_INFRA_ERROR, MANUAL_REVIEW, TIMEOUT,
 })
 
 # States that go back to TAILORED for another attempt on a later run.
+# VALIDATION_FAILED is deliberately NOT here — see its comment above.
 RETRYABLE = frozenset({SECURITY_INTERSTITIAL, NETWORK_ERROR, FAILED, LOGIN_REQUIRED,
-                       OTP_REQUIRED, MODEL_UNAVAILABLE, MODEL_TIMEOUT})
+                       OTP_REQUIRED, MODEL_UNAVAILABLE, MODEL_TIMEOUT, TIMEOUT})
 MAX_ATTEMPTS = 3
+MAX_VALIDATION_ATTEMPTS = 3                    # separate bounded budget for VALIDATION_FAILED;
+                                                # exhausting it moves jobs.status to MANUAL_REVIEW.
 
 # Channels (jobs.apply_channel)
 CH_INDEED = "indeed"

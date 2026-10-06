@@ -450,3 +450,48 @@ def test_run_ats_apply_rejects_missing_apply_url():
     job = {"ats_meta": '{"ats": "greenhouse"}'}
     result = ats_apply.run_ats_apply(job, "cover", "resume.pdf", "shot.png")
     assert result.state == S.FAILED
+
+
+# ---------------------------------------------------------------------------
+# run_ats_apply's outer exception handler (Phase 9 audit, checklist item 11,
+# bounded execution): a hung/erroring browser call — Playwright timeout,
+# a generic Playwright error, or an unexpected Chrome crash — must land on
+# a terminal/retryable ApplyResult, not raise and leave the attempt stuck.
+# `_launch` is monkeypatched to simulate each failure; no real browser is
+# ever started.
+# ---------------------------------------------------------------------------
+
+_VALID_JOB = {"ats_meta": '{"ats": "greenhouse", "apply_url": "https://boards.greenhouse.io/x/jobs/1"}'}
+
+
+def test_run_ats_apply_playwright_timeout_maps_to_network_error(monkeypatch):
+    monkeypatch.setattr(ats_apply, "_launch", lambda pw: (_ for _ in ()).throw(
+        ats_apply.PWTimeoutError("Timeout 30000ms exceeded")))
+    result = ats_apply.run_ats_apply(_VALID_JOB, "cover", "resume.pdf", "shot.png")
+    assert result.state == S.NETWORK_ERROR
+    assert "timeout" in result.detail.lower()
+
+
+def test_run_ats_apply_playwright_network_error_maps_to_network_error(monkeypatch):
+    monkeypatch.setattr(ats_apply, "_launch", lambda pw: (_ for _ in ()).throw(
+        ats_apply.PWError("net::ERR_CONNECTION_RESET at https://boards.greenhouse.io/x")))
+    result = ats_apply.run_ats_apply(_VALID_JOB, "cover", "resume.pdf", "shot.png")
+    assert result.state == S.NETWORK_ERROR
+
+
+def test_run_ats_apply_playwright_non_network_error_maps_to_failed(monkeypatch):
+    monkeypatch.setattr(ats_apply, "_launch", lambda pw: (_ for _ in ()).throw(
+        ats_apply.PWError("Target page, context or browser has been closed")))
+    result = ats_apply.run_ats_apply(_VALID_JOB, "cover", "resume.pdf", "shot.png")
+    assert result.state == S.FAILED
+    assert result.detail.startswith("browser_error:")
+
+
+def test_run_ats_apply_unexpected_crash_maps_to_failed_not_raised(monkeypatch):
+    """A raw Chrome/Playwright crash (neither PWTimeoutError nor PWError) must still be
+    caught and reported, never propagated out of run_ats_apply."""
+    monkeypatch.setattr(ats_apply, "_launch", lambda pw: (_ for _ in ()).throw(
+        RuntimeError("chrome crashed unexpectedly")))
+    result = ats_apply.run_ats_apply(_VALID_JOB, "cover", "resume.pdf", "shot.png")
+    assert result.state == S.FAILED
+    assert "chrome crashed" in result.detail

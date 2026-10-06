@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from db import init_db, update_job
 from keywords import extract_keywords, missing_keywords
 from llm import LLMUnavailable, chat, facts
+from project_registry import PROJECTS, RETIRED_PROJECTS
 
 ROOT = Path(__file__).parent.parent
 
@@ -82,11 +83,19 @@ PROOF_BY_VARIANT = {
     "backend": ("I built AWIS, an event-sourced workflow engine in Go: a YAML workflow DSL with "
                 "retries and compensation, an append-only SQLite event log rebuilt by replay, and "
                 "773 Go test functions gated by CI with the race detector."),
-    "fullstack": ("As a freelancer I delivered Shade Ledger, a paid billing and collection system "
-                  "for an industrial estate of 220+ units, built with React, TypeScript and "
-                  "PostgreSQL. It replaced the client's Excel workflow and saves 40+ hours of "
-                  "manual work each month."),
+    "fullstack": ("As a full-stack builder I delivered Neuro-Zenith, a local-first AI productivity "
+                  "platform with a React/TypeScript frontend, a Node.js/Express backend and a Python "
+                  "FastAPI inference service — about 70,000 lines across 400+ files, with "
+                  "Postgres/Supabase, Redis/BullMQ background jobs, and multi-provider LLM routing."),
 }
+
+# Load-time guard (safe to hard-fail at import — static code constant, no "typo in prose"
+# risk class): PROOF_BY_VARIANT must never name a retired project, since template_letter()
+# never goes through facts()/candidate_text() and so is not covered by redact_retired_sections.
+for _variant, _text in PROOF_BY_VARIANT.items():
+    _bad = [n for n in RETIRED_PROJECTS if re.search(re.escape(n), _text, re.I)]
+    if _bad:
+        raise RuntimeError(f"PROOF_BY_VARIANT[{_variant!r}] names retired project(s) {_bad}")
 
 BANNED_CLAIM_RE = re.compile(
     r"\b(i have|i've|my|experience (in|with)|background in|expertise in|worked (in|with|on))"
@@ -124,15 +133,11 @@ def allowed_numbers() -> frozenset[str]:
 # since it only checks that the digit sequence exists SOMEWHERE in the fact sheet. Bind each
 # project-specific number to its real owner and reject a sentence that states one project's
 # number while naming a different tracked project.
-PROJECT_NUMBERS: dict[str, frozenset[str]] = {
-    "AWIS": frozenset({"25000", "25", "773", "31000", "31", "168", "22", "12"}),
-    "Neuro-Zenith": frozenset({"70000", "70", "44", "400"}),
-    "Shade Ledger": frozenset({"60000", "60", "220", "40"}),
-    "Hermes": frozenset(),       # no numeric facts of its own in facts.md
-    "HeatMax": frozenset(),
-    "Carbon Compass": frozenset(),
-}
-PROJECT_NAME_RE = {name: re.compile(re.escape(name), re.I) for name in PROJECT_NUMBERS}
+#
+# Derived from project_registry.PROJECTS (the one place that says active/retired status and
+# owns numbers) rather than a second, duplicated list here.
+PROJECT_NUMBERS: dict[str, frozenset[str]] = {name: info.numbers for name, info in PROJECTS.items()}
+PROJECT_NAME_RE = {name: re.compile(re.escape(name), re.I) for name in PROJECTS}
 
 
 def _misattributed_number(text: str) -> str | None:

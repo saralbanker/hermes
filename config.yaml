@@ -4,7 +4,7 @@
 profile:
   name: Saral Banker
   email: saralbanker1@gmail.com
-  phone: +91 9016990136
+  phone: +91 9106990136
   location: Ahmedabad, Gujarat, India
   github: github.com/saralbanker
   portfolio: orvion-co.vercel.app
@@ -116,3 +116,34 @@ screening_answers:
     and ship complete systems. I have built and shipped a paid billing system for an industrial
     estate of 220+ units, a 70k-line AI productivity platform with RAG, and AWIS, an event-sourced
     workflow engine in Go with 773 test functions. I''m available immediately and work well remotely.'
+
+# Phase 3 (architect-redesign-docs): the new src/engine/ + src/engine_apply.py path,
+# writing through claim/lease/fencing and the v2 schema (db/migrations/0001_opportunity_model.sql)
+# instead of the legacy jobs-table status updates. MUST stay false until the new path has
+# real-world verification (BROWSER_SYSTEM.md §116) — scripts/run_hermes.sh and every
+# systemd unit call src/apply.py's main() directly and never read this flag, so flipping
+# it here alone does not change what the scheduled/cron pipeline runs; it only unlocks
+# src/engine_apply.py for a deliberate, explicitly-invoked call.
+engine:
+  enabled: false
+  # Phase 6 (src/engine/gmail/): the new classify/correlate/notify pipeline.
+  # MUST stay false until Telegram credentials exist and have been
+  # reviewed — src/response_watcher.py + hermes-watch.timer never read this
+  # flag and are the only thing actually polling real Gmail either way.
+  gmail_enabled: false
+
+# Phase 4 (architect-redesign-docs): the new src/engine/ai/ pipeline (AI_SYSTEM.md's
+# frozen role architecture — embedding/reranker/scoring/generation). Independent, additive
+# block — distinct from the legacy `llm:` block above, which src/llm.py/score.py/tailor.py
+# keep reading unmodified. Model tags are an implementation choice (AI_SYSTEM.md §4: "the
+# exact checkpoint is an implementation choice until benchmarked on the real host") —
+# these are what Phase 4 measured on this host; see the Phase 4 report.
+ai_roles:
+  base_url: http://localhost:11434
+  timeout: 180
+  keep_alive: 30m
+  roles:
+    embedding: nomic-embed-text
+    reranker: dengcao/bge-reranker-v2-m3
+    scoring: phi4-mini
+    generation: qwen3.5:4b-q4_K_M

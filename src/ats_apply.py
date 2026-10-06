@@ -30,6 +30,7 @@ import re
 import tempfile
 import time
 from pathlib import Path
+from typing import Callable
 
 import requests
 import yaml
@@ -502,9 +503,14 @@ def _watch_submit_responses(page) -> tuple[list[str], callable]:
     return matches, lambda: page.remove_listener("response", _on_response)
 
 
-def _submit(page) -> tuple[str | None, str | None]:
+def _submit(page, on_progress: Callable[[str], None] | None = None) -> tuple[str | None, str | None]:
     """Click submit, wait, classify. Returns (error_code, evidence). error_code is
-    None with evidence set on success."""
+    None with evidence set on success.
+
+    `on_progress` (Phase 7, src/engine/ integration only — see _open_form's docstring):
+    fired the instant the click itself returns, before the post-click polling/classification
+    loop — the same synchronous "submit_intent" boundary indeed_apply.py's
+    _click_next_or_submit fires at (BROWSER_SYSTEM.md §72)."""
     button = page.locator(
         'button[type="submit"]:has-text("Submit"), button:has-text("Submit application"), '
         '#btn-submit, button:has-text("Submit Application")'
@@ -529,6 +535,8 @@ def _submit(page) -> tuple[str | None, str | None]:
     except PWTimeoutError as exc:
         stop_watching()
         return f"network_error:{str(exc)[:150]}", None
+    if on_progress is not None:
+        on_progress("submit_intent")
     try:
         for _ in range(20):  # up to ~20 s for confirmation
             page.wait_for_timeout(1000)
@@ -572,11 +580,19 @@ def _submit(page) -> tuple[str | None, str | None]:
         stop_watching()
 
 
-def _open_form(page, meta: dict) -> str | None:
+def _open_form(page, meta: dict, on_progress: Callable[[str], None] | None = None) -> str | None:
+    """`on_progress` (Phase 7, src/engine/ integration only — always None on the legacy
+    src/apply.py call path, which never passes it, so that path's behavior is unchanged):
+    fired once navigation to the ATS-hosted apply_url succeeds, before any status/content
+    classification — same "external_work_started" boundary indeed_apply.py's
+    run_indeed_apply fires right after its own job-page navigation (BROWSER_SYSTEM.md §70),
+    applied here for the Greenhouse/Lever/Ashby form itself."""
     try:
         response = page.goto(meta["apply_url"], wait_until="domcontentloaded", timeout=45000)
     except PWTimeoutError as exc:
         return f"network_error:{str(exc)[:150]}"
+    if on_progress is not None:
+        on_progress("external_work_started")
     if response is not None and response.status in (404, 410):
         return "posting_closed"
     page.wait_for_timeout(3500)
@@ -639,7 +655,11 @@ def _result_for_error(code: str, screenshot: str | None) -> states.ApplyResult:
 
 
 def run_ats_apply(job: dict, cover_letter: str, resume_path: str, screenshot_path: str,
-                  dry_run: bool = False) -> states.ApplyResult:
+                  dry_run: bool = False,
+                  on_progress: Callable[[str], None] | None = None) -> states.ApplyResult:
+    """`on_progress` (Phase 7, src/engine/ integration only — always None on the legacy
+    src/apply.py call path, which never passes it, so that path's behavior is byte-for-byte
+    unchanged): see _open_form/_submit docstrings for the two boundaries it fires at."""
     meta = json.loads(job.get("ats_meta") or "{}")
     if meta.get("ats") not in states.ATS_CHANNELS or not meta.get("apply_url"):
         return _result_for_error("unsupported_ats", None)
@@ -653,7 +673,7 @@ def run_ats_apply(job: dict, cover_letter: str, resume_path: str, screenshot_pat
             ctx = _launch(pw)
             try:
                 return _apply_in_browser(ctx, meta, cover_letter, resume_path, cover_path,
-                                         screenshot_path, dry_run)
+                                         screenshot_path, dry_run, on_progress)
             finally:
                 ctx.close()
     except PWTimeoutError as exc:
@@ -684,9 +704,10 @@ def _refill_missing_required(page, meta: dict, cover_letter: str, resume_path: s
 
 
 def _apply_in_browser(ctx, meta: dict, cover_letter: str, resume_path: str, cover_path: str,
-                      screenshot_path: str, dry_run: bool) -> states.ApplyResult:
+                      screenshot_path: str, dry_run: bool,
+                      on_progress: Callable[[str], None] | None = None) -> states.ApplyResult:
     page = ctx.new_page()
-    error = _open_form(page, meta)
+    error = _open_form(page, meta, on_progress)
     if error:
         return _result_for_error(error, _screenshot(page, screenshot_path))
     fields = _extract_fields(page)
@@ -706,9 +727,9 @@ def _apply_in_browser(ctx, meta: dict, cover_letter: str, resume_path: str, cove
                                   detail="all fields filled, submit deliberately skipped",
                                   screenshot=shot)
     submit_ts = time.time()
-    error, evidence = _submit(page)
+    error, evidence = _submit(page, on_progress)
     if error and error.startswith("otp_required:") and meta["ats"] == "greenhouse":
-        error, evidence = _resolve_greenhouse_otp(page, submit_ts)
+        error, evidence = _resolve_greenhouse_otp(page, submit_ts, on_progress)
     if error:
         return _result_for_error(error, _screenshot(page, screenshot_path))
     return states.ApplyResult(state=states.SUBMITTED, detail="application submitted",
@@ -716,12 +737,18 @@ def _apply_in_browser(ctx, meta: dict, cover_letter: str, resume_path: str, cove
                               evidence=evidence or page.url)
 
 
-def _resolve_greenhouse_otp(page, since_ts: float) -> tuple[str | None, str | None]:
+def _resolve_greenhouse_otp(page, since_ts: float,
+                            on_progress: Callable[[str], None] | None = None) -> tuple[str | None, str | None]:
     """Poll Gmail for the security code Greenhouse just emailed, enter it into the
     per-character boxes, and click Submit again. Never bypasses the check — just answers
     it with the code the ATS itself sent to the owner's own inbox. Falls back to
     otp_required (unchanged, retryable) if Gmail isn't configured or the code doesn't
-    arrive in time; a future run tries again."""
+    arrive in time; a future run tries again.
+
+    `on_progress`, if passed through to this re-submit, re-fires "submit_intent" — harmless:
+    transitions.mark_submit_intent's own WHERE clause (execution_phase must still be
+    EXTERNAL_WORK_STARTED) makes a repeated call a no-op once the first click already
+    advanced the phase to SUBMIT_INTENT."""
     if not otp_resolver.is_configured():
         return "otp_required:GMAIL_APP_PASSWORD not configured", None
     code = otp_resolver.fetch_otp(timeout=180, platform="greenhouse", since_ts=since_ts - 15)
@@ -733,4 +760,4 @@ def _resolve_greenhouse_otp(page, since_ts: float) -> tuple[str | None, str | No
         return f"otp_required:code box mismatch ({len(code)}-char code, {n} boxes)", None
     for i in range(n):
         boxes.nth(i).fill(code[i])
-    return _submit(page)
+    return _submit(page, on_progress)

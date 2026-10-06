@@ -3,7 +3,7 @@
 **Document ID:** HERMES-ARCH-FINAL-2026-09-27  
 **Status:** FROZEN ARCHITECTURE BASELINE  
 **Purpose:** Authoritative architecture baseline for all subsequent implementation/planning documents  
-**Target:** 100 truthful, confirmed job applications/day  
+**Target:** 100 truthful, confirmed, qualified job applications/day — "qualified" means the opportunity passed hard eligibility (see DATA_MODEL.md §5.7); the metric is qualified applications/day, not raw applications/day  
 **Runtime:** Local-first, no recurring paid API/service dependency  
 **Operating system:** Arch Linux  
 **Hardware target:** ASUS VivoBook 17X, Ryzen 7 7730U, 16 GB RAM, Vega 8 iGPU, CPU-only local inference, no NVIDIA/CUDA dependency  
@@ -60,7 +60,9 @@ VERIFIED APPLICATION ATTEMPT
     +--> SUBMISSION_UNCONFIRMED (never blindly replay)
     +--> RETRYABLE_FAILURE
     +--> CHANNEL_BLOCKED / UNSUPPORTED_CHANNEL
-    +--> EXPIRED (>21d)
+    +--> TERMINAL_FAILURE
+
+    (opportunity-level EXPIRED, a separate dimension, is covered in §5.1/§5.9 of DATA_MODEL.md)
 ```
 
 The architecture has six core changes:
@@ -111,16 +113,16 @@ The current funnel exhibits these architectural defects:
 
 ### 2.3 Measured throughput truth
 
-The latest audit does **not** prove 100 confirmed applications/day. Historical evidence included a 23/day peak and a more typical 10–15/day range under the existing batch-oriented architecture.
+The latest audit does **not** prove 100 confirmed, qualified applications/day. Historical evidence included a 23/day peak and a more typical 10–15/day range under the existing batch-oriented architecture.
 
 Therefore this redesign treats **100/day as the operating target, not an already-proven capability**.
 
 Mathematically:
 
 ```text
-100 confirmed applications / 24 h
-= 4.17 confirmed applications / hour
-= 1 confirmed application every 14.4 minutes on average
+100 confirmed, qualified applications / 24 h
+= 4.17 confirmed, qualified applications / hour
+= 1 confirmed, qualified application every 14.4 minutes on average
 ```
 
 That is the throughput requirement the continuous worker must ultimately sustain when sufficient eligible supply exists. It is not a guarantee that 100/day is achievable on every day regardless of job supply, channel availability, ATS behavior, or account state.
@@ -332,8 +334,8 @@ Examples:
 Indeed       AUTHENTICATED / HEALTHY
 Greenhouse   HEALTHY
 Lever        HEALTHY
-Ashby        BLOCKED_ANTIBOT
-Aggregator X UNSUPPORTED_ACCOUNT_WALL
+Ashby        ANTIBOT_BLOCKED
+Aggregator X ACCOUNT_WALL
 ```
 
 A bad channel should not corrupt the truth about otherwise valid opportunities.
@@ -365,33 +367,32 @@ The new state model separates opportunity truth from processing state.
 
 ## 5.1 Opportunity lifecycle
 
+The narrative flow of a job through Hermes crosses two distinct dimensions — an opportunity's own processing state, and the outcome of whatever attempt is executing against it. They must not be collapsed into a single field (see below), so the diagram below is a conceptual flow through both dimensions together, not a literal enum. The two authoritative enums are DATA_MODEL.md §5.9 (`opportunities.application_state`) and DATA_MODEL.md §7.4 (`application_attempts.outcome`) / WORKFLOW_ENGINE.md §4, and this section defers to them for exact values:
+
 ```text
-OBSERVED
+observed             (application_state: OBSERVED)
   |
   v
-OPEN
+evaluated for open state, hard eligibility, fit
+  |                                              (application_state: EVALUATING)
+  v
+ready to apply        (application_state: READY)
   |
   v
-HARD-ELIGIBLE
+application in progress (application_state: APPLYING)
   |
-  v
-RANKED
-  |
-  v
-READY
-  |
-  v
-APPLICATION IN PROGRESS
-  |
-  +--> SUBMITTED
-  +--> ALREADY_APPLIED
-  +--> SUBMISSION_UNCONFIRMED
-  +--> RETRYABLE_FAILURE
-  +--> CHANNEL_BLOCKED
-  +--> MANUAL_REVIEW
-  +--> EXPIRED
-  +--> SKIPPED_BY_POLICY
+  +--> confirmed submission or confirmed prior application  --> COMPLETED
+  |       (application_attempts.outcome: SUBMITTED or ALREADY_APPLIED)
+  +--> ambiguous submit --> AWAITING_RECONCILIATION
+  |       (application_attempts.outcome: SUBMISSION_UNCONFIRMED)
+  +--> retryable failure, attempts remaining --> back to READY
+  |       (application_attempts.outcome: RETRYABLE_FAILURE)
+  +--> retryable failure, attempts exhausted --> MANUAL_REVIEW
+  +--> channel blocked / unsupported, no legitimate alternative route --> MANUAL_REVIEW or EXPIRED
+  +--> age exceeds 21 days at any point --> EXPIRED
 ```
+
+The pre-2026-09-30 revision of this diagram listed a single collapsed sequence (`OBSERVED → OPEN → HARD-ELIGIBLE → RANKED → READY → APPLICATION IN PROGRESS → {SUBMITTED, ALREADY_APPLIED, SUBMISSION_UNCONFIRMED, RETRYABLE_FAILURE, CHANNEL_BLOCKED, MANUAL_REVIEW, EXPIRED, SKIPPED_BY_POLICY}`), mixing opportunity-processing stages with attempt-outcome literals in one enum — the exact collapse the very next sentence forbids. `SKIPPED_BY_POLICY` in particular never had a schema-level home: DATA_MODEL.md §5.2 establishes that a filtering decision is retained as historical evaluation evidence (`evaluation_history`, DATA_MODEL.md §10), not a terminal opportunity state, so it is retired here rather than carried forward as a phantom ninth state.
 
 These states must not be collapsed into a single overloaded `status` field when doing so destroys the distinction between opportunity, application, and channel state.
 
@@ -434,7 +435,7 @@ Current source families remain the starting point:
 ```text
 Indeed / existing candidate-facing boards
 Public ATS sources: Greenhouse / Lever / Ashby
-WWR
+We Work Remotely
 Arbeitnow
 RemoteOK
 Remotive
@@ -443,6 +444,8 @@ Existing supported direct/ATS routes
 ```
 
 The architecture does not require adding new candidate-facing platforms merely to increase source count.
+
+Platform status is fixed by architecture decision: **Indeed** is the supported primary application channel; **We Work Remotely** is a future Phase 2 candidate; **Wellfound** is a future Phase 3 candidate; **Greenhouse**, **Lever**, and **Ashby** are future-evaluation candidates — already implemented at the discovery/routing level but not committed, actively-expanded production channels (Ashby submission is currently blocked by platform anti-bot; see src/apply.py `BLOCKED_ANTIBOT`). **LinkedIn is permanently unsupported** — Hermes must not automate LinkedIn and must not depend on LinkedIn for discovery, application, or any other function.
 
 ## 6.1 Discovery behavior
 
@@ -580,7 +583,7 @@ READY_RESERVE = count of canonical opportunities that are:
 - not already applied/submitted
 - not currently in a live application attempt
 - not permanently blocked across all supported channels
-- available for ranking or application
+- in `application_state = READY`
 ```
 
 A sub-threshold historical `scored` record does not inflate this value.
@@ -1502,6 +1505,8 @@ fabricated application confirmations
 blind duplicate re-submission
 ```
 
+Hermes automates repeatable actions; it never automates high-impact human decisions. Automation is permitted for resume delivery, portfolio delivery, GitHub delivery, project information, and screening responses. Automation is forbidden — and requires a human — for interview decisions, salary negotiation, offer handling, contract handling, and legal/identity document handling.
+
 Human-like pacing is allowed as an operational rate-control mechanism, but it must not be combined with security-evasion techniques.
 
 The system's purpose is to **automate legitimate applications faster and more reliably**, not to defeat website security controls.
@@ -1795,7 +1800,7 @@ The redesign is architecturally complete only when all of the following are true
 ```text
 [ ] Continuous worker is the production engine.
 [ ] Reserve is actionable rather than status-count based.
-[ ] 100/day is measured as confirmed applications, not clicks/attempts.
+[ ] 100/day is measured as confirmed, qualified applications, not clicks/attempts.
 [ ] The system exposes supply, throughput, failure, channel and memory metrics.
 ```
 
@@ -1823,7 +1828,7 @@ The redesign is architecturally complete only when all of the following are true
 
 ## It does not guarantee by architecture alone
 
-- 100 confirmed applications every calendar day regardless of job supply.
+- 100 confirmed, qualified applications every calendar day regardless of job supply.
 - Any specific ATS remaining unchanged.
 - Any specific LLM quality/latency without local benchmarking.
 - Any specific browser memory consumption.

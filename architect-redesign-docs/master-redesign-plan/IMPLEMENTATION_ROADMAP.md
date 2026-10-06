@@ -36,7 +36,7 @@ continuous local worker
 The operational target remains:
 
 ~~~
-100 confirmed applications/day target
+100 qualified, confirmed applications/day target
 24/7-capable continuous operation
 zero recurring paid external/API cost
 single-laptop local execution
@@ -107,7 +107,7 @@ derived work queue
 strict age cascade
 hard eligibility before scoring
 ~70% core / ~30% stretch preference
-100/day confirmed-only target
+100/day qualified, confirmed-only target
 BrowserGateway
 Playwright + CDP adapters
 structured DOM/ARIA control surface
@@ -260,16 +260,19 @@ A channel remains unavailable or blocked when runtime evidence says it cannot be
 
 # 10. Scoped Platforms
 
-The target application/discovery scope remains:
+The target application/discovery scope is the source scope frozen in MASTER_PLAN.md §10.1 and ARCHITECTURE_REDESIGN_FINAL.md §6. This roadmap does not define a separate platform list:
 
 ~~~
 Indeed
-Wellfound
-Foundit
-Instahyre
-Cutshort
-WorkAtAStartup
-Naukri
+Greenhouse
+Lever
+Ashby
+We Work Remotely
+Arbeitnow
+RemoteOK
+Remotive
+Himalayas
+supported direct / ATS routes
 ~~~
 
 This roadmap does not add new job platforms.
@@ -387,8 +390,8 @@ M3  BrowserGateway foundation
 M4  Indeed production path
 M5  Evidence and reconciliation
 M6  AI gateway and model-role migration
-M7  Greenhouse production path
-M8  Remaining approved channels
+M7  We Work Remotely production path
+M8  Wellfound production path
 M9  Continuous worker integration
 M10 Operations, deployment, and observability
 M11 Controlled production rollout
@@ -1675,9 +1678,9 @@ benchmark records exist
 
 ---
 
-# 78. M7 — Greenhouse Migration
+# 78. M7 — We Work Remotely Migration
 
-Greenhouse is the next priority because the channel has historical verified submission evidence.
+We Work Remotely is the next priority because it is the single easiest remaining platform to bring to production after Indeed, per the approved rollout order.
 
 Migration sequence:
 
@@ -1696,7 +1699,7 @@ Reuse the BrowserGateway rather than rebuilding a second browser stack.
 
 ---
 
-# 79. M7 — Greenhouse Variability
+# 79. M7 — We Work Remotely Variability
 
 Support only the browser states actually observed.
 
@@ -1720,7 +1723,7 @@ Do not build speculative selectors for pages never observed.
 
 # 80. M7 Exit Gate
 
-Greenhouse becomes production-eligible only after:
+We Work Remotely becomes production-eligible only after:
 
 ~~~
 controlled live submission
@@ -1736,22 +1739,23 @@ resource measurements
 
 # 81. M8 — Remaining Approved Channels
 
-After Indeed and Greenhouse are stable, proceed in controlled order:
+After Indeed and We Work Remotely are stable, proceed in controlled order:
 
 ~~~
-Lever
-→ direct forms
-→ redirect-resolved supported ATS/routes
-→ Ashby only when its current security state allows safe use
+Wellfound
+→ direct forms (supported utility capability, not platform-specific)
+→ redirect-resolved supported ATS/routes (supported utility capability, not platform-specific)
 ~~~
+
+Greenhouse, Lever, and Ashby are not part of this active sequence. They are already implemented at the discovery/routing level, remain usable/preserved as-is, and are re-evaluated only per § 85 — M8 — Future Evaluation: Deferred Channels.
 
 The order may change only from current runtime evidence, not convenience.
 
 ---
 
-# 82. M8 — Lever
+# 82. M8 — Wellfound
 
-Treat Lever as unproven until live evidence exists.
+Treat Wellfound as unproven until live evidence exists.
 
 Implement:
 
@@ -1806,11 +1810,13 @@ Do not turn redirect resolution into generic private HTTP replay.
 
 ---
 
-# 85. M8 — Ashby and Security Blocks
+# 85. M8 — Future Evaluation: Deferred Channels (Greenhouse, Lever, Ashby)
 
-Ashby is not a bypass project.
+Greenhouse, Lever, and Ashby are already implemented at the discovery/routing level in the existing codebase and remain usable/preserved as-is. They are not committed, actively-expanded milestones within M7/M8. Per the approved rollout order, they are re-evaluated only after Indeed, We Work Remotely, and Wellfound are stable in production. Do not modify their existing working code or existing channel-health handling as part of this deferral.
 
-If current execution hits a security barrier:
+Ashby is additionally blocked by current platform anti-bot controls. Ashby is not a bypass project.
+
+If current execution hits a security barrier on any deferred channel:
 
 ~~~
 stop
@@ -1819,7 +1825,7 @@ set channel health
 do not escalate into stealth
 ~~~
 
-The channel may remain unsupported until legitimate conditions change and are verified.
+The channel may remain unsupported until legitimate conditions change and are verified, and until the rollout rule allows re-evaluation.
 
 ---
 
@@ -2403,7 +2409,7 @@ Do not equate submit clicks with confirmed submissions.
 
 # 116. M12 — 100/Day Validation
 
-The 100/day target is validated from confirmed submissions.
+The 100/day target is validated from confirmed submissions to qualified opportunities — not from raw submission volume.
 
 A valid count is:
 
@@ -2411,6 +2417,7 @@ A valid count is:
 confirmed external submission
 + durable confirmation evidence
 + one counted daily event
++ opportunity passed hard eligibility (DATA_MODEL.md §5.7: opportunities.hard_eligibility_state = ELIGIBLE)
 ~~~
 
 Invalid count sources include:
@@ -2422,6 +2429,7 @@ unconfirmed attempts
 duplicate submissions
 manual-review items
 blocked attempts
+submissions to opportunities that were not hard-eligible
 ~~~
 
 ---
@@ -2452,8 +2460,8 @@ Artificially approach the cap in a safe test environment.
 Verify:
 
 ~~~
-99 confirmed → next allowed
-100 confirmed → further application claims blocked
+99 confirmed, qualified → next allowed
+100 confirmed, qualified → further application claims blocked
 unconfirmed does not increment
 restart does not reset count
 midnight/date boundary rolls correctly
@@ -2532,7 +2540,7 @@ data model migrated
 workflow engine owns production ordering
 BrowserGateway owns browser execution
 Indeed verified
-Greenhouse verified
+We Work Remotely verified
 remaining enabled channels individually verified
 AI Gateway owns AI calls
 candidate truth validation active
@@ -2660,7 +2668,7 @@ Indeed adapter
 evidence/reconciliation
 AI Gateway
 model role
-Greenhouse adapter
+We Work Remotely adapter
 remaining channel
 worker
 observability
@@ -2757,9 +2765,9 @@ The concrete coding order is:
 8. reconciliation + recovery
 9. AI Gateway
 10. role migration + validation
-11. Greenhouse
-12. Lever/direct/redirect
-13. controlled Ashby evaluation where safe
+11. We Work Remotely
+12. Wellfound
+13. direct forms/redirect resolver (supported utilities)
 14. continuous worker
 15. response/maintenance integration
 16. observability
@@ -2769,7 +2777,7 @@ The concrete coding order is:
 20. capacity/stability validation
 ~~~
 
-This is the default critical path.
+This is the default critical path. Greenhouse, Lever, and Ashby are deferred until the Future Evaluation gate (§ 85) and are not part of this critical path.
 
 ---
 
@@ -2911,7 +2919,7 @@ scheduler is strict fresh-first
 daily count is confirmed-only
 BrowserGateway is authoritative
 Indeed is verified
-Greenhouse is verified
+We Work Remotely is verified
 other enabled channels have individual evidence
 AI Gateway is authoritative
 candidate truth validation is enforced
@@ -2986,8 +2994,8 @@ Leave the next agent a truthful handoff.
 | M4 | Indeed confirmed live flow | Allows first production channel |
 | M5 | Evidence + reconciliation | Allows confirmed-only counting |
 | M6 | AI Gateway + grounding + resource benchmark | Allows local AI production use |
-| M7 | Greenhouse confirmed live flow | Adds second verified channel |
-| M8 | Per-channel evidence | Adds remaining supported channels individually |
+| M7 | We Work Remotely confirmed live flow | Adds second verified channel |
+| M8 | Wellfound confirmed live flow | Adds third verified channel |
 | M9 | Continuous worker recovery | Allows continuous operation |
 | M10 | Observability + systemd + resource envelope | Allows controlled rollout |
 | M11 | Canary evidence | Allows broader production |
