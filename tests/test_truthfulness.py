@@ -1,4 +1,6 @@
 """Cover letters, screening answers and resumes must never overstate the candidate."""
+import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -6,6 +8,7 @@ import pytest
 import yaml
 
 from answers import answer_question
+from project_registry import PROJECTS, RETIRED_PROJECTS
 from tailor import select_resume_variant, template_letter, validate_letter
 
 ROOT = Path(__file__).parent.parent
@@ -187,3 +190,72 @@ def test_sponsorship_and_authorization_depend_on_country():
     assert answer_question("Do you have legal authorization to work in the country of the job?",
                            ["Yes", "No"]) == "No"
     set_job_context("", "", "", "")
+
+
+# --- Retired-project leak guards (single list: project_registry.RETIRED_PROJECTS) ---------
+
+_RETIRED_ONLY_NUMBERS = frozenset(
+    n for name in RETIRED_PROJECTS for n in PROJECTS[name].numbers
+) - frozenset(n for info in PROJECTS.values() if info.status == "active" for n in info.numbers)
+_RETIRED_CONTEXT_RE = re.compile(
+    r"\b(billing|invoices?|units?|sheds?|estate|boiler|penalty|hours|manual|excel)\b", re.I)
+
+
+def _retired_leaks(text: str) -> list[str]:
+    """Retired project names, plus retired-only numbers appearing in a retired context."""
+    leaks = [n for n in RETIRED_PROJECTS if re.search(re.escape(n), text, re.I)]
+    numbers = {m.replace(",", "") for m in re.findall(r"\d[\d,]*", text)}
+    if numbers & _RETIRED_ONLY_NUMBERS and _RETIRED_CONTEXT_RE.search(text):
+        leaks.append(f"retired number {sorted(numbers & _RETIRED_ONLY_NUMBERS)} in retired context")
+    if re.search(r"\bpaid billing\b|industrial (estate|boiler)", text, re.I):
+        leaks.append("retired-only phrase")
+    return leaks
+
+
+def _strings(node: object) -> list[str]:
+    if isinstance(node, str):
+        return [node]
+    if isinstance(node, dict):
+        return [t for v in node.values() for t in _strings(v)]
+    if isinstance(node, (list, tuple)):
+        return [t for v in node for t in _strings(v)]
+    return []
+
+
+def test_leak_detector_catches_known_leaks():
+    assert _retired_leaks("Shade Ledger billing system")
+    assert _retired_leaks("billing platform for an industrial estate of 220+ units")
+    assert _retired_leaks("saves the client 40+ hours of manual work")
+    assert not _retired_leaks("About 25,000 lines of Go covered by 773 Go test functions; 22-command CLI.")
+
+
+def test_resume_yaml_names_no_retired_project():
+    cfg = yaml.safe_load(open(ROOT / "profile" / "resume.yaml"))
+    for text in _strings(cfg):
+        assert not _retired_leaks(text), (text, _retired_leaks(text))
+
+
+def test_config_screening_answers_name_no_retired_project():
+    cfg = yaml.safe_load(open(ROOT / "config.yaml"))
+    for text in _strings(cfg["screening_answers"]):
+        assert not _retired_leaks(text), (text, _retired_leaks(text))
+
+
+def _pdf_text(path: Path) -> str:
+    if shutil.which("pdftotext"):
+        return subprocess.run(["pdftotext", str(path), "-"], capture_output=True, text=True, check=True).stdout
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        pytest.skip("no PDF text extractor installed (need pdftotext or pypdf)")
+    return "\n".join(page.extract_text() or "" for page in PdfReader(str(path)).pages)
+
+
+@pytest.mark.parametrize("variant", ["fullstack", "backend", "ai"])
+def test_built_resume_pdfs_name_no_retired_project(variant):
+    pdf = ROOT / "resumes" / f"resume-{variant}.pdf"
+    if not pdf.exists():
+        pytest.skip(f"{pdf.name} not built (run scripts/build_resumes.py)")
+    text = _pdf_text(pdf)
+    assert len(text) > 200, "PDF text extraction returned (almost) nothing"
+    assert not _retired_leaks(text), _retired_leaks(text)

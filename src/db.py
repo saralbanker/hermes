@@ -32,6 +32,10 @@ MIGRATION_COLUMNS = {
     "response_notified_at": "TEXT",
     "validation_attempts": "INTEGER DEFAULT 0",
     "phase":            "TEXT",
+    "qual_decision":    "TEXT",   # qualified | review | rejected (src/qualify.py)
+    "qual_confidence":  "REAL",
+    "qual_version":     "TEXT",   # QUALIFY_VERSION that produced the decision
+    "qual_evidence":    "TEXT",   # JSON: reasons + signals (snapshot for outcome measurement)
 }
 
 

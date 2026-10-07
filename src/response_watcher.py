@@ -81,6 +81,27 @@ _JOB_ALERT_TEXT_PATTERNS = [
     r"\brecommended jobs\b",
 ]
 
+# Job-board digests / marketing / fraud warnings / social newsletters. Checked
+# first so digest text (scores, "roles matching your profile") can never be read
+# as an interview invite or a rejection. Sender patterns match the From header;
+# subject patterns match the subject line only (never the body) to stay narrow.
+_MARKETING_SENDER_PATTERNS = [
+    r"@(?:[\w-]+\.)*quora\.com",
+    r"@alerts\.foundit\.in",
+    r"digest@",
+    r"newsletter@",
+]
+_MARKETING_SUBJECT_PATTERNS = [
+    r"appearing in recruiter searches",
+    r"recruiters? (?:viewed|searched|searches)",
+    r"roles matching your profile",
+    r"jobs? matching your profile",
+    r"beware of fraud",
+    r"impersonating",
+    r"\bjobs for you\b",
+    r"\bweekly (?:digest|roundup)\b",
+]
+
 # Rejection — checked before positive so a rejection that happens to mention
 # "interview" in passing (e.g. "we won't be moving forward after the interview")
 # is never misread as positive.
@@ -157,6 +178,10 @@ def classify(subject: str, body: str, from_addr: str) -> str:
     sender = from_addr.lower()
 
     if _matches_any(_JOB_ALERT_SENDER_PATTERNS, sender):
+        return "other"
+    if _matches_any(_MARKETING_SENDER_PATTERNS, sender):
+        return "other"
+    if _matches_any(_MARKETING_SUBJECT_PATTERNS, subject.lower()):
         return "other"
     if _matches_any(_REJECTION_PATTERNS, text):
         return "rejection"

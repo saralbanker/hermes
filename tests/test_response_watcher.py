@@ -236,3 +236,50 @@ def test_ensure_responses_table_creates_table(tmp_path, monkeypatch):
     finally:
         conn.close()
 
+
+
+# ---------------------------------------------------------------------------
+# Job-board digest / marketing / spam exclusion
+# ---------------------------------------------------------------------------
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "subject,from_addr",
+    [
+        ("NBTS-02: 615/720 *\xa0Physics:  152 *\xa0Chemistry:  155 Phy...",
+         "Quora Digest <english-quora-digest@quora.com>"),
+        ("You’re appearing in recruiter searches",
+         "foundit Updates <info@alerts.foundit.in>"),
+        ("Roles matching your profile this week",
+         "foundit Updates <info@alerts.foundit.in>"),
+        ("Beware of fraudsters impersonating foundit partners",
+         "foundit - Monster <info@monsterindia.com>"),
+        ("Hi my name is shipra ..i am married in 2017 and it is a love marriage",
+         "Quora Digest <english-quora-digest@quora.com>"),
+        ("Last night my adult son and I stayed at a hotel in Savannah.",
+         "Quora Digest <english-quora-digest@quora.com>"),
+    ],
+)
+def test_marketing_digest_and_spam_are_other(subject, from_addr):
+    body = "unfortunately shortlisted next round schedule a call"
+    assert rw.classify(subject, body, from_addr) == "other"
+
+
+def test_genuine_interview_invite_still_positive():
+    subject = "Interview invitation: Backend Engineer at Acme"
+    body = "We'd like to schedule a call with you. Please share your availability."
+    assert rw.classify(subject, body, "hr@acme.com") == "positive"
+
+
+def test_genuine_indeed_rejection_still_rejection():
+    subject = "An update on your application from Om Tech"
+    body = "Unfortunately, Om Tech has decided to pursue other candidates."
+    assert rw.classify(subject, body, '"Om Tech" <noreply@indeed.com>') == "rejection"
+
+
+def test_company_mentioning_roles_in_body_not_excluded():
+    subject = "Next steps with Acme"
+    body = "Roles matching your profile are open; please select a time via calendly.com/acme"
+    assert rw.classify(subject, body, "talent@acme.com") == "positive"

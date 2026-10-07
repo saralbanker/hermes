@@ -13,11 +13,11 @@ variants:
   fullstack:
     headline: Full-Stack Engineer · TypeScript, React, Node.js, PostgreSQL
     summary: >-
-      Full-stack engineer who ships complete systems, from data model to deployment. Delivered a
-      paid billing platform for an industrial estate of 220+ units that saves the client 40+ hours
-      of manual work a month, and built a 70k-line AI productivity platform and an event-sourced
-      workflow engine in Go. I work with AI coding agents and own the specification,
-      architecture, code review and testing. Available immediately for remote roles.
+      Full-stack engineer who ships complete systems, from data model to deployment. Built
+      Neuro-Zenith, a 70k-line local-first AI productivity platform (React, Node.js, FastAPI,
+      PostgreSQL), AWIS, an event-sourced workflow engine in Go, and Hermes, an automated job-search
+      pipeline. I work with AI coding agents and own the specification, architecture, code review
+      and testing.
     project_order: [neuro-zenith, awis, hermes]
     skills_order: [languages, frontend, backend, data, ai, infra]
   backend:
@@ -25,9 +25,8 @@ variants:
     summary: >-
       Backend engineer focused on reliable services and data-heavy workflows. Built AWIS, an
       event-sourced workflow engine in Go backed by 773 test functions and a race-checked CI gate,
-      and delivered a paid billing platform for an industrial estate of 220+ units. I work with AI
-      coding agents and own the specification, architecture, code review and
-      testing. Available immediately for remote roles.
+      plus the Node.js/FastAPI/PostgreSQL backend of Neuro-Zenith. I work with AI coding agents and
+      own the specification, architecture, code review and testing.
     project_order: [neuro-zenith, awis, hermes]
     skills_order: [languages, backend, data, infra, ai, frontend]
   ai:
@@ -36,8 +35,7 @@ variants:
       AI application engineer who puts LLMs into real products. Built Neuro-Zenith, a local-first
       AI platform with a RAG pipeline (BGE embeddings, pgvector HNSW) and multi-provider LLM
       routing, and Hermes, a job-search pipeline that runs local LLMs through Ollama. I work with
-      AI coding agents and own the specification, architecture, code review and
-      testing. Available immediately for remote roles.
+      AI coding agents and own the specification, architecture, code review and testing.
     project_order: [neuro-zenith, hermes, awis]
     skills_order: [ai, languages, backend, data, frontend, infra]
 
@@ -46,9 +44,8 @@ experience:
     where: Self-employed · Ahmedabad
     dates: Jan 2025 – Present
     bullets:
-      - "Shade Ledger (paid client contract): built the maintenance billing and collection system for an industrial estate of 220+ shed units — owners and tenants, invoices, payments, automatic penalty calculation, WhatsApp reminders and reports."
-      - "Replaced the client's manual Excel workflow; the system saves 40+ hours of administrative work every month. Stack: React, TypeScript, Vite, Supabase/PostgreSQL, later migrated to Convex."
-      - "HeatMax (client project): built the product catalog website for an industrial boiler manufacturer with React, TypeScript and Supabase."
+      - "Paid, client-facing freelance work, part-time while studying for a Diploma in Computer Engineering (completed May 2026)."
+      - "Alongside client work, built Neuro-Zenith, AWIS and Hermes (see Projects) in TypeScript, React, Node.js, Python and Go."
 
 projects:
   awis:

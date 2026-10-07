@@ -48,7 +48,8 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
 from db import init_db, upsert_job, update_job, get_all_urls, get_conn, dedupe_key as make_dedupe_key  # noqa: E402
-from filters import passes_filters, classify_tier  # noqa: E402
+from filters import (REVIEW_REASON_PREFIX, classify_tier, passes_filters,  # noqa: E402
+                     qualification_fields)
 
 warnings.filterwarnings("ignore")
 
@@ -340,12 +341,16 @@ def save_to_db(df: pd.DataFrame, cfg: dict) -> tuple[int, int, int]:
             job.update(location_reason=reason)
         elif reason == "expired":
             job.update(status="expired", status_reason=reason)
+        elif reason.startswith(REVIEW_REASON_PREFIX):
+            job.update(status="manual_review", status_reason=reason)  # human-release-only
         else:
             job.update(status="filtered", status_reason=reason)
 
         rowid = upsert_job(job)
         if rowid:
-            update_job(job["url"], {"tier": tier, "required_years": years, "dedupe_key": key})
+            update_job(job["url"], {
+                "tier": tier, "required_years": years, "dedupe_key": key,
+                **qualification_fields(job.get("title") or "", job.get("description") or "", cfg)})
             eligible += ok
             filtered += not ok
     return eligible, filtered, dedupe_skipped

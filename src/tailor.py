@@ -39,23 +39,60 @@ def load_config() -> dict:
 # Helpers
 # ---------------------------------------------------------------------------
 
+# Title patterns. Precedence is ai > fullstack > backend: the AI resume is the most specific
+# proof (RAG/LLM), so "Full Stack Engineer - AI" goes to ai; "Full Stack Node.js Developer"
+# goes to fullstack, because the frontend half is what separates it from a pure backend role.
+_TITLE_AI_RE = re.compile(
+    r"\b(ai|a\.i\.|llms?|rag|genai|gen[- ]?ai|generative ai|ml|nlp|machine learning|"
+    r"artificial intelligence)\b", re.I)
+_TITLE_FULLSTACK_RE = re.compile(
+    r"\b(full[- ]?stack|front[- ]?end|react(\.?js)?|next\.?js|mern|web (developer|engineer|application))\b", re.I)
+_TITLE_BACKEND_RE = re.compile(
+    r"\b(back[- ]?end|apis?|node(\.?\s?js)?|golang|go (developer|engineer)|python|platform|"
+    r"devops|sre|site reliability|infrastructure)\b", re.I)
+
+# Description tie-break (generic titles only). One incidental "AI" must not force the ai
+# variant: LLM/RAG/GenAI named explicitly is a strong signal; otherwise need >=2 distinct terms.
+_DESC_AI_STRONG_RE = re.compile(
+    r"\b(llms?|rag|genai|gen[- ]?ai|generative ai|large language models?|retrieval[- ]augmented)\b", re.I)
+_DESC_AI_WEAK_RE = re.compile(
+    r"\b(ai|ml|nlp|machine learning|deep learning|artificial intelligence|embeddings?|"
+    r"vector (database|search)|prompt engineering|transformers?)\b", re.I)
+_DESC_FULLSTACK_RE = re.compile(
+    r"\b(full[- ]?stack|front[- ]?end|react(\.?js)?|next\.?js|typescript|ui)\b", re.I)
+_DESC_BACKEND_RE = re.compile(
+    r"\b(back[- ]?end|apis?|microservices?|golang|distributed systems|node(\.?\s?js)?|python|"
+    r"infrastructure)\b", re.I)
+
+
+def _distinct_hits(pattern: re.Pattern[str], text: str) -> int:
+    return len({m.group(0).lower() for m in pattern.finditer(text)})
+
+
+def _is_ai_description(text: str) -> bool:
+    if _DESC_AI_STRONG_RE.search(text):
+        return True
+    return _distinct_hits(_DESC_AI_WEAK_RE, text) >= 2
+
+
 def select_resume_variant(title: str, description: str) -> str:
     """
-    Choose which resume variant to attach. Title decides first (it is the
-    strongest signal); description keywords only break ties.
+    Choose which resume variant to attach. The title decides first (precedence
+    ai > fullstack > backend); the description only breaks ties when the title is
+    generic (e.g. "Software Engineer") and needs a strong AI signal to pick ai.
     Returns 'ai' | 'backend' | 'fullstack'.
     """
-    ai_re = re.compile(r"\b(ai|llm|ml|machine learning|rag|nlp|genai|gen ai|artificial intelligence)\b", re.I)
-    backend_re = re.compile(r"\b(backend|back-end|api|platform|infrastructure|golang|go developer|python developer)\b", re.I)
-    fullstack_re = re.compile(r"\b(full[- ]?stack|frontend|front-end|react|next\.?js)\b", re.I)
-    for text in (title, (description or "")[:1500]):
-        if ai_re.search(text):
-            return "ai"
-        if fullstack_re.search(text):
-            return "fullstack"
-        if backend_re.search(text):
-            return "backend"
-    return "fullstack"
+    title = title or ""
+    for variant, pattern in (("ai", _TITLE_AI_RE), ("fullstack", _TITLE_FULLSTACK_RE),
+                             ("backend", _TITLE_BACKEND_RE)):
+        if pattern.search(title):
+            return variant
+    text = (description or "")[:1500]
+    if _is_ai_description(text):
+        return "ai"
+    fullstack_hits = len(_DESC_FULLSTACK_RE.findall(text))
+    backend_hits = len(_DESC_BACKEND_RE.findall(text))
+    return "backend" if backend_hits > fullstack_hits else "fullstack"
 
 
 def make_slug(company: str, title: str) -> str:

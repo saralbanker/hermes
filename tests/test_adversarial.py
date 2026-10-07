@@ -253,7 +253,7 @@ class TestFiltersLocationAndRole:
         job = {
             "title": "Senior Backend Engineer",
             "location": "Remote, India",
-            "description": "5+ years required. Build backend systems.",
+            "description": "3+ years required. Build backend systems.",
             "salary_max": 100000,
             "currency": "INR",
         }
@@ -477,7 +477,7 @@ class TestIntegrationRealWorldScenarios:
         job = {
             "title": "Senior Full Stack Engineer",
             "location": "Remote, India",
-            "description": "5-8 years required. Build distributed systems. Remote-first, India-based teams.",
+            "description": "3-4 years required. Build distributed systems. Remote-first, India-based teams.",
             "salary_max": 120000,
             "currency": "INR",
             "date_posted": "2026-09-20",

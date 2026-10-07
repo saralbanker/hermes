@@ -3,7 +3,10 @@ across sources, re-observation refresh. No network: `discover.collect` is
 monkeypatched (same established pattern as the indeed/apply tests)."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
+import yaml
 
 from engine import db as enginedb, discovery
 
@@ -15,6 +18,8 @@ CFG = {
     "geo": {"home_lat": 23.03, "home_lon": 72.58, "radius_km": 9999, "night_radius_km": 9999},
     "salary": {"min_inr_per_month_india": 0, "min_inr_per_month_global": 0,
                "target_inr_per_month": 100000, "usd_to_inr": 88},
+    "qualification": yaml.safe_load(
+        (Path(__file__).parent.parent / "config.yaml").read_text())["qualification"],
 }
 
 

@@ -40,9 +40,11 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from db import DB_PATH, dedupe_key as make_dedupe_key, get_conn, init_db  # noqa: E402
-from filters import classify_tier, passes_filters  # noqa: E402
+from filters import (REVIEW_REASON_PREFIX, classify_tier, passes_filters,  # noqa: E402
+                     qualification_fields)
 
 TARGET_STATUSES = ("discovered", "scored", "tailored", "error")
+QUAL_KEYS = ("qual_decision", "qual_confidence", "qual_version", "qual_evidence")
 
 
 def load_config() -> dict:
@@ -83,81 +85,98 @@ def _stale_listing(row, cfg: dict) -> bool:
     return datetime.now() - seen > timedelta(days=cfg["search"]["max_job_age_days"])
 
 
-def plan_changes(cfg: dict, conn) -> list[dict]:
-    """Compute the new row state for every non-submitted job. Pure/read-only —
-    makes no DB writes."""
-    rows = conn.execute(
+def _failed_filter_status(reason: str) -> str:
+    """Status for a row that no longer passes filters."""
+    if reason in ("expired", "stale_posting"):
+        return "expired"
+    return "manual_review" if reason.startswith(REVIEW_REASON_PREFIX) else "filtered"
+
+
+def _load_rows(conn) -> list:
+    return conn.execute(
         "SELECT id, url, company, title, description, location, date_posted, "
         "salary_min, salary_max, status, status_reason, job_board, tier, "
-        "required_years, dedupe_key, cover_letter_path FROM jobs "
+        "required_years, dedupe_key, cover_letter_path, created_at FROM jobs "
         "WHERE status != 'submitted'"
     ).fetchall()
 
-    submitted_keys = {
+
+def _submitted_keys(conn) -> set[str]:
+    return {
         r["dedupe_key"] for r in conn.execute(
             "SELECT dedupe_key FROM jobs WHERE status = 'submitted' AND dedupe_key IS NOT NULL"
         ).fetchall()
         if r["dedupe_key"]
     }
 
-    updates = []
-    for row in rows:
-        job = _job_dict(row)
-        key = make_dedupe_key(row["company"], row["title"])
 
-        if row["status"] in TARGET_STATUSES:
-            tier, years, _reason = classify_tier(job["title"] or "", job["description"] or "", cfg)
-        else:
-            tier, years = row["tier"], row["required_years"]
+def _rescore_state(row, job: dict, cfg: dict) -> tuple[str, str | None, str | None]:
+    """(status, reason, cover_letter_path) for a discovered/scored/tailored/error row re-run
+    through passes_filters()."""
+    status, reason, cover = row["status"], row["status_reason"], row["cover_letter_path"]
+    old_reason = row["status_reason"] or ""
+    ok, fail_reason = passes_filters(job, cfg)
+    if not ok:
+        return _failed_filter_status(fail_reason), f"backlog:{fail_reason}", cover
+    if status == "error":
+        if "login_wall" in old_reason or "below_overlap_threshold" in old_reason:
+            # login_wall = Cloudflare misread; overlap = retired keyword gate. Re-score both.
+            return "discovered", f"backlog:rescore ({old_reason[:40]})", cover
+        return "failed", reason, cover  # keep original reason
+    if status == "tailored":
+        # pre-overhaul letters contained fabricated claims: regenerate (files kept)
+        return "scored", reason, None
+    return status, reason, cover
 
-        new_status = row["status"]
-        new_reason = row["status_reason"]
-        new_cover_letter_path = row["cover_letter_path"]
 
-        job_board = (row["job_board"] or "").lower()
-        old_reason = row["status_reason"] or ""
+def _next_state(row, job: dict, key: str, submitted_keys: set[str], cfg: dict) -> tuple[str, str | None, str | None]:
+    """(status, reason, cover_letter_path) the row should move to."""
+    status, reason, cover = row["status"], row["status_reason"], row["cover_letter_path"]
+    if (row["job_board"] or "").lower() == "linkedin":
+        return "skipped", "backlog:linkedin_disabled", cover
+    if key in submitted_keys:
+        return "skipped", "duplicate_of_submitted", cover
+    if status in TARGET_STATUSES and _stale_listing(row, cfg):
+        return "expired", "backlog:stale_listing", cover
+    if status in TARGET_STATUSES:
+        return _rescore_state(row, job, cfg)
+    return status, reason, cover  # already filtered/expired/skipped/invalid/etc.: leave alone
 
-        if job_board == "linkedin":
-            new_status, new_reason = "skipped", "backlog:linkedin_disabled"
-        elif key in submitted_keys:
-            new_status, new_reason = "skipped", "duplicate_of_submitted"
-        elif row["status"] in TARGET_STATUSES and _stale_listing(row, cfg):
-            new_status, new_reason = "expired", "backlog:stale_listing"
-        elif row["status"] == "error":
-            ok, reason = passes_filters(job, cfg)
-            if not ok:
-                new_status = "expired" if reason in ("expired", "stale_posting") else "filtered"
-                new_reason = f"backlog:{reason}"
-            elif "login_wall" in old_reason or "below_overlap_threshold" in old_reason:
-                # login_wall = Cloudflare misread; overlap = retired keyword gate. Re-score both.
-                new_status, new_reason = "discovered", f"backlog:rescore ({old_reason[:40]})"
-            else:
-                new_status = "failed"  # keep original reason
-        elif row["status"] in ("discovered", "scored", "tailored"):
-            ok, reason = passes_filters(job, cfg)
-            if not ok:
-                new_status = "expired" if reason in ("expired", "stale_posting") else "filtered"
-                new_reason = f"backlog:{reason}"
-            elif row["status"] == "tailored":
-                # pre-overhaul letters contained fabricated claims: regenerate (files kept)
-                new_status, new_cover_letter_path = "scored", None
-        # else: already filtered/expired/skipped/invalid/etc. — leave status/reason alone.
 
-        updates.append({
-            "id": row["id"],
-            "url": row["url"],
-            "old_status": row["status"],
-            "status": new_status,
-            "status_reason": new_reason,
-            "cover_letter_path": new_cover_letter_path,
-            "tier": tier,
-            "required_years": years,
-            "dedupe_key": key,
-        })
-    return updates
+def _plan_row(row, submitted_keys: set[str], cfg: dict) -> dict:
+    job = _job_dict(row)
+    key = make_dedupe_key(row["company"], row["title"])
+    title, description = job["title"] or "", job["description"] or ""
+    if row["status"] in TARGET_STATUSES:
+        tier, years, _reason = classify_tier(title, description, cfg)
+    else:
+        tier, years = row["tier"], row["required_years"]
+    status, reason, cover = _next_state(row, job, key, submitted_keys, cfg)
+    update = {
+        "id": row["id"], "url": row["url"], "old_status": row["status"], "status": status,
+        "status_reason": reason, "cover_letter_path": cover, "tier": tier,
+        "required_years": years, "dedupe_key": key,
+    }
+    if row["status"] in TARGET_STATUSES:
+        # Snapshot only rows still in the pipeline: submitted / submission_unconfirmed /
+        # already_applied keep the qual_* evidence recorded at discovery (outcome measurement).
+        update.update(qualification_fields(title, description, cfg))
+    return update
+
+
+def plan_changes(cfg: dict, conn) -> list[dict]:
+    """Compute the new row state for every non-submitted job. Pure/read-only —
+    makes no DB writes."""
+    submitted_keys = _submitted_keys(conn)
+    return [_plan_row(row, submitted_keys, cfg) for row in _load_rows(conn)]
 
 
 def apply_updates(conn, updates: list[dict]) -> None:
+    conn.executemany(
+        "UPDATE jobs SET qual_decision=:qual_decision, qual_confidence=:qual_confidence, "
+        "qual_version=:qual_version, qual_evidence=:qual_evidence WHERE id=:id",
+        [u for u in updates if all(k in u for k in QUAL_KEYS)],
+    )
     conn.executemany(
         "UPDATE jobs SET status=:status, status_reason=:status_reason, "
         "cover_letter_path=:cover_letter_path, tier=:tier, "

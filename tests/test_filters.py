@@ -72,19 +72,45 @@ def test_salary_unpublished_accepted():
 # Tiers
 # ---------------------------------------------------------------------------
 
+# A realistic >=400-char posting in the candidate's stack (positive evidence is required).
+LONG_DESC = (
+    "About the role\nWe build AI-powered web products. You will build and maintain REST APIs and "
+    "services in Python (FastAPI) and TypeScript, ship React features, and work with PostgreSQL, "
+    "Redis and Docker. You will also integrate LLM and RAG pipelines into our application and "
+    "write tests for everything you ship. We work remotely across time zones and review code "
+    "together every day. Our engineers own features end to end, from design review through "
+    "deployment and monitoring, and we value clear writing and small, frequent releases.\n"
+)
+
+
+def long_desc(requirements: str = "") -> str:
+    return LONG_DESC + (f"\nRequirements:\n{requirements}\n" if requirements else "")
+
+
 def test_junior_is_core():
-    tier, years, reason = classify_tier("Junior Software Engineer", "0-2 years experience", CFG)
+    tier, years, reason = classify_tier("Junior Software Engineer", long_desc("- 0-2 years experience"), CFG)
     assert tier == CORE
 
 
 def test_unstated_experience_is_core():
-    tier, years, reason = classify_tier("Software Engineer", "Build great software.", CFG)
+    tier, years, reason = classify_tier("Software Engineer", LONG_DESC, CFG)
     assert tier == CORE
     assert years is None
 
 
+def test_long_desc_fixture_is_long_enough():
+    assert len(LONG_DESC) >= 400
+
+
+def test_stub_description_with_neutral_title_is_low_confidence_stretch():
+    from filters import assess
+    qual = assess("Software Engineer", "Build great software.", CFG)
+    assert qual.decision == "qualified" and qual.tier == STRETCH
+    assert qual.confidence <= 0.5 and qual.reasons
+
+
 def test_senior_backend_is_stretch():
-    tier, years, reason = classify_tier("Senior Backend Engineer", "5+ years required", CFG)
+    tier, years, reason = classify_tier("Senior Backend Engineer", "3+ years required", CFG)
     assert tier == STRETCH
 
 
@@ -94,9 +120,9 @@ def test_founding_engineer_is_stretch():
 
 
 def test_ten_plus_years_filtered():
-    tier, years, reason = classify_tier("Staff Engineer", "10+ years of experience required", CFG)
-    assert tier is None
-    assert "too_senior" in reason
+    tier, years, reason = classify_tier("Software Engineer", "10+ years of experience required", CFG)
+    assert tier is None and years == 10
+    assert reason.startswith("qualification:seniority:years:10")
 
 
 def test_engineering_manager_filtered():
@@ -117,7 +143,7 @@ def test_years_plus_parses():
 
 def test_non_requirement_years_context_ignored():
     tier, years, reason = classify_tier(
-        "Software Engineer", "Our company was founded 10 years ago and is growing fast.", CFG)
+        "Software Engineer", LONG_DESC + "Our company was founded 10 years ago and is growing fast.", CFG)
     assert years is None
     assert tier == CORE
 
@@ -178,7 +204,7 @@ def test_instructor_and_teaching_assistant_excluded():
 def test_ml_model_trainer_not_excluded_as_teaching():
     """'Trainer'/'mentor' alone must not catch ML roles that train MODELS, not people."""
     tier, years, reason = classify_tier("ML Model Trainer", "Train and fine-tune ML models.", CFG)
-    assert tier is not None
+    assert "teaching" not in reason
 
 
 def test_mentoring_junior_engineers_duty_does_not_exclude_a_real_engineering_role():
@@ -238,3 +264,97 @@ def test_support_duties_in_description_exclude():
     from filters import _exclusion_reason
     desc = "This role will provide advanced support, administration and optimization for Amazon Connect."
     assert _exclusion_reason("Amazon Connect L3 SME", desc) == "support"
+
+
+# ---------------------------------------------------------------------------
+# Stack mismatch (title-only), seniority mismatch, tightened years
+# ---------------------------------------------------------------------------
+
+import pytest
+
+
+@pytest.mark.parametrize("title,token", [
+    ("Senior .NET Software Engineer", ".net"), ("C# Developer", "c#"), ("PHP Laravel Developer", "php"),
+    ("Sr. Java React Full Stack Developer", "java"), ("Spring Boot Engineer", "spring boot"),
+    ("SAP ABAP Engineer", "sap"), ("Ruby on Rails Engineer", "ruby on rails"),
+    ("iOS Engineer", "ios"), ("Android Developer", "android"), ("AWS Cloud Engineer", "cloud engineer"), ("Forward Deployed Engineer (Java)", "java"),
+    ("Senior DevOps Engineer", "devops"), ("Machine Learning Engineer", "machine learning engineer"),
+    ("Data Scientist", "data scientist"),
+])
+def test_title_role_identity_alone_goes_to_review_never_rejects(title, token):
+    """A single title signal is non-decisive: review (human release), not a rejection."""
+    tier, _years, reason = classify_tier(title, "Build things.", CFG)
+    assert tier is not None
+    assert reason == f"qualification_review:stack:title_role:{token}"
+
+
+@pytest.mark.parametrize("title,reqs", [
+    ("C# Developer", "- 3+ years of C# and .NET Core\n- Azure"),
+    ("PHP Laravel Developer", "- Strong PHP and Laravel\n- MySQL"),
+    ("Salesforce Developer", "- Salesforce Apex, 3 years of Salesforce\n- SOQL"),
+    ("Embedded Software Engineer", "- Proficient in C++ and firmware development"),
+])
+def test_title_plus_required_section_corroborate_to_reject(title, reqs):
+    tier, _years, reason = classify_tier(title, long_desc(reqs), CFG)
+    assert tier is None
+    assert reason.startswith("qualification:stack:")
+
+
+@pytest.mark.parametrize("title", [
+    "Senior Software Engineer (Java and JavaScript ecosystem)",
+    "Full Stack Engineer (AWS)", "AI Engineer with GCP", "Azure AI Engineer", "Full Stack JavaScript Developer",
+    "AI/ML Engineer (LLM & RAG)", "Machine Learning Engineer, GenAI Applications",
+    "Backend Engineer (Python, AI Agents)", "Software Engineer, Spring 2027 Intern Program", "Node.js Backend Engineer",
+])
+def test_secondary_or_neutralised_stack_mentions_do_not_reject(title):
+    tier, _years, reason = classify_tier(title, long_desc("- Python, React, PostgreSQL"), CFG)
+    assert tier in (CORE, STRETCH) and not reason.startswith("qualification_review")
+
+
+@pytest.mark.parametrize("title", [
+    "Staff Software Engineer", "Principal Engineer", "Distinguished Engineer", "Software Architect",
+])
+def test_staff_plus_title_alone_is_review(title):
+    tier, _years, reason = classify_tier(title, long_desc(), CFG)
+    assert tier is not None and reason.startswith("qualification_review:seniority:title_staff_plus")
+
+
+def test_staff_plus_title_with_years_or_leadership_duties_is_rejected():
+    assert classify_tier("Principal Engineer", long_desc("- 10+ years of experience"), CFG)[0] is None
+    desc = long_desc("- You will lead a team of engineers and own hiring")
+    assert classify_tier("Staff Software Engineer", desc, CFG)[0] is None
+
+
+def test_senior_and_founding_remain_stretch():
+    assert classify_tier("Senior Backend Developer", long_desc(), CFG)[0] == STRETCH
+    assert classify_tier("Sr. Software Engineer", long_desc(), CFG)[0] == STRETCH
+    assert classify_tier("Founding Engineer", long_desc(), CFG)[0] == STRETCH
+
+
+def test_full_stack_developer_is_core():
+    assert classify_tier("Full Stack Developer", long_desc(), CFG)[0] == CORE
+
+
+def test_three_plus_years_is_stretch():
+    tier, years, _ = classify_tier("Software Engineer", long_desc("- 3+ years of experience."), CFG)
+    assert (tier, years) == (STRETCH, 3)
+
+
+def test_five_plus_years_is_filtered():
+    tier, years, reason = classify_tier("Software Engineer", long_desc("- 5+ years of experience."), CFG)
+    assert tier is None and years == 5 and reason.startswith("qualification:seniority:years:5")
+
+
+def test_two_years_is_core():
+    assert classify_tier("Software Engineer", long_desc("- 2+ years of experience."), CFG)[0] == CORE
+
+
+def test_passes_filters_review_fails_closed_with_review_reason():
+    ok, reason = passes_filters(make_job(title="PHP Laravel Developer"), CFG)
+    assert not ok and reason.startswith("qualification_review:")
+
+
+def test_passes_filters_rejects_corroborated_stack_mismatch():
+    job = make_job(title="PHP Laravel Developer", description=long_desc("- Strong PHP and Laravel"))
+    ok, reason = passes_filters(job, CFG)
+    assert not ok and reason.startswith("qualification:stack:")

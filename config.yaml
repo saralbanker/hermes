@@ -60,12 +60,59 @@ search:
   hours_old: 72
   max_job_age_days: 21       # older postings are marked expired, never applied to
   min_score: 6.5
-  # Tiering (owner, 2026-09-23): ~70% core (≤4 years asked, non-senior title),
-  # ~30% stretch (Senior/Lead/founding/more years). Senior is NOT filtered out.
-  core_max_years: 4
-  stretch_max_years: 8       # beyond this the gap is too large to be worth a slot
-  stretch_share: 0.30
+  # Tiering: the candidate has ~1 year of paid experience and the screening answers report
+  # 1 year, so asks of 5+ years are near-certain knockouts. Core = <=2 years asked and a
+  # non-senior title; stretch = Senior/founding titles or 3-4 years asked (kept to a small
+  # share of the daily budget). Seniority/stack/years judgement lives in src/qualify.py
+  # (multi-evidence engine, see the `qualification:` block below).
+  core_max_years: 2
+  stretch_max_years: 4       # beyond this the gap is a near-certain knockout
+  stretch_share: 0.15
   stretch_min_score: 7.5     # stretch applications need a stronger fit
+
+# Multi-evidence qualification engine (src/qualify.py). Derived from profile/facts.md.
+# No single non-decisive signal rejects: stack/seniority/constraint/role evidence from the
+# title and the requirement/preferred/other description sections is combined.
+qualification:
+  core_stack: [typescript, javascript, python, golang, sql, node, node.js, nodejs, express.js,
+    expressjs, react, reactjs, react.js, next.js, nextjs, fastapi, postgres, postgresql, redis,
+    docker, llm, llms, rag, genai, generative ai, embeddings, mern, supabase, mysql, sqlite,
+    rest api, restful, langchain, pgvector, vector database, prompt engineering, tailwind, vite]
+  title_core_tokens: [go]     # only meaningful inside a title ("Go/Java"); too common in prose
+  # Generic technologies that do not by themselves show the posting is in the candidate's stack
+  # (e.g. "SQL Server" in a .NET job): ignored by the positive-evidence requirement.
+  generic_stack: [sql, mysql, sqlite, redis, docker, rest api, restful]
+  # Acceptable ONLY for intern/junior/trainee/fresher/entry/graduate titles or overall years <= 1.
+  academic_stack: [java, kotlin, android]
+  absent_stack: [.net, dotnet, asp.net, c#, php, laravel, wordpress, codeigniter, spring boot,
+    spring framework, spring mvc, spring cloud, springboot, ruby on rails, ruby, salesforce,
+    servicenow, sap, ios, swift, flutter, c++, embedded systems, embedded software,
+    embedded engineer, firmware, mainframe, cobol,
+    rust, solidity, smart contracts, uipath, rpa, automation anywhere, power apps, power platform,
+    snowflake, databricks, spark, apache spark, dbt, airflow, power bi, unreal, unity, game engine,
+    sfcc, salesforce commerce, oracle fsm, oracle erp, semiconductor, quantum, kernel, cuda,
+    inference optimization, blockchain, web3]
+  # Weak unless they are the role identity (DevOps/SRE/Cloud/Platform title) or "N years of X".
+  platform_tokens: [aws, gcp, azure, google cloud, kubernetes, k8s, devops, sre, site reliability,
+    terraform, ansible]
+  # No production ML-model-training experience; neutralised when LLM-application work is named.
+  ml_training_tokens: [machine learning engineer, ml engineer, data scientist, computer vision,
+    deep learning, pytorch, tensorflow, model training, train models, training models,
+    distillation, training optimization, pretraining, pre-training, fine-tuning, finetuning]
+  # Role-type titles: the token IS the role wherever it appears in the title.
+  role_identity_tokens: [devops, sre, site reliability, mlops, llmops, cloud engineer,
+    cloud platform engineer, cloud developer, cloud architect, cloud infrastructure, infrastructure engineer, data engineer]
+  # Title-only ML-training role tokens (role identity); neutralised only by LLM-app terms in the TITLE.
+  ml_training_title_tokens: [data scientist, machine learning engineer, ml engineer, machine learning,
+    computer vision, deep learning, research scientist]
+  llm_app_tokens: [llm, llms, rag, genai, gen ai, generative ai, agent, agents, agentic, ai powered, ai-powered,
+    ai application, ai applications, applied ai, ai engineer]
+  junior_title_tokens: [intern, internship, junior, jr, associate, entry level, graduate,
+    fresher, trainee, apprentice]
+  languages: [english, hindi, gujarati]
+  has_bachelor: false
+  paid_years: 1
+  knockout_years: 5          # "minimum/at least N years" with N >= this is decisive
 
 scoring:
   min_similarity: 0.55       # embedding cosine floor (calibrated: relevant roles 0.60-0.70)
@@ -74,8 +121,8 @@ scoring:
 
 limits:
   linkedin_per_day: 0        # LinkedIn automation risks a permanent account ban
-  other_per_day: 100
-  total_per_day: 100
+  other_per_day: 25         # controlled observation cohort (2026-10-07): fixed for 3 weeks
+  total_per_day: 25
   min_delay_seconds: 20
   max_delay_seconds: 45
   max_apply_minutes: 150     # per scheduled run; the three runs share the daily cap
@@ -113,8 +160,7 @@ screening_answers:
     the specification and acceptance criteria, own the architecture, review every change,
     and verify it with tests and CI.'
   why_interested_template: 'I''m looking for a role with real ownership, where I can design
-    and ship complete systems. I have built and shipped a paid billing system for an industrial
-    estate of 220+ units, a 70k-line AI productivity platform with RAG, and AWIS, an event-sourced
+    and ship complete systems. I have built a 70k-line AI productivity platform with RAG, and AWIS, an event-sourced
     workflow engine in Go with 773 test functions. I''m available immediately and work well remotely.'
 
 # Phase 3 (architect-redesign-docs): the new src/engine/ + src/engine_apply.py path,

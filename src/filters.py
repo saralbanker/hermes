@@ -3,10 +3,11 @@ filters.py — Cheap deterministic job filters applied before any LLM call.
 
     passes_filters(job, cfg) -> (bool, reason)
     classify_tier(title, description, cfg) -> (tier | None, required_years | None, reason)
+    assess(title, description, cfg) -> Qualification   (policy gates + evidence engine)
     role_priority(title, description) -> int
 
-Checks, in order: location (geo.py), staleness, role exclusions, tier/seniority,
-salary floor. Every rejection carries a reason string that is stored in
+Checks, in order: location (geo.py), staleness, role exclusions, qualification (qualify.py:
+stack/seniority/years/constraint evidence), salary floor. Every rejection carries a reason string that is stored in
 jobs.status_reason, so `tracker.py` can show why jobs were dropped.
 """
 from __future__ import annotations
@@ -15,7 +16,9 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from geo import is_location_eligible
-from states import CORE, STRETCH
+from qualify import REJECTED, REVIEW, Qualification, Signal, qualify, to_columns
+
+REVIEW_REASON_PREFIX = "qualification_review:"
 
 # ---------------------------------------------------------------------------
 # Title / responsibility classification
@@ -23,20 +26,19 @@ from states import CORE, STRETCH
 
 # People-management titles → always filtered (owner: Manager/Director/VP/Head-of).
 MANAGEMENT_TITLE_RE = re.compile(
-    r"\b(engineering manager|eng\.? manager|director|vp\b|vice president|head of|"
+    r"\b(engineering manager|eng\.? manager|manager\s*(?:,|-|–|—|:|/|of)\s*(?:software\s+)?engineering|director|vp\b|vice president|head of|"
     r"chief\b|cto\b|ceo\b|coo\b|people manager|team lead(?!er)?\b)\b", re.I)
 
-# Senior/stretch signal titles (owner: NOT globally rejected — they define the
-# stretch tier instead).
-STRETCH_TITLE_RE = re.compile(
-    r"\b(senior|sr\.?|staff|principal|lead|founding engineer|architect|"
-    r"distinguished|sde[- ]?(iii|3)|l[5-9]\b|engineer (iii|iv|3|4))\b", re.I)
+# A standalone "Manager" title noun (title end, after a dash/comma, or before a comma / "of"):
+# "Sr. Engagement Manager, Forward Deployed Engineering", "Services - Manager". Not "Package Manager
+# Engineer". Product/Project/Program Manager are caught earlier by non_engineering_title.
+STANDALONE_MANAGER_RE = re.compile(r"[-–—,]\s*manager\b|\bmanager\s*(?:,|of\b|$)", re.I)
 
 # Role exclusions (owner list): evaluated against title AND description.
 EXCLUDE_ROLE_PATTERNS: dict[str, re.Pattern] = {
     "qa_only": re.compile(
         r"\b(qa engineer|quality assurance engineer|manual test(er|ing)|"
-        r"test engineer|sdet)\b", re.I),
+        r"test engineer|engineers? in test|sdet|qa)\b", re.I),
     "support": re.compile(
         r"\b(technical support|customer support|customer success|help ?desk|support specialist|"
         r"support engineer)\b", re.I),
@@ -90,19 +92,6 @@ ENGINEERING_ESCAPE_RE = re.compile(
     r"customer engineer|technical account manager.{0,40}\b(code|build|develop|engineer)\b)\b",
     re.I)
 
-YEARS_RE = re.compile(
-    r"(\d{1,2})\s*(?:-|to|–)\s*(\d{1,2})\s*\+?\s*(?:years?|yrs?)|"
-    r"(\d{1,2})\s*\+\s*(?:years?|yrs?)|"
-    r"(\d{1,2})\s*(?:years?|yrs?)",
-    re.I)
-# Contexts that mention "N years" but are NOT an experience requirement —
-# skip these matches (company age, product age, visa/notice periods, etc.).
-NON_REQUIREMENT_CONTEXT_RE = re.compile(
-    r"(founded|established|in business|around|incorporated|since)\s+(for\s+)?(over\s+)?$|"
-    r"(visa|notice period|contract|lease|warranty)\D{0,15}$",
-    re.I)
-
-
 def role_priority(title: str, description: str) -> int:
     """
     Higher = more desirable per owner ranking:
@@ -125,38 +114,6 @@ def role_priority(title: str, description: str) -> int:
     return 3  # general software engineering
 
 
-def required_years(description: str) -> int | None:
-    """
-    Smallest 'N years' EXPERIENCE requirement stated in the posting (None if
-    unstated). "3-5 years" -> 3. "5+ years" -> 5. Ignores non-requirement
-    contexts like "company founded 10 years ago" where reasonably detectable.
-    """
-    if not description:
-        return None
-    mins = []
-    for m in YEARS_RE.finditer(description[:6000]):
-        prefix = description[max(0, m.start() - 30):m.start()]
-        if NON_REQUIREMENT_CONTEXT_RE.search(prefix):
-            continue
-        lo_range, _hi_range, plus, plain = m.group(1), m.group(2), m.group(3), m.group(4)
-        lo = lo_range or plus or plain
-        if lo is None:
-            continue
-        lo = int(lo)
-        if 0 < lo <= 20:
-            mins.append(lo)
-    return min(mins) if mins else None
-
-
-# Allow-list: the title itself must name engineering work (block-lists miss
-# "Graphic Designer", "Founder's Office", "Content Creator Intern", …).
-ENGINEERING_TITLE_RE = re.compile(
-    r"\b(engineer(ing)?|developer|programmer|dev\b|sde|swe|architect|software|full[- ]?stack|"
-    r"back[- ]?end|front[- ]?end|devops|sre\b|platform|ai\b|ml\b|llm|machine learning|"
-    r"data scientist|founding|technical lead|tech lead|coder|web3?\b|mern|mean stack|python|"
-    r"golang|node(\.?js)?|react|typescript|javascript|java\b|automation)", re.I)
-
-
 def _exclusion_reason(title: str, description: str) -> str | None:
     text_title = title or ""
     text_desc = (description or "")[:3000]
@@ -169,41 +126,47 @@ def _exclusion_reason(title: str, description: str) -> str | None:
     for reason, pattern in EXCLUDE_DUTY_PATTERNS.items():
         if pattern.search(text_desc):
             return reason
-    if not ENGINEERING_TITLE_RE.search(text_title):
-        return "not_engineering_title"
     return None
+
+
+def _is_people_management(title: str, description: str) -> bool:
+    if MANAGEMENT_TITLE_RE.search(title):
+        return True
+    is_customer_facing_engineering = bool(ENGINEERING_ESCAPE_RE.search(f"{title} {description[:3000]}"))
+    return bool(STANDALONE_MANAGER_RE.search(title.strip())) and not is_customer_facing_engineering
+
+
+def assess(title: str, description: str, cfg: dict) -> Qualification:
+    """Policy gates (owner role exclusions, people management), then the evidence engine."""
+    title, description = title or "", description or ""
+    policy = _exclusion_reason(title, description)
+    if policy is None and _is_people_management(title, description):
+        policy = "people_management"
+    if policy:
+        signal = Signal("title", "role", -1, 1.0, f"policy:{policy}", True)
+        return Qualification(REJECTED, None, 1.0, 0.0, None, (f"policy:{policy}",), (signal,))
+    return qualify(title, description, cfg)
 
 
 def classify_tier(title: str, description: str, cfg: dict) -> tuple[str | None, int | None, str]:
     """
-    Returns (tier, required_years, reason).
-    tier is None when the job should be filtered out entirely; reason then
-    explains why. required_years is the parsed value (may be None).
+    Returns (tier, required_years, reason). tier is None when the job is rejected. A `review`
+    decision keeps its tier but carries a "qualification_review:" reason (never auto-applied).
     """
-    title = title or ""
-    description = description or ""
-    search = cfg["search"]
+    qual = assess(title, description, cfg)
+    top = qual.reasons[0]
+    if qual.decision == REJECTED:
+        if top.startswith("policy:"):
+            return None, None, f"excluded_role:{top.removeprefix('policy:')}"
+        return None, qual.required_years, f"qualification:{top}"
+    if qual.decision == REVIEW:
+        return qual.tier, qual.required_years, f"{REVIEW_REASON_PREFIX}{top}"
+    return qual.tier, qual.required_years, f"tier:{qual.tier}"
 
-    excl = _exclusion_reason(title, description)
-    if excl:
-        return None, None, f"excluded_role:{excl}"
 
-    if MANAGEMENT_TITLE_RE.search(title):
-        return None, None, "excluded_role:people_management"
-
-    years = required_years(description)
-    is_stretch_title = bool(STRETCH_TITLE_RE.search(title))
-
-    stretch_max = search.get("stretch_max_years", 8)
-    core_max = search.get("core_max_years", 4)
-
-    if years is not None and years > stretch_max:
-        return None, years, f"too_senior:{years}y_required"
-
-    if is_stretch_title or (years is not None and years > core_max):
-        return STRETCH, years, "tier:stretch"
-
-    return CORE, years, "tier:core"
+def qualification_fields(title: str, description: str, cfg: dict) -> dict[str, object]:
+    """jobs.qual_* column values for this posting (written at discovery / backlog rescoring)."""
+    return to_columns(assess(title, description, cfg))
 
 
 # ---------------------------------------------------------------------------
@@ -291,11 +254,13 @@ def passes_filters(job: dict, cfg: dict) -> tuple[bool, str]:
     if is_stale(job.get("date_posted"), search["max_job_age_days"]):
         return False, "expired"
 
-    tier, _years, reason = classify_tier(job.get("title") or "", job.get("description") or "", cfg)
+    tier, _years, tier_reason = classify_tier(job.get("title") or "", job.get("description") or "", cfg)
     if tier is None:
-        return False, reason
+        return False, tier_reason
 
     ok, reason = salary_ok(job, cfg)
     if not ok:
         return False, reason
+    if tier_reason.startswith(REVIEW_REASON_PREFIX):
+        return False, tier_reason  # fail closed: a human releases it (scripts/release_manual_review.py)
     return True, loc_reason
