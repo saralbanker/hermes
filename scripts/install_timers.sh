@@ -5,9 +5,12 @@ SRC="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 DEST="$HOME/.config/systemd/user"
 mkdir -p "$DEST"
 for unit in hermes.service hermes.timer hermes-watch.service hermes-watch.timer \
-            hermes-summary.service hermes-summary.timer hermes-continuous.service; do
+            hermes-summary.service hermes-summary.timer hermes-continuous.service \
+            hermes-dashboard.service; do
     install -m 644 "$SRC/$unit" "$DEST/$unit"
 done
 systemctl --user daemon-reload
 systemctl --user enable --now hermes.timer hermes-watch.timer hermes-summary.timer
+systemctl --user enable hermes-dashboard.service
+systemctl --user restart hermes-dashboard.service
 systemctl --user list-timers 'hermes*' --no-pager

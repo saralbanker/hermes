@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Hermes</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f3ef;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #6b6a66;
+  --line: #e1dfd8;
+  --series-1: #2a78d6;
+  --accent: #1d5fb0;
+  --accent-ink: #ffffff;
+  --ok-bg: #e3f1e6;   --ok-ink: #14532d;
+  --warn-bg: #fbecc8; --warn-ink: #6b4300;
+  --bad-bg: #f9dede;  --bad-ink: #8a1f1f;
+  --grid: #e6e4de;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111110;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-3: #a09f95;
+    --line: #2f2e2b;
+    --series-1: #3987e5;
+    --accent: #5a9cec;
+    --accent-ink: #0b0b0b;
+    --ok-bg: #16301f;   --ok-ink: #a6dfb5;
+    --warn-bg: #3a2c0a; --warn-ink: #f0cf84;
+    --bad-bg: #3d1a1a;  --bad-ink: #f2b0b0;
+    --grid: #2a2927;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow-wrap: anywhere;
+}
+main { max-width: 960px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+h1 { font-size: 1.25rem; margin: 0; letter-spacing: .02em; }
+h2 { font-size: .8125rem; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-2); font-weight: 600; }
+h3 { font-size: .875rem; margin: 16px 0 8px; color: var(--ink); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
+.muted { color: var(--ink-2); font-size: .875rem; }
+.num { font-variant-numeric: tabular-nums; }
+[hidden] { display: none !important; }
+
+/* banner */
+.banner { padding: 10px 16px; border-radius: var(--radius); font-size: .9375rem; font-weight: 600; }
+.banner.stale { background: var(--warn-bg); color: var(--warn-ink); }
+.banner.auth { background: var(--bad-bg); color: var(--bad-ink); }
+.banner.flash { background: var(--ok-bg); color: var(--ok-ink); }
+
+/* status bar */
+.status { display: grid; gap: 12px; }
+.status-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: .875rem; font-weight: 600; border: 1px solid transparent; }
+.badge.ok { background: var(--ok-bg); color: var(--ok-ink); }
+.badge.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.badge.bad { background: var(--bad-bg); color: var(--bad-ink); }
+.badge.idle { background: transparent; color: var(--ink-2); border-color: var(--line); }
+button {
+  font: inherit; font-weight: 600; min-height: 44px; padding: 0 16px; border-radius: 8px;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer;
+}
+button.secondary { background: transparent; color: var(--ink); border-color: var(--line); }
+button:disabled { opacity: .55; cursor: default; }
+button:focus-visible, summary:focus-visible { outline: 3px solid var(--series-1); outline-offset: 2px; }
+.confirm { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px; display: grid; gap: 12px; }
+.confirm p { margin: 0; }
+.confirm .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* tiles */
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
+.tile .label { font-size: .8125rem; color: var(--ink-2); }
+.tile .value { font-size: 2rem; font-weight: 700; line-height: 1.15; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.tile .value small { font-size: 1rem; font-weight: 500; color: var(--ink-2); }
+.tile .sub { font-size: .8125rem; color: var(--ink-3); margin-top: 2px; }
+
+/* chart */
+.chart-wrap { position: relative; height: 200px; }
+.chart-fallback { color: var(--ink-2); font-size: .875rem; padding: 8px 0; }
+.split { display: grid; gap: 16px; }
+.kv { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.kv li { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding: 6px 0; }
+.kv li:last-child { border-bottom: 0; }
+.kv .k { color: var(--ink-2); min-width: 0; }
+.kv .v { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.empty { color: var(--ink-2); font-size: .9375rem; margin: 0; }
+
+/* responses */
+.resp { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; }
+.resp .n { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.resp .l { font-size: .8125rem; color: var(--ink-2); }
+.rate { margin-top: 12px; }
+
+/* failures */
+.fail { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fail li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.fail .t { font-weight: 600; }
+.fail .m { font-size: .8125rem; color: var(--ink-2); }
+.fail .r { font-size: .875rem; margin-top: 2px; }
+details > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+pre { margin: 8px 0 0; padding: 12px; background: var(--bg); border-radius: 8px; font: .8125rem/1.45 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
+table.alt { width: 100%; border-collapse: collapse; font-size: .875rem; }
+table.alt th, table.alt td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.foot { font-size: .8125rem; color: var(--ink-3); text-align: center; }
+
+@media (min-width: 720px) {
+  main { padding: 24px; gap: 20px; }
+  .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .split { grid-template-columns: 2fr 1fr; }
+  .chart-wrap { height: 240px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tile .value { transition: opacity .2s; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header class="status card" aria-label="System status">
+    <div class="status-row">
+      <h1>Hermes</h1>
+      <span id="timer-badge" class="badge idle">Loading…</span>
+      <span id="run-badge" class="badge idle">…</span>
+    </div>
+    <div id="timer-detail" class="muted"></div>
+    <div class="status-row"><button id="toggle-btn" type="button" hidden>Pause</button></div>
+    <div id="confirm" class="confirm" role="group" aria-labelledby="confirm-title" hidden>
+      <p id="confirm-title"><strong id="confirm-head"></strong></p>
+      <p id="confirm-body" class="muted"></p>
+      <div class="actions">
+        <button id="confirm-yes" type="button">Confirm</button>
+        <button id="confirm-no" type="button" class="secondary">Cancel</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" role="status" hidden></div>
+
+  <section class="tiles" aria-label="Key numbers" id="tiles"></section>
+
+  <div class="split">
+    <section class="card" aria-labelledby="h-sub">
+      <h2 id="h-sub">Submitted, last 14 days</h2>
+      <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Bar chart of submissions per day for the last 14 days"></canvas></div>
+      <p id="chart-fallback" class="chart-fallback" hidden></p>
+      <details><summary>Table view</summary><div id="day-table"></div></details>
+    </section>
+    <section class="card" aria-labelledby="h-ch">
+      <h2 id="h-ch">By channel</h2>
+      <div id="by-channel"></div>
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="h-resp">
+    <h2 id="h-resp">Responses</h2>
+    <div id="responses"></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-err">
+    <h2 id="h-err">Errors</h2>
+    <div id="errors"></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>Settings (read-only)</summary>
+      <p class="muted">read-only — edit config.yaml</p>
+      <div id="settings"></div>
+    </details>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+function el(tag, text, cls) {
+  const node = document.createElement(tag);
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  if (cls) node.className = cls;
+  return node;
+}
+function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? String(iso) : d.toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+}
+function hhmm(d) { return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+function pct(x) { return Math.round((x || 0) * 100) + "%"; }
+
+let state = { data: null, lastOk: null, pendingAction: null, chart: null };
+
+/* ---------- simple renderers ---------- */
+function kvList(rows, emptyText) {
+  if (!rows.length) return el("p", emptyText, "empty");
+  const ul = el("ul", null, "kv");
+  for (const [k, v] of rows) {
+    const li = el("li");
+    li.append(el("span", k, "k"), el("span", v, "v"));
+    ul.append(li);
+  }
+  return ul;
+}
+function badge(node, text, cls) { node.textContent = text; node.className = "badge " + cls; }
+
+function renderStatus(d) {
+  const t = d.timer || {};
+  const run = d.run || {};
+  const btn = $("toggle-btn");
+  if (t.error) {
+    badge($("timer-badge"), "Timer unknown", "warn");
+    $("timer-detail").textContent = "Could not read timer: " + t.error;
+    btn.hidden = true;
+  } else {
+    const paused = !!t.paused;
+    badge($("timer-badge"), paused ? "⏸ PAUSED" : "● Active", paused ? "warn" : "ok");
+    let detail = paused ? "Scheduled runs are off." : (t.next_run ? "Next run " + fmtTime(t.next_run) : "No next run scheduled.");
+    if (paused && run.is_running) detail = "Pausing after current run.";
+    $("timer-detail").textContent = detail;
+    btn.hidden = false;
+    btn.textContent = paused ? "Resume" : "Pause";
+    btn.dataset.action = paused ? "resume" : "pause";
+  }
+  badge($("run-badge"), run.is_running ? "▶ Running" : "○ Idle", run.is_running ? "ok" : "idle");
+}
+
+function tile(label, value, unit, sub) {
+  const t = el("div", null, "tile");
+  const v = el("div", value, "value");
+  if (unit) v.append(el("small", " " + unit));
+  t.append(el("div", label, "label"), v);
+  if (sub) t.append(el("div", sub, "sub"));
+  t.setAttribute("role", "group");
+  t.setAttribute("aria-label", label + ": " + value + (unit ? " " + unit : ""));
+  return t;
+}
+function renderTiles(d) {
+  const a = d.applications, box = $("tiles");
+  clear(box);
+  box.append(
+    tile("Submitted today", a.cap.used, "/ " + a.cap.limit, a.cap.remaining + " left today"),
+    tile("Total submitted", a.submitted_total),
+    tile("Errors today", d.errors.today_total, null, d.errors.today_total ? "see Errors below" : "none"),
+    tile("Awaiting reply", d.responses.awaiting)
+  );
+}
+
+function renderDayTable(days) {
+  const box = $("day-table");
+  clear(box);
+  const table = el("table", null, "alt");
+  const head = el("tr");
+  head.append(el("th", "Date"), el("th", "Submitted"));
+  table.append(head);
+  for (const row of days) {
+    const tr = el("tr");
+    tr.append(el("td", row.date), el("td", row.count, "num"));
+    table.append(tr);
+  }
+  box.append(table);
+}
+
+function chartColors() {
+  const s = getComputedStyle(document.documentElement);
+  return { bar: s.getPropertyValue("--series-1").trim(), grid: s.getPropertyValue("--grid").trim(), text: s.getPropertyValue("--ink-2").trim() };
+}
+function renderChart(days) {
+  const fb = $("chart-fallback"), canvas = $("chart");
+  const total = days.reduce((n, r) => n + r.count, 0);
+  const summary = "Submissions in the last 14 days: " + total + " total. " +
+    days.map((r) => r.date.slice(5) + ": " + r.count).join(", ") + ".";
+  canvas.setAttribute("aria-label", summary);
+  if (typeof Chart === "undefined") {
+    canvas.parentElement.hidden = true;
+    fb.hidden = false;
+    fb.textContent = "Chart library did not load. " + summary;
+    return;
+  }
+  fb.hidden = true;
+  canvas.parentElement.hidden = false;
+  const c = chartColors();
+  const labels = days.map((r) => r.date.slice(5));
+  const values = days.map((r) => r.count);
+  if (state.chart) { state.chart.destroy(); }
+  state.chart = new Chart(canvas, {
+    type: "bar",
+    data: { labels, datasets: [{ label: "Submitted", data: values, backgroundColor: c.bar, borderRadius: 4, borderSkipped: "bottom", maxBarThickness: 22 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: c.text, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 }, border: { color: c.grid } },
+        y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { color: c.text, precision: 0, maxTicksLimit: 5 } }
+      }
+    }
+  });
+}
+
+function renderResponses(r) {
+  const box = $("responses");
+  clear(box);
+  const row = el("div", null, "resp");
+  for (const [k, label] of [["positive", "Positive"], ["ack", "Acknowledged"], ["rejection", "Rejected"]]) {
+    const c = el("div");
+    c.append(el("div", r.counts[k] || 0, "n"), el("div", label, "l"));
+    row.append(c);
+  }
+  box.append(row);
+  if (r.counts.other) box.append(el("p", "Other: " + r.counts.other, "muted"));
+  box.append(el("p", "Response rate " + pct(r.response_rate) + " · " + r.awaiting + " awaiting", "rate muted"));
+}
+
+function failureItem(f) {
+  const li = el("li");
+  li.append(el("div", f.company + " — " + f.title, "t"));
+  li.append(el("div", f.status + " · " + fmtTime(f.at), "m"));
+  if (f.reason) li.append(el("div", f.reason, "r"));
+  return li;
+}
+function renderErrors(e, run) {
+  const box = $("errors");
+  clear(box);
+  if (!e.today_total) box.append(el("p", "No failures recorded today", "empty"));
+  else box.append(kvList(e.today_by_status.map((s) => [s.status, s.count]), ""));
+  box.append(el("h3", "Top groups, last 7 days (by last attempt)"));
+  box.append(kvList(e.top_groups_7d.map((g) => [g.status + (g.reason_prefix && g.reason_prefix !== g.status ? " · " + g.reason_prefix : ""), g.count]), "No failure groups in the last 7 days"));
+  box.append(el("h3", "Last failures"));
+  if (!e.recent.length) box.append(el("p", "No failures to show", "empty"));
+  else { const ul = el("ul", null, "fail"); e.recent.forEach((f) => ul.append(failureItem(f))); box.append(ul); }
+  const tail = (run && run.log_tail) || [];
+  const det = el("details");
+  det.append(el("summary", "Log tail (" + tail.length + " lines)"));
+  det.append(el("pre", tail.length ? tail.join("\n") : "Log is empty"));
+  box.append(det);
+}
+
+function renderSettings(s) {
+  const box = $("settings");
+  clear(box);
+  const rows = [];
+  const flat = (prefix, obj) => {
+    for (const [k, v] of Object.entries(obj || {})) {
+      if (v !== null && typeof v === "object") flat(prefix + k + ".", v);
+      else rows.push([prefix + k, v]);
+    }
+  };
+  flat("", s.limits ? { limits: s.limits } : {});
+  rows.push(["min_score", s.min_score]);
+  flat("", s.salary ? { salary: s.salary } : {});
+  box.append(kvList(rows, "No settings available"));
+}
+
+function render(d) {
+  renderStatus(d);
+  renderTiles(d);
+  const days = d.applications.last_14_days;
+  renderChart(days);
+  renderDayTable(days);
+  const ch = $("by-channel");
+  clear(ch);
+  ch.append(kvList(d.applications.by_channel.map((c) => [c.name, c.count]), "No submissions yet"));
+  renderResponses(d.responses);
+  renderErrors(d.errors, d.run);
+  renderSettings(d.settings || {});
+  const lr = d.run.last_run;
+  $("foot").textContent = "Updated " + hhmm(new Date(d.generated_at)) + (lr ? " · last run " + fmtTime(lr.at) : "");
+}
+
+/* ---------- banner / fetch ---------- */
+function showBanner(text, cls) {
+  const b = $("banner");
+  b.textContent = text;
+  b.className = "banner " + cls;
+  b.hidden = false;
+}
+function hideBanner() { $("banner").hidden = true; }
+
+async function refresh() {
+  try {
+    const res = await fetch("/api/overview", { credentials: "same-origin" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    state.data = data;
+    state.lastOk = new Date();
+    hideBanner();
+    render(data);
+  } catch (err) {
+    const when = state.lastOk ? hhmm(state.lastOk) : "never";
+    showBanner("stale — last updated " + when, "stale");
+  }
+}
+
+/* ---------- pause / resume ---------- */
+function openConfirm(action) {
+  state.pendingAction = action;
+  const resume = action === "resume";
+  $("confirm-head").textContent = resume ? "Resume scheduled runs?" : "Pause scheduled runs?";
+  $("confirm-body").textContent = resume
+    ? "A missed run may start immediately; the daily cap still applies."
+    : "No new runs will start. A run already in progress will finish.";
+  $("confirm").hidden = false;
+  $("toggle-btn").hidden = true;
+  $("confirm-no").focus();
+}
+function closeConfirm() {
+  state.pendingAction = null;
+  $("confirm").hidden = true;
+  $("toggle-btn").hidden = !(state.data && state.data.timer && !state.data.timer.error);
+  $("toggle-btn").focus();
+}
+async function submitAction() {
+  const action = state.pendingAction;
+  if (!action) return;
+  const yes = $("confirm-yes");
+  yes.disabled = true;
+  try {
+    const res = await fetch("/api/timer/" + action, {
+      method: "POST", credentials: "same-origin",
+      headers: { "X-Requested-With": "hermes-dashboard" }
+    });
+    if (!res.ok) { showBanner("Could not " + action + " the timer (HTTP " + res.status + ")", "auth"); }
+    else { closeConfirm(); await refresh(); showBanner(action === "resume" ? "Timer resumed" : "Timer paused", "flash"); setTimeout(() => { if ($("banner").classList.contains("flash")) hideBanner(); }, 4000); return; }
+  } catch (err) {
+    showBanner("Could not reach the dashboard server", "stale");
+  } finally { yes.disabled = false; }
+  closeConfirm();
+}
+
+$("toggle-btn").addEventListener("click", () => openConfirm($("toggle-btn").dataset.action));
+$("confirm-no").addEventListener("click", closeConfirm);
+$("confirm-yes").addEventListener("click", submitAction);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("confirm").hidden) closeConfirm(); });
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (state.data) renderChart(state.data.applications.last_14_days);
+});
+
+refresh();
+setInterval(refresh, 30000);
+</script>
+<script src="/chart.js" defer onload="state.data && renderChart(state.data.applications.last_14_days)"></script>
+</body>
+</html>
