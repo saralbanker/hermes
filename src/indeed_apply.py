@@ -33,6 +33,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
+import indeed_evidence
 import states
 from answers import answer_question
 from display import ensure_virtual_display
@@ -926,7 +927,8 @@ def _confirm_final_submit(page, job: dict, screenshot_path: str,
 
 
 def _form_changed_no_control(page, text: str, html: str, screenshot_path: str,
-                             abort_context: AttemptAbortContext | None = None) -> ApplyResult:
+                             abort_context: AttemptAbortContext | None = None,
+                             job: dict | None = None) -> ApplyResult:
     """No Continue/Next/Submit could be found or clicked. Dumps every button (incl.
     hidden/disabled) into the DB reason so a real layout change is diagnosable without a
     live re-run, and optionally the raw page for HERMES_DEBUG_DUMP-driven local debugging."""
@@ -943,6 +945,8 @@ def _form_changed_no_control(page, text: str, html: str, screenshot_path: str,
         seen = f"<scan failed: {exc}>"
     if os.environ.get("HERMES_DEBUG_DUMP"):
         Path(os.environ["HERMES_DEBUG_DUMP"]).write_text(text + "\n\n" + html)
+    if indeed_evidence.is_disabled_submit(seen):  # read-only capture; no-op unless HERMES_INDEED_EVIDENCE_DIR is set
+        indeed_evidence.capture_disabled_submit(page, job, text, html, abort_context=abort_context)
     return ApplyResult(states.FORM_CHANGED, detail=f"no Continue/Next/Submit control found; buttons={seen}",
                         screenshot=_screenshot(page, screenshot_path))
 
@@ -967,7 +971,7 @@ def _handle_application_step(page, job: dict, cover_letter: str, resume_path: st
     if was_final and advanced:
         return _confirm_final_submit(page, job, screenshot_path, abort_context=abort_context)
     if not advanced:
-        return _form_changed_no_control(page, text, html, screenshot_path, abort_context=abort_context)
+        return _form_changed_no_control(page, text, html, screenshot_path, abort_context=abort_context, job=job)
     return None
 
 
