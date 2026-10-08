@@ -8,3 +8,6 @@ Pillow
 rich
 requests
 psutil
+fastapi
+uvicorn
+httpx

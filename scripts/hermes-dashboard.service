@@ -1,0 +1,16 @@
+[Unit]
+Description=Hermes read-only dashboard (127.0.0.1 only; expose via tailscale serve)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/mnt/data/rj/hermes
+Environment=HERMES_DASH_PORT=8787
+EnvironmentFile=-/mnt/data/rj/hermes/.env
+ExecStart=/usr/bin/python3 -m uvicorn dashboard.app:create_app --factory --app-dir src --host 127.0.0.1 --port ${HERMES_DASH_PORT}
+Restart=on-failure
+RestartSec=5
+Nice=10
+
+[Install]
+WantedBy=default.target
