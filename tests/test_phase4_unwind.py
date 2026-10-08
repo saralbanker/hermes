@@ -96,3 +96,44 @@ def test_form_changed_no_control_propagates_timeout():
 
     with pytest.raises(HardTimeoutError, match="aborted during no-control dump"):
         ia._form_changed_no_control(page, "text", "html", "", abort_context=abort_ctx)
+
+
+def test_interstitial_reloads_once_when_check_never_clears(monkeypatch):
+    """Fresh profiles are challenged on their first Indeed load; the page must be reloaded
+    once after the passive wait, and the reload's page class is what counts."""
+    class FakePage:
+        def __init__(self):
+            self.loads = []
+
+        def get(self, url, timeout=None):
+            self.loads.append(url)
+
+    page = FakePage()
+    challenge = ("https://in.indeed.com/viewjob?jk=1", "Just a moment...", "", "")
+    job_page = ("https://in.indeed.com/viewjob?jk=1", "Dev - Indeed", "Apply now", "")
+    monkeypatch.setattr(ia, "INTERSTITIAL_WAIT_SECONDS", 0.05)
+    monkeypatch.setattr(ia.time, "sleep", lambda s: None)
+    monkeypatch.setattr(ia, "_snapshot", lambda p: job_page if p.loads else challenge)
+    monkeypatch.setattr(ia, "classify_page",
+                        lambda u, t, x, h: "security_interstitial" if t == "Just a moment..." else "job_page")
+
+    cls = ia._wait_out_interstitial(page, deadline=time.monotonic() + 60)
+
+    assert cls == "job_page"
+    assert page.loads == ["https://in.indeed.com/viewjob?jk=1"]
+
+
+def test_fill_selects_uses_tag_locator_not_bare_css():
+    """A bare 'css:select' goes to CDP DOM.performSearch, which also plain-text matches and
+    hit 61 <link> tags on Indeed's resume-selection page (2026-10-07 incident)."""
+    class FakePage:
+        def __init__(self):
+            self.locators = []
+
+        def eles(self, locator, timeout=None):
+            self.locators.append(locator)
+            return []
+
+    page = FakePage()
+    assert ia._fill_selects(page) is None
+    assert page.locators == ["tag:select"]

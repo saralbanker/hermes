@@ -605,8 +605,11 @@ def _fill_text_inputs(page, cover_letter: str) -> str | None:
 
 
 def _fill_selects(page) -> str | None:
+    # Not "css:select": DrissionPage sends locators to CDP DOM.performSearch, which also
+    # plain-text matches, so a bare "select" hit 61 <link> tags whose asset URLs contain
+    # "resume-selection" — each then waited ELE_TIMEOUT for options, blowing the 360 s budget.
     try:
-        selects = page.eles("css:select", timeout=1)
+        selects = page.eles("tag:select", timeout=1)
     except Exception:
         selects = []
     for sel in selects:
@@ -722,9 +725,15 @@ def _fill_form_step(page, cover_letter: str, resume_path: str) -> str | None:
 def _wait_out_interstitial(page, deadline: float, abort_context: AttemptAbortContext | None = None) -> str:
     """Poll up to INTERSTITIAL_WAIT_SECONDS for a Cloudflare check to clear on
     its own. Never clicks or solves anything. Returns the page class once it
-    stops being 'security_interstitial' or the wait/overall deadline is hit."""
+    stops being 'security_interstitial' or the wait/overall deadline is hit.
+
+    If the check is still showing after the wait, reload the URL once: each attempt's fresh
+    profile is challenged on its first in.indeed.com load, the check clears in the
+    background, but the challenge page never navigates on by itself (2026-10-07 incident:
+    6/6 first loads challenged, 8/8 later loads in the same browser passed)."""
     give_up = min(deadline, time.monotonic() + INTERSTITIAL_WAIT_SECONDS)
     cls = "security_interstitial"
+    url = None
     while time.monotonic() < give_up:
         if abort_context and abort_context.is_timed_out:
             raise HardTimeoutError(abort_context.timeout_reason)
@@ -732,7 +741,11 @@ def _wait_out_interstitial(page, deadline: float, abort_context: AttemptAbortCon
         url, title, text, html = _snapshot(page)
         cls = classify_page(url, title, text, html)
         if cls != "security_interstitial":
-            break
+            return cls
+    if url and time.monotonic() < deadline:
+        page.get(url, timeout=NAV_TIMEOUT)
+        time.sleep(3.0)
+        cls = classify_page(*_snapshot(page))
     return cls
 
 
