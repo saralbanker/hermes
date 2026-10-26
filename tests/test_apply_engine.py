@@ -165,6 +165,40 @@ def test_cap_stops_the_queue(temp_db, monkeypatch):
     assert temp_db.get_daily_counts()["total_count"] == 2
 
 
+def test_max_submits_per_run_stops_queue(temp_db, monkeypatch):
+    import apply
+    for i in range(70, 75):
+        _seed(temp_db, job(i))
+    cfg = {**CFG, "limits": {**CFG["limits"], "max_submits_per_run": 1, "total_per_day": 24}}
+    monkeypatch.setattr("cap_enforcer.load_limits", lambda: cfg["limits"])
+    monkeypatch.setattr(apply, "route", lambda *a, **k: S.ApplyResult(S.SUBMITTED, evidence="ok"))
+    queue = [dict(_row(temp_db, f"https://x/{i}")) for i in range(70, 75)]
+    stats = apply.run_queue(queue, cfg, dry_run=False, deadline=1e12)
+    assert stats.get(S.SUBMITTED) == 1
+    assert temp_db.get_daily_counts()["total_count"] == 1
+
+
+def test_max_submits_per_run_continues_until_success(temp_db, monkeypatch):
+    import apply
+    for i in range(80, 83):
+        _seed(temp_db, job(i))
+    cfg = {**CFG, "limits": {**CFG["limits"], "max_submits_per_run": 1, "total_per_day": 24}}
+    monkeypatch.setattr("cap_enforcer.load_limits", lambda: cfg["limits"])
+    call_count = 0
+    def fake_route(job_, *a, **k):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return S.ApplyResult(S.VALIDATION_FAILED, "invalid")
+        return S.ApplyResult(S.SUBMITTED, evidence="ok")
+    monkeypatch.setattr(apply, "route", fake_route)
+    queue = [dict(_row(temp_db, f"https://x/{i}")) for i in range(80, 83)]
+    stats = apply.run_queue(queue, cfg, dry_run=False, deadline=1e12)
+    assert stats.get(S.SUBMITTED) == 1
+    assert stats.get(S.VALIDATION_FAILED) == 1
+    assert call_count == 2
+
+
 def test_login_required_pauses_channel(temp_db, monkeypatch):
     import apply
     for i in range(20, 24):

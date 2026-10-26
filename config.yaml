@@ -121,11 +121,12 @@ scoring:
 
 limits:
   linkedin_per_day: 0        # LinkedIn automation risks a permanent account ban
-  other_per_day: 25         # controlled observation cohort (2026-10-07): fixed for 3 weeks
-  total_per_day: 25
+  other_per_day: 24          # 24 applications per day
+  total_per_day: 24          # 24 applications per day (1 per hourly run)
+  max_submits_per_run: 1     # 1 application per hourly run
   min_delay_seconds: 20
   max_delay_seconds: 45
-  max_apply_minutes: 150     # per scheduled run; the three runs share the daily cap
+  max_apply_minutes: 45      # per scheduled run; runs hourly
 
 resumes:
   fullstack: resumes/resume-fullstack.pdf

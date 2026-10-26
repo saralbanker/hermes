@@ -434,15 +434,18 @@ def main(limit: int | None = None, dry_run: bool = False, max_minutes: int | Non
     jobs = [dict(j) for j in get_jobs_by_status(S.TAILORED)]
     queue = build_queue(jobs, cfg, remaining, tier_counts_today())
     budget = max_minutes or cfg["limits"].get("max_apply_minutes", 150)
+    max_submits = limit if limit is not None else cfg.get("limits", {}).get("max_submits_per_run")
     print(f"[apply] {len(jobs)} tailored, {remaining} slots left today → {len(queue)} queued "
           f"({sum(1 for j in queue if j.get('tier') == S.STRETCH)} stretch)"
           f"{' — DRY RUN, nothing is submitted' if dry_run else ''}; time budget {budget} min")
-    return run_queue(queue, cfg, dry_run, deadline=time.time() + budget * 60)
+    return run_queue(queue, cfg, dry_run, deadline=time.time() + budget * 60, max_submits=max_submits)
 
 
-def run_queue(queue: list[dict], cfg: dict, dry_run: bool, deadline: float) -> dict:
+def run_queue(queue: list[dict], cfg: dict, dry_run: bool, deadline: float, max_submits: int | None = None) -> dict:
     stats: dict[str, int] = {}
     breaker = ChannelBreaker()
+    if max_submits is None:
+        max_submits = cfg.get("limits", {}).get("max_submits_per_run")
     for i, job in enumerate(queue, 1):
         if time.time() > deadline:
             print("[apply] Time budget used up; the rest waits for the next run.")
@@ -461,6 +464,9 @@ def run_queue(queue: list[dict], cfg: dict, dry_run: bool, deadline: float) -> d
         stats[result.state] = stats.get(result.state, 0) + 1
         stats["_seconds"] = stats.get("_seconds", 0) + int(time.time() - t0)
         breaker.observe(channel, result)
+        if not dry_run and max_submits and stats.get(S.SUBMITTED, 0) >= max_submits:
+            print(f"[apply] Run submit limit reached ({max_submits}). Next run will continue.")
+            break
         if not dry_run and i < len(queue):
             lim = cfg["limits"]
             time.sleep(random.uniform(lim["min_delay_seconds"], lim["max_delay_seconds"]))
